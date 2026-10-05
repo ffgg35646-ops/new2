@@ -1,0 +1,139 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-display: "Almarai", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-sans: var(--font-body);
+
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 14px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--foreground);
+  --color-sand: var(--sand);
+  --color-primary: var(--forest);
+  --color-primary-foreground: var(--background);
+  --color-forest: var(--forest);
+  --color-forest-soft: var(--forest-soft);
+  --color-secondary: var(--sand);
+  --color-secondary-foreground: var(--foreground);
+  --color-accent: var(--terracotta);
+  --color-accent-foreground: var(--background);
+  --color-terracotta: var(--terracotta);
+  --color-terracotta-soft: var(--terracotta-soft);
+  --color-muted: var(--sand);
+  --color-muted-foreground: var(--muted-fg);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--background);
+  --color-border: var(--line);
+  --color-line: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--forest);
+  --color-sidebar: var(--surface);
+  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar-primary: var(--forest);
+  --color-sidebar-primary-foreground: var(--background);
+  --color-sidebar-accent: var(--sand);
+  --color-sidebar-accent-foreground: var(--foreground);
+  --color-sidebar-border: var(--line);
+  --color-sidebar-ring: var(--forest);
+
+  --ease-soft: cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-rise-in: riseIn 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+}
+
+:root {
+  --radius: 1rem;
+  --background: hsl(40 34% 96%);
+  --surface: hsl(45 45% 99%);
+  --sand: hsl(35 30% 90%);
+  --terracotta: hsl(18 60% 52%);
+  --terracotta-soft: hsl(18 70% 93%);
+  --forest: hsl(156 42% 24%);
+  --forest-soft: hsl(156 32% 92%);
+  --foreground: hsl(24 14% 16%);
+  --muted-fg: hsl(24 10% 42%);
+  --line: hsl(30 20% 15% / 0.1);
+  --destructive: hsl(4 66% 48%);
+}
+
+.dark {
+  --background: hsl(160 14% 8%);
+  --surface: hsl(160 12% 12%);
+  --sand: hsl(160 10% 18%);
+  --terracotta: hsl(18 66% 58%);
+  --terracotta-soft: hsl(18 30% 20%);
+  --forest: hsl(156 40% 62%);
+  --forest-soft: hsl(156 20% 18%);
+  --foreground: hsl(40 20% 94%);
+  --muted-fg: hsl(40 8% 65%);
+  --line: hsl(40 30% 90% / 0.12);
+  --destructive: hsl(4 70% 60%);
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-body);
+    font-size: 15px;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+  }
+}
