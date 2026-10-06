@@ -17,7 +17,7 @@ import { useLocation } from "@tanstack/react-router";
 
 const items = [
   { label: "الرئيسية", href: "/admin", icon: LayoutDashboard },
-  { label: "المكاتب", href: "/admin?tab=offices", icon: Building2 },
+  { label: "المكاتب", href: "/admin/offices", icon: Building2 },
   { label: "الأفراد", href: "/admin/individuals", icon: Users },
   { label: "الباقات", href: "/admin?tab=plans", icon: Package },
   { label: "المحافظات والأحياء", href: "/admin?tab=geo", icon: MapPin },
