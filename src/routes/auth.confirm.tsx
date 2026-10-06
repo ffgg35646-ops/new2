@@ -89,6 +89,11 @@ function ConfirmEmailPage() {
           );
         }
 
+        // The implicit auth flow returns credentials in the URL hash.
+        // Supabase has already consumed them by this point, so remove them
+        // immediately from the address bar before showing the success state.
+        window.history.replaceState({}, document.title, window.location.pathname);
+
         const raw = localStorage.getItem(PENDING_KEY);
         const pendingEmail =
           localStorage.getItem(PENDING_EMAIL_KEY);
