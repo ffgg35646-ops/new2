@@ -36,18 +36,15 @@ export function AdminChrome() {
     setOpen(false);
   }, [location.pathname, location.search]);
 
-  const search = location.search as Record<string, unknown>;
-  const tab = typeof search.tab === "string" ? search.tab : null;
+  const current = `${location.pathname}${location.search}`;
 
   function isActive(href: string) {
     if (href === "/admin") {
-      return location.pathname === "/admin" && !tab;
+      return location.pathname === "/admin" && !location.search;
     }
 
     if (href.startsWith("/admin?")) {
-      const query = new URLSearchParams(href.split("?")[1] ?? "");
-      const wantedTab = query.get("tab");
-      return location.pathname === "/admin" && tab === wantedTab;
+      return current === href;
     }
 
     return (

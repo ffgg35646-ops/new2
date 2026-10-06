@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -162,74 +161,22 @@ export async function fetchAdminDirectory(): Promise<AdminDirectory> {
   };
 }
 
-
-type SessionCache<T> = {
-  data: T;
-  savedAt: number;
-};
-
-function readSessionCache<T>(key: string): SessionCache<T> | undefined {
-  if (typeof window === "undefined") return undefined;
-
-  try {
-    const raw = sessionStorage.getItem(key);
-    if (!raw) return undefined;
-
-    const parsed = JSON.parse(raw) as SessionCache<T>;
-
-    if (!parsed || !parsed.data || !parsed.savedAt) {
-      return undefined;
-    }
-
-    return parsed;
-  } catch {
-    return undefined;
-  }
-}
-
-function writeSessionCache<T>(key: string, data: T) {
-  if (typeof window === "undefined") return;
-
-  try {
-    const value: SessionCache<T> = {
-      data,
-      savedAt: Date.now(),
-    };
-
-    sessionStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // الكاش اختياري، وفشلُه لا يعطل لوحة الإدارة.
-  }
-}
-
 export function useAdminDirectory() {
-  const cached = readSessionCache<AdminDirectory>(
-    "aqar-admin-directory",
-  );
-
-  const query = useQuery({
+  return useQuery({
     queryKey: ["admin-directory"],
     queryFn: fetchAdminDirectory,
 
-    initialData: cached?.data,
-    initialDataUpdatedAt: cached?.savedAt,
-
+    // البيانات الموجودة تظل ظاهرة أثناء التحديث.
     staleTime: 60_000,
     gcTime: 30 * 60_000,
+
+    // تحديث صامت في الخلفية.
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    refetchOnMount: true,
+
     retry: 2,
   });
-
-  useEffect(() => {
-    if (query.data) {
-      writeSessionCache("aqar-admin-directory", query.data);
-    }
-  }, [query.data]);
-
-  return query;
 }
 
 export type AdminDashboardStats = {
@@ -293,36 +240,16 @@ export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
 }
 
 export function useAdminDashboardStats() {
-  const cached = readSessionCache<AdminDashboardStats>(
-    "aqar-admin-dashboard-stats",
-  );
-
-  const query = useQuery({
+  return useQuery({
     queryKey: ["admin-dashboard-stats"],
     queryFn: fetchAdminDashboardStats,
-
-    initialData: cached?.data,
-    initialDataUpdatedAt: cached?.savedAt,
-
     staleTime: 60_000,
     gcTime: 30 * 60_000,
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    refetchOnMount: true,
     retry: 2,
   });
-
-  useEffect(() => {
-    if (query.data) {
-      writeSessionCache(
-        "aqar-admin-dashboard-stats",
-        query.data,
-      );
-    }
-  }, [query.data]);
-
-  return query;
 }
 
 export type IndividualActivity = {
