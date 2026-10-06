@@ -25,8 +25,8 @@ function authErrorMessage(e: unknown): string {
   if (m.includes("invalid login credentials")) return "البريد أو كلمة المرور غير صحيحة.";
   if (m.includes("email not confirmed"))
     return "لم يتم تأكيد البريد بعد. افتح رسالة التحقق في بريدك أولًا.";
-  if (m.includes("rate limit") || m.includes("too many"))
-    return "محاولات كثيرة خلال وقت قصير، انتظر قليلًا ثم أعد المحاولة.";
+  if (m.includes("rate limit") || m.includes("too many") || m.includes("email rate limit"))
+    return "خدمة إرسال البريد وصلت إلى حد الإرسال مؤقتًا. المشكلة من مزود البريد في Supabase وليست من الإيميل الذي أدخلته.";
   if (m.includes("unable to validate email") || m.includes("invalid email"))
     return "صيغة البريد الإلكتروني غير صحيحة.";
   return raw || "حدث خطأ غير متوقع، حاول مجددًا.";
