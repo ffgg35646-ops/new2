@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Flag, MapPin, Plus, Save, ShieldCheck, Pencil, Trash2, Power, Package, Building2, Users, BarChart3, CalendarDays, CheckCircle2, Clock3, UserPlus, ChevronLeft } from "lucide-react";
+import { Flag, MapPin, Plus, Save, ShieldCheck, Pencil, Trash2, Power, Package, Building2, Users, BarChart3, CalendarDays, CheckCircle2, Clock3, UserPlus, ChevronLeft, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
