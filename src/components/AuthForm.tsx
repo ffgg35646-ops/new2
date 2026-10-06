@@ -138,7 +138,7 @@ export function AuthForm({
           password,
           options: {
             data: { full_name: fullName.trim() },
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: `${window.location.origin}/auth/confirm`,
           },
         });
         if (error) throw error;
