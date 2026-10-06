@@ -7,7 +7,7 @@ export const Route = createFileRoute("/auth/individual")({
       { title: "دخول الأفراد | عقار البطين" },
       { name: "description", content: "سجّل دخولك كفرد لتصفح العقارات وحفظ المفضلة وطلب عقار." },
       { property: "og:title", content: "دخول الأفراد | عقار البطين" },
-      { property: "og:description", content: "دخول سريع برقم الجوال أو البريد الإلكتروني." },
+      { property: "og:description", content: "دخول سريع بالبريد الإلكتروني." },
     ],
   }),
   component: () => <AuthForm role="individual" />,
