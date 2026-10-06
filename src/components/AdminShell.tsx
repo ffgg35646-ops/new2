@@ -1,0 +1,251 @@
+import {
+  Building2,
+  ChevronLeft,
+  LayoutDashboard,
+  Loader2,
+  Search,
+  Users,
+  X,
+} from "lucide-react";
+import {
+  Link,
+  useLocation,
+} from "@tanstack/react-router";
+import {
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { useAdminDirectory } from "@/lib/admin";
+import { cn } from "@/lib/utils";
+
+function normalizeSearch(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي");
+}
+
+export function AdminShell({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const location = useLocation();
+  const [search, setSearch] = useState("");
+  const { data, isLoading } = useAdminDirectory();
+
+  const normalized = normalizeSearch(search);
+
+  const results = useMemo(() => {
+    if (!normalized || !data) return [];
+
+    const individuals = data.individuals
+      .filter((u) => {
+        const values = [
+          u.full_name,
+          u.email ?? "",
+          u.phone ?? "",
+        ].map(normalizeSearch);
+
+        return values.some((value) =>
+          value.startsWith(normalized),
+        );
+      })
+      .slice(0, 8)
+      .map((u) => ({
+        type: "individual" as const,
+        id: u.id,
+        title: u.full_name,
+        subtitle:
+          u.email || u.phone || "بدون وسيلة تواصل",
+        to: "/admin/individuals/$userId" as const,
+      }));
+
+    const offices = data.offices
+      .filter((o) => {
+        const values = [
+          o.name,
+          o.manager_name ?? "",
+          o.email ?? "",
+          o.phone ?? "",
+          o.commercial_register ?? "",
+        ].map(normalizeSearch);
+
+        return values.some((value) =>
+          value.startsWith(normalized),
+        );
+      })
+      .slice(0, 8)
+      .map((o) => ({
+        type: "office" as const,
+        id: o.id,
+        title: o.name,
+        subtitle:
+          o.manager_name ||
+          o.email ||
+          o.phone ||
+          "مكتب عقاري",
+        to: "/admin/offices/$officeId" as const,
+      }));
+
+    return [...individuals, ...offices].slice(0, 12);
+  }, [data, normalized]);
+
+  const active = (prefix: string) =>
+    location.pathname === prefix ||
+    location.pathname.startsWith(prefix + "/");
+
+  return (
+    <div className="mx-auto min-h-screen w-full max-w-md bg-background">
+      <header className="sticky top-0 z-40 border-b border-line bg-background/95 px-4 py-3 backdrop-blur">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-display text-lg font-extrabold">
+              إدارة عقار البطين
+            </div>
+            <div className="text-[10px] text-muted-foreground">
+              لوحة الإدارة
+            </div>
+          </div>
+        </div>
+
+        <div className="relative mt-3">
+          <div className="flex items-center gap-2 rounded-2xl bg-surface px-3.5 py-3 ring-1 ring-line">
+            <Search className="size-4 shrink-0 text-muted-foreground" />
+
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ابحث عن فرد أو مكتب..."
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="grid size-6 place-items-center rounded-full bg-sand"
+                aria-label="مسح البحث"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+
+          {!!search && (
+            <div className="absolute inset-x-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl bg-surface shadow-xl ring-1 ring-line">
+              {isLoading ? (
+                <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  جاري تحميل النتائج...
+                </div>
+              ) : results.length ? (
+                <div className="max-h-96 overflow-y-auto p-1.5">
+                  {results.map((result) => (
+                    <Link
+                      key={`${result.type}-${result.id}`}
+                      to={result.to}
+                      params={
+                        result.type === "individual"
+                          ? { userId: result.id }
+                          : { officeId: result.id }
+                      }
+                      onClick={() => setSearch("")}
+                      className="flex items-center gap-3 rounded-xl p-3 transition hover:bg-sand"
+                    >
+                      <span
+                        className={cn(
+                          "grid size-9 shrink-0 place-items-center rounded-xl",
+                          result.type === "individual"
+                            ? "bg-forest-soft text-forest"
+                            : "bg-terracotta-soft text-terracotta",
+                        )}
+                      >
+                        {result.type === "individual" ? (
+                          <Users className="size-4" />
+                        ) : (
+                          <Building2 className="size-4" />
+                        )}
+                      </span>
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold">
+                          {result.title}
+                        </span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {result.subtitle}
+                        </span>
+                      </span>
+
+                      <ChevronLeft className="size-4 text-muted-foreground" />
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 text-center text-xs text-muted-foreground">
+                  لا توجد نتائج مطابقة.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <nav className="mt-3 flex gap-1.5">
+          <AdminNav
+            to="/admin"
+            icon={LayoutDashboard}
+            label="الرئيسية"
+            active={location.pathname === "/admin"}
+          />
+
+          <AdminNav
+            to="/admin/individuals"
+            icon={Users}
+            label="الأفراد"
+            active={active("/admin/individuals")}
+          />
+
+          <AdminNav
+            to="/admin/offices"
+            icon={Building2}
+            label="المكاتب"
+            active={active("/admin/offices")}
+          />
+        </nav>
+      </header>
+
+      <main className="px-4 py-4">{children}</main>
+    </div>
+  );
+}
+
+function AdminNav({
+  to,
+  icon: Icon,
+  label,
+  active,
+}: {
+  to:
+    | "/admin"
+    | "/admin/individuals"
+    | "/admin/offices";
+  icon: typeof Users;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-bold transition",
+        active
+          ? "bg-forest text-background"
+          : "bg-sand text-muted-foreground",
+      )}
+    >
+      <Icon className="size-3.5" />
+      {label}
+    </Link>
+  );
+}

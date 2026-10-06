@@ -1,0 +1,547 @@
+import { RoleGuard } from "@/lib/role-guard";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Flag, MapPin, Plus, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { AppHeader } from "@/components/AppHeader";
+import { BottomNav } from "@/components/BottomNav";
+import { EmptyState } from "@/components/EmptyState";
+import { useAuth } from "@/lib/auth";
+import { VERIFICATION_STATUS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+
+export const Route = createFileRoute("/admin")({
+  head: () => ({
+    meta: [
+      { title: "لوحة الإدارة | عقار البطين" },
+      {
+        name: "description",
+        content: "توثيق المكاتب، إدارة المحافظات والأحياء، ومتابعة البلاغات.",
+      },
+      { property: "og:title", content: "لوحة الإدارة | عقار البطين" },
+      { property: "og:description", content: "أدوات المشرف في منصة عقار البطين." },
+    ],
+  }),
+  component: () => (
+    <RoleGuard allow={["admin"]} guestsTo="/home">
+      <AdminPage />
+    </RoleGuard>
+  ),
+});
+
+type Tab = "offices" | "plans" | "geo" | "reports";
+
+function AdminPage() {
+  const { isAdmin } = useAuth();
+  const [tab, setTab] = useState<Tab>("offices");
+
+  if (!isAdmin) {
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+        <AppHeader showSearch={false} />
+        <main className="flex-1 px-4 py-10">
+          <EmptyState icon={ShieldCheck} title="هذه الصفحة للمشرفين فقط" />
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+      <AppHeader showSearch={false} />
+      <main className="flex-1 space-y-4 px-4 py-4">
+        <h1 className="font-display text-xl font-extrabold">لوحة الإدارة</h1>
+        <div className="flex gap-1.5">
+          {(
+            [
+              ["offices", "المكاتب"],
+              ["plans", "الباقات"],
+              ["geo", "المحافظات"],
+              ["reports", "البلاغات"],
+            ] as [Tab, string][]
+          ).map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => setTab(v)}
+              className={cn(
+                "flex-1 rounded-full py-2 text-xs font-semibold transition",
+                tab === v ? "bg-forest text-background" : "bg-sand text-muted-foreground",
+              )}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {tab === "offices" && <OfficesTab />}
+        {tab === "plans" && <PlansTab />}
+        {tab === "geo" && <GeoTab />}
+        {tab === "reports" && <ReportsTab />}
+      </main>
+      <BottomNav />
+    </div>
+  );
+}
+
+function PlansTab() {
+  const qc = useQueryClient();
+
+  const { data: requests = [] } = useQuery({
+    queryKey: ["admin-upgrade-requests"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("office_plan_events")
+        .select("id,office_id,created_at")
+        .eq("action", "upgrade_request")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: offices = [] } = useQuery({
+    queryKey: ["admin-offices-plans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("offices")
+        .select("id,name,phone,plan,plan_expires_at,verification_status")
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const setPlan = useMutation({
+    mutationFn: async (vars: { officeId: string; plan: "free" | "pro" }) => {
+      const { error } = await supabase.rpc("admin_set_office_plan", {
+        _office_id: vars.officeId,
+        _plan: vars.plan,
+        _days: 30,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      toast.success(
+        vars.plan === "pro"
+          ? "تم تفعيل الاحترافية والتوثيق ✓ (30 يومًا)"
+          : "تم إيقاف الاحترافية وسحب التوثيق",
+      );
+      qc.invalidateQueries({ queryKey: ["admin-offices-plans"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر تحديث الباقة"),
+  });
+
+  const pendingIds = new Set(requests.map((r) => r.office_id));
+
+  return (
+    <div className="space-y-2.5">
+      <p className="rounded-2xl bg-sand p-3 text-[11px] leading-relaxed text-muted-foreground">
+        التفعيل يدوي بعد إتمام الدفع خارج التطبيق. تفعيل الاحترافية يوثّق المكتب ✓ تلقائيًا،
+        وإيقافها يسحب التوثيق.
+      </p>
+      {offices.map((o) => {
+        const activePro =
+          o.plan === "pro" &&
+          (!o.plan_expires_at || new Date(o.plan_expires_at).getTime() > Date.now());
+        return (
+          <div key={o.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-sm font-bold">{o.name}</span>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  activePro ? "bg-forest-soft text-forest" : "bg-sand text-muted-foreground",
+                )}
+              >
+                {activePro ? "احترافي" : "مجاني"}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              {o.phone ?? "بدون رقم"}
+              {activePro && o.plan_expires_at
+                ? ` · ينتهي ${new Date(o.plan_expires_at).toLocaleDateString("ar-SA")}`
+                : ""}
+              {pendingIds.has(o.id) && !activePro && (
+                <span className="ms-1 font-bold text-terracotta">· طلب ترقية ⏳</span>
+              )}
+            </div>
+            <div className="mt-2 flex gap-2">
+              {activePro ? (
+                <button
+                  onClick={() => setPlan.mutate({ officeId: o.id, plan: "free" })}
+                  disabled={setPlan.isPending}
+                  className="flex-1 rounded-xl bg-terracotta-soft py-2 text-xs font-bold text-terracotta disabled:opacity-50"
+                >
+                  إيقاف الاحترافية
+                </button>
+              ) : (
+                <button
+                  onClick={() => setPlan.mutate({ officeId: o.id, plan: "pro" })}
+                  disabled={setPlan.isPending}
+                  className="flex-1 rounded-xl bg-forest py-2 text-xs font-bold text-background disabled:opacity-50"
+                >
+                  تفعيل احترافي 30 يومًا + توثيق ✓
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function OfficesTab() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["admin-offices"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("offices")
+        .select(
+          "id,name,phone,verification_status,rejection_reason,commercial_register,license_number,created_at",
+        )
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const [rejectFor, setRejectFor] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+
+  const setStatus = useMutation({
+    mutationFn: async ({
+      id,
+      status,
+      rejectionReason,
+    }: {
+      id: string;
+      status: string;
+      rejectionReason?: string | null;
+    }) => {
+      const patch: Record<string, unknown> = { verification_status: status };
+      patch["rejection_reason"] = status === "rejected" ? rejectionReason?.trim() || null : null;
+      const { error } = await supabase
+        .from("offices")
+        .update(patch as never)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تم تحديث حالة المكتب");
+      setRejectFor(null);
+      setReason("");
+      qc.invalidateQueries({ queryKey: ["admin-offices"] });
+    },
+    onError: () => toast.error("تعذّر التحديث"),
+  });
+
+  if (!data?.length) return <EmptyState icon={ShieldCheck} title="لا توجد مكاتب مسجلة" />;
+
+  return (
+    <div className="space-y-2.5">
+      {data.map((o) => (
+        <div key={o.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+          <div className="flex items-center justify-between">
+            <span className="font-display text-sm font-bold">{o.name}</span>
+            <span className="rounded-full bg-sand px-2 py-0.5 text-[10px] font-semibold">
+              {VERIFICATION_STATUS[o.verification_status]}
+            </span>
+          </div>
+          <div dir="ltr" className="mt-0.5 text-right text-[11px] text-muted-foreground">
+            {o.phone} · CR {o.commercial_register ?? "—"} · Lic {o.license_number ?? "—"}
+          </div>
+          {o.rejection_reason && o.verification_status === "rejected" && (
+            <p className="mt-1.5 rounded-xl bg-destructive/5 p-2 text-[11px] text-destructive">
+              سبب الرفض: {o.rejection_reason}
+            </p>
+          )}
+
+          {rejectFor === o.id ? (
+            <div className="mt-2 space-y-2">
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="سبب الرفض (يظهر للمكتب)…"
+                className="w-full rounded-xl bg-sand px-3 py-2 text-xs ring-1 ring-line outline-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() =>
+                    setStatus.mutate({ id: o.id, status: "rejected", rejectionReason: reason })
+                  }
+                  className="flex-1 rounded-xl bg-destructive/10 py-2 text-xs font-bold text-destructive"
+                >
+                  تأكيد الرفض
+                </button>
+                <button
+                  onClick={() => {
+                    setRejectFor(null);
+                    setReason("");
+                  }}
+                  className="flex-1 rounded-xl bg-sand py-2 text-xs font-bold"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => setStatus.mutate({ id: o.id, status: "verified" })}
+                className="flex-1 rounded-xl bg-forest py-2 text-xs font-bold text-background"
+              >
+                توثيق
+              </button>
+              <button
+                onClick={() => {
+                  setRejectFor(o.id);
+                  setReason("");
+                }}
+                className="flex-1 rounded-xl bg-destructive/10 py-2 text-xs font-bold text-destructive"
+              >
+                رفض
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GeoTab() {
+  const qc = useQueryClient();
+  const [govName, setGovName] = useState("");
+  const [govCode, setGovCode] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+  const [hood, setHood] = useState("");
+  const [banner, setBanner] = useState("");
+
+  const { data: govs } = useQuery({
+    queryKey: ["admin-governorates"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("governorates")
+        .select("id,name_ar,code,is_active,banner_url,neighborhoods(id,name_ar)")
+        .order("sort_order");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const addGov = useMutation({
+    mutationFn: async () => {
+      if (!govName.trim() || !govCode.trim()) throw new Error("أدخل الاسم والرمز");
+      const { error } = await supabase
+        .from("governorates")
+        .insert({ name_ar: govName.trim(), code: govCode.trim().toUpperCase() });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تمت إضافة المحافظة");
+      setGovName("");
+      setGovCode("");
+      qc.invalidateQueries({ queryKey: ["admin-governorates"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّرت الإضافة"),
+  });
+
+  const addHood = useMutation({
+    mutationFn: async () => {
+      if (!selected || !hood.trim()) throw new Error("اختر المحافظة وأدخل اسم الحي");
+      const { error } = await supabase
+        .from("neighborhoods")
+        .insert({ governorate_id: selected, name_ar: hood.trim() });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تمت إضافة الحي");
+      setHood("");
+      qc.invalidateQueries({ queryKey: ["admin-governorates"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّرت الإضافة"),
+  });
+
+  const saveBanner = useMutation({
+    mutationFn: async () => {
+      if (!selected) throw new Error("اختر المحافظة");
+      const { error } = await supabase
+        .from("governorates")
+        .update({ banner_url: banner.trim() || null })
+        .eq("id", selected);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تم تحديث الصورة الترويجية");
+      qc.invalidateQueries({ queryKey: ["admin-governorates"] });
+      qc.invalidateQueries({ queryKey: ["governorates"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر التحديث"),
+  });
+
+  return (
+    <div className="space-y-4">
+      <section className="space-y-2 rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+        <div className="text-sm font-bold">إضافة محافظة</div>
+        <div className="grid grid-cols-3 gap-2">
+          <input
+            value={govName}
+            onChange={(e) => setGovName(e.target.value)}
+            placeholder="اسم المحافظة"
+            className="col-span-2 rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+          />
+          <input
+            value={govCode}
+            onChange={(e) => setGovCode(e.target.value)}
+            placeholder="الرمز"
+            className="rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+          />
+        </div>
+        <button
+          onClick={() => addGov.mutate()}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-sm font-bold text-background"
+        >
+          <Plus className="size-4" /> إضافة
+        </button>
+      </section>
+
+      <section className="space-y-2.5">
+        {govs?.map((g) => (
+          <div key={g.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+            <button
+              onClick={() => {
+                const next = selected === g.id ? null : g.id;
+                setSelected(next);
+                setBanner(next ? (g.banner_url ?? "") : "");
+              }}
+              className="w-full text-right"
+            >
+              <div className="flex items-center gap-2">
+                <MapPin className="size-4 text-terracotta" />
+                <span className="text-sm font-bold">{g.name_ar}</span>
+                <span className="text-[11px] text-muted-foreground">({g.code})</span>
+                <span className="ms-auto text-[11px] text-muted-foreground">
+                  {(g.neighborhoods as { id: string }[] | null)?.length ?? 0} حي
+                </span>
+              </div>
+            </button>
+            {selected === g.id && (
+              <div className="mt-2.5 space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {(g.neighborhoods as { id: string; name_ar: string }[] | null)?.map((n) => (
+                    <span key={n.id} className="rounded-full bg-sand px-2.5 py-1 text-[11px]">
+                      {n.name_ar}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={hood}
+                    onChange={(e) => setHood(e.target.value)}
+                    placeholder="اسم الحي الجديد"
+                    className="flex-1 rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+                  />
+                  <button
+                    onClick={() => addHood.mutate()}
+                    className="rounded-xl bg-terracotta px-4 text-sm font-bold text-background"
+                  >
+                    إضافة
+                  </button>
+                </div>
+                <div className="space-y-2 border-t border-line pt-2.5">
+                  <div className="text-[11px] font-semibold text-muted-foreground">
+                    رابط الصورة الترويجية للمحافظة
+                  </div>
+                  {banner.trim() && (
+                    <img
+                      src={banner.trim()}
+                      alt={`صورة ${g.name_ar}`}
+                      className="h-auto w-full rounded-xl object-contain ring-1 ring-line"
+                    />
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      dir="ltr"
+                      value={banner}
+                      onChange={(e) => setBanner(e.target.value)}
+                      placeholder="https://…"
+                      className="flex-1 rounded-xl bg-sand px-3 py-2.5 text-right text-sm outline-none focus:ring-2 focus:ring-forest"
+                    />
+                    <button
+                      onClick={() => saveBanner.mutate()}
+                      className="rounded-xl bg-forest px-4 text-sm font-bold text-background"
+                    >
+                      حفظ
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+function ReportsTab() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["admin-reports"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reports")
+        .select("id,reason,details,resolved,created_at,property_id,office_id,properties(title)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const resolve = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("reports").update({ resolved: true }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-reports"] }),
+    onError: () => toast.error("تعذّر التحديث"),
+  });
+
+  if (!data?.length) return <EmptyState icon={Flag} title="لا توجد بلاغات" />;
+
+  return (
+    <div className="space-y-2.5">
+      {data.map((r) => (
+        <div key={r.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold">{r.reason}</span>
+            {r.resolved ? (
+              <span className="text-[10px] text-forest">تمت المعالجة</span>
+            ) : (
+              <button
+                onClick={() => resolve.mutate(r.id)}
+                className="rounded-full bg-forest px-3 py-1 text-[11px] font-bold text-background"
+              >
+                معالجة
+              </button>
+            )}
+          </div>
+          {(r.properties as { title: string } | null)?.title && (
+            <p className="mt-1 text-[11px] font-semibold text-forest">
+              العقار: {(r.properties as { title: string }).title}
+            </p>
+          )}
+          {r.details && <p className="mt-1 text-xs text-muted-foreground">{r.details}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}

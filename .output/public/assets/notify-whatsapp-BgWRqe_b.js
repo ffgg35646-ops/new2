@@ -1,0 +1,1 @@
+import{t as e}from"./client-DcjfjkLy.js";function t(t,n){e.functions.invoke(`notify-whatsapp`,{body:{event:t,id:n}}).catch(e=>console.warn(`[whatsapp] فشل إرسال الإشعار:`,e))}export{t};

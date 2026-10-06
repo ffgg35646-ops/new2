@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 export type OfficeRow = {
   id: string;
   owner_id: string;
+  package_id: string;
   name: string;
   logo_url: string | null;
   description: string | null;

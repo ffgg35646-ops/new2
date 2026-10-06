@@ -46,12 +46,18 @@ type ConversationRow = {
   updated_at: string;
   properties: { title: string } | null;
   client?: { full_name: string } | null;
+  lastMessage?: {
+    body: string | null;
+    image_url: string | null;
+    created_at: string;
+  } | null;
+  unreadCount?: number;
 };
 
 function OfficeChatPage() {
   const { data: membership } = useMyOffice();
   const officeId = membership?.office?.id ?? null;
-  const { isPro, isLoading } = useMyPlan();
+  const { chatEnabled, isLoading } = useMyPlan();
   const [activeId, setActiveId] = useState<string | null>(null);
   const qc = useQueryClient();
 
@@ -77,7 +83,7 @@ function OfficeChatPage() {
 
   const conversations = useQuery({
     queryKey: ["office-conversations", officeId],
-    enabled: !!officeId && isPro,
+    enabled: !!officeId && chatEnabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("conversations")
@@ -86,15 +92,43 @@ function OfficeChatPage() {
         .order("updated_at", { ascending: false });
       if (error) throw error;
       const rows = (data ?? []) as unknown as ConversationRow[];
+
       const ids = [...new Set(rows.map((c) => c.user_id))];
+
       if (ids.length) {
         const { data: profiles } = await supabase
           .from("profiles")
           .select("id,full_name")
           .in("id", ids);
-        const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
-        for (const c of rows) c.client = byId.get(c.user_id) ?? null;
+
+        const byId = new Map(
+          (profiles ?? []).map((p) => [p.id, p])
+        );
+
+        for (const c of rows) {
+          c.client = byId.get(c.user_id) ?? null;
+
+          const { data: latest } = await supabase
+            .from("messages")
+            .select("body,image_url,created_at")
+            .eq("conversation_id", c.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          c.lastMessage = latest ?? null;
+
+          const { count } = await supabase
+            .from("messages")
+            .select("id", { count: "exact", head: true })
+            .eq("conversation_id", c.id)
+            .neq("sender_id", c.user_id)
+            .is("read_at", null);
+
+          c.unreadCount = count ?? 0;
+        }
       }
+
       return rows;
     },
     refetchInterval: 30_000,
@@ -111,7 +145,7 @@ function OfficeChatPage() {
           <div className="grid place-items-center py-16">
             <Loader2 className="size-5 animate-spin text-forest" />
           </div>
-        ) : !isPro ? (
+        ) : !chatEnabled ? (
           <section className="rounded-3xl bg-surface p-5 text-center ring-1 ring-line">
             <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-terracotta-soft text-terracotta">
               <Crown className="size-6" />
@@ -155,11 +189,25 @@ function OfficeChatPage() {
                       {c.client?.full_name || "عميل"}
                     </span>
                     <span className="block truncate text-[11px] text-muted-foreground">
-                      {c.properties?.title ?? "محادثة عامة"}
+                      {c.lastMessage?.body ||
+                        (c.lastMessage?.image_url ? "📷 صورة" : null) ||
+                        c.properties?.title ||
+                        "محادثة عامة"}
                     </span>
                   </span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">
-                    {formatDate(c.updated_at)}
+
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatDate(
+                        c.lastMessage?.created_at ?? c.updated_at
+                      )}
+                    </span>
+
+                    {!!c.unreadCount && (
+                      <span className="grid min-w-5 place-items-center rounded-full bg-forest px-1.5 py-0.5 text-[9px] font-bold text-background">
+                        {c.unreadCount > 99 ? "99+" : c.unreadCount}
+                      </span>
+                    )}
                   </span>
                 </button>
               </li>

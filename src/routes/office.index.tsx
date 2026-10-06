@@ -19,7 +19,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { BOOKING_STATUS, VERIFICATION_STATUS, inquiryTypeLabel } from "@/lib/constants";
 import { formatDate, timeAgo } from "@/lib/format";
 import { useMyOffice, useNewInquiriesCount } from "@/lib/office";
-import { FREE_PROPERTY_LIMIT, PLAN_LABEL, useMyPlan } from "@/lib/plans";
+import { useMyPlan } from "@/lib/plans";
 
 export const Route = createFileRoute("/office/")({
   head: () => ({
@@ -42,7 +42,7 @@ function OfficeDashboard() {
   const office = membership?.office ?? null;
   const isOwner = membership?.isOwner ?? false;
   const { data: newRequests = 0 } = useNewInquiriesCount(office?.id);
-  const { plan, isPro, expired, expiresAt } = useMyPlan();
+  const { package: currentPackage, expired, expiresAt, propertyLimit } = useMyPlan();
 
   const { data: stats } = useQuery({
     queryKey: ["office-stats", office?.id],
@@ -117,7 +117,7 @@ function OfficeDashboard() {
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-background/15 px-2.5 py-1 text-[11px]">
               <Crown className="size-3.5" />
-              {PLAN_LABEL[plan]}
+              {currentPackage?.name ?? "الباقة"}
             </span>
             {!isOwner && (
               <span className="rounded-full bg-background/15 px-2.5 py-1 text-[11px]">
@@ -148,9 +148,9 @@ function OfficeDashboard() {
           <span className="text-xs text-muted-foreground">
             {expired
               ? "انتهى الاشتراك — ترقية"
-              : isPro
+              : propertyLimit == null
                 ? `تجديد ${expiresAt ? formatDate(expiresAt) : ""}`
-                : `${stats?.total ?? 0}/${FREE_PROPERTY_LIMIT} عقارات — ترقية`}
+                : propertyLimit == null ? `${stats?.total ?? 0} عقار` : `${stats?.total ?? 0}/${propertyLimit} عقارات`}
           </span>
         </Link>
 
@@ -175,7 +175,7 @@ function OfficeDashboard() {
             className="flex items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
           >
             الدردشة
-            <span className="text-xs">{isPro ? "" : "🔒"}</span>
+            <span className="text-xs">{propertyLimit == null ? "" : "🔒"}</span>
           </Link>
           <Link
             to="/plans"

@@ -1,0 +1,140 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { Loader2, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+export const Route = createFileRoute("/admin_/login")({
+  head: () => ({
+    meta: [
+      { title: "دخول الإدارة | عقار البطين" },
+      {
+        name: "description",
+        content: "تسجيل الدخول إلى لوحة إدارة عقار البطين.",
+      },
+    ],
+  }),
+  component: AdminLoginPage,
+});
+
+function AdminLoginPage() {
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    if (!email.trim() || !password) {
+      toast.error("أدخل البريد الإلكتروني وكلمة المرور.");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) throw error;
+
+      if (!data.user) {
+        throw new Error("تعذر الحصول على بيانات الحساب.");
+      }
+
+      const { data: roles, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.user.id);
+
+      if (rolesError) throw rolesError;
+
+      const isAdmin = (roles ?? []).some((row) => row.role === "admin");
+
+      if (!isAdmin) {
+        await supabase.auth.signOut();
+        throw new Error("هذا الحساب ليس حساب إدارة.");
+      }
+
+      toast.success("تم تسجيل دخول الإدارة.");
+      navigate({ to: "/admin", replace: true });
+    } catch (e) {
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : "تعذر تسجيل الدخول."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      dir="rtl"
+      className="grid min-h-screen place-items-center bg-background px-4"
+    >
+      <div className="w-full max-w-md rounded-3xl bg-surface p-6 ring-1 ring-line">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-sand text-forest">
+          <ShieldCheck className="size-7" />
+        </div>
+
+        <h1 className="mt-5 text-center font-display text-2xl font-extrabold">
+          دخول الإدارة
+        </h1>
+
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          هذه الصفحة مخصصة للمشرفين فقط.
+        </p>
+
+        <div className="mt-6 space-y-3">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+              البريد الإلكتروني
+            </span>
+
+            <input
+              dir="ltr"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@example.com"
+              autoComplete="username"
+              className="w-full rounded-2xl bg-background px-4 py-3.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-forest"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+              كلمة المرور
+            </span>
+
+            <input
+              dir="ltr"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void submit();
+              }}
+              className="w-full rounded-2xl bg-background px-4 py-3.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-forest"
+            />
+          </label>
+
+          <button
+            onClick={() => void submit()}
+            disabled={busy}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
+          >
+            {busy && <Loader2 className="size-4 animate-spin" />}
+            {busy ? "جاري تسجيل الدخول..." : "دخول الإدارة"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -13,7 +13,6 @@ import { FACINGS, LISTING_TYPES, PROPERTY_KINDS } from "@/lib/constants";
 import { useAuth } from "@/lib/auth";
 import { useNeighborhoods, useSelectedGovernorate } from "@/lib/governorate";
 import {
-  FREE_PROPERTY_LIMIT,
   planErrorMessage,
   useMyPlan,
   useOfficePropertiesCount,
@@ -56,9 +55,9 @@ function NewProperty() {
     },
   });
 
-  const { isPro } = useMyPlan();
+  const { propertyLimit } = useMyPlan();
   const { data: propertiesCount = 0 } = useOfficePropertiesCount(office?.id);
-  const limitReached = !isPro && propertiesCount >= FREE_PROPERTY_LIMIT;
+  const limitReached = propertyLimit != null && propertiesCount >= propertyLimit;
 
   const [kind, setKind] = useState("land");
   const [listing, setListing] = useState("sale");
@@ -80,7 +79,7 @@ function NewProperty() {
       if (!office?.id) throw new Error("لم يتم العثور على مكتبك");
       if (limitReached)
         throw new Error(
-          `الباقة المجانية تسمح بـ ${FREE_PROPERTY_LIMIT} عقارات فقط. رقِّ إلى الباقة الاحترافية لعقارات غير محدودة.`,
+          `باقتك تسمح بـ ${propertyLimit} عقار فقط. اختر باقة أخرى لزيادة الحد.`,
         );
       if (!title.trim()) throw new Error("أدخل عنوان العرض");
       if (!neighborhood) throw new Error("اختر الحي");
@@ -132,10 +131,10 @@ function NewProperty() {
       <main className="flex-1 space-y-4 px-4 py-4 pb-24">
         <h1 className="font-display text-xl font-extrabold">إضافة عرض عقاري</h1>
 
-        {!isPro && (
+        {propertyLimit != null && (
           <div className="rounded-2xl bg-sand p-3 text-[12px] leading-relaxed">
             <p>
-              الباقة المجانية: {propertiesCount} من {FREE_PROPERTY_LIMIT} عقارات.
+              الحد الحالي: {propertiesCount} من {propertyLimit} عقارات.
               {limitReached && " وصلت إلى الحد الأقصى."}
             </p>
             <Link

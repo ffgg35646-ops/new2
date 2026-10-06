@@ -3,10 +3,10 @@ import { Crown, Lock, X } from "lucide-react";
 import { useState } from "react";
 
 export const PRO_LOCK_MESSAGE =
-  "هذه الميزة متاحة ضمن الباقة الاحترافية فقط. قم بالترقية للاستفادة منها.";
+  "هذه الميزة متاحة ضمن باقة تتضمنها. اختر الباقة المناسبة للاستفادة منها.";
 
 export const CHAT_LOCK_MESSAGE =
-  "الدردشة متاحة ضمن الباقة الاحترافية. قم بترقية باقتك لبدء المحادثات مع العملاء.";
+  "الدردشة متاحة ضمن باقة تتضمن ميزة الدردشة. اختر الباقة المناسبة لبدء المحادثات مع العملاء.";
 
 export function ProBadge({ className = "" }: { className?: string }) {
   return (
@@ -25,7 +25,7 @@ export function ProLockDialog({
   open,
   onClose,
   message = PRO_LOCK_MESSAGE,
-  ctaLabel = "الترقية إلى الباقة الاحترافية",
+  ctaLabel = "عرض الباقات والاشتراك",
 }: {
   open: boolean;
   onClose: () => void;

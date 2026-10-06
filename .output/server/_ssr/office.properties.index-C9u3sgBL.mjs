@@ -1,0 +1,223 @@
+import { i as __toESM } from "../_runtime.mjs";
+import { t as supabase } from "./client-BDpUJ4Jl.mjs";
+import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
+import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
+import { i as useQueryClient, n as useQuery, t as useMutation } from "../_libs/tanstack__react-query.mjs";
+import { n as useAuth } from "./auth-DfdXUDDw.mjs";
+import { b as Link } from "../_libs/@tanstack/react-router+[...].mjs";
+import { B as House, G as Eye, K as EyeOff, c as Star, s as Trash2, x as Plus, y as QrCode } from "../_libs/lucide-react.mjs";
+import { t as RoleGuard } from "./role-guard-BlGqbnI9.mjs";
+import { t as AppHeader } from "./AppHeader-1-nIT4X8.mjs";
+import { t as BottomNav } from "./BottomNav-DyvwyVUV.mjs";
+import { n as ListSkeleton, t as EmptyState } from "./EmptyState-C5iUqUGB.mjs";
+import { f as kindLabel, h as stateLabel, p as listingLabel } from "./constants-Bvy1nlDs.mjs";
+import { r as formatPrice, t as formatArea } from "./format-B7MVuK_u.mjs";
+import { n as toast } from "../_libs/sonner.mjs";
+import { r as useMyPlan } from "./plans-CricE-8e.mjs";
+import { t as QrDialog } from "./QrDialog-C8Bioagi.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/office.properties.index-C9u3sgBL.js
+var import_react = /* @__PURE__ */ __toESM(require_react());
+var import_jsx_runtime = require_jsx_runtime();
+function OfficeProperties() {
+	const { userId } = useAuth();
+	const qc = useQueryClient();
+	const { featuredLimit } = useMyPlan();
+	const canFeature = featuredLimit > 0;
+	const [qrFor, setQrFor] = (0, import_react.useState)(null);
+	const { data, isLoading } = useQuery({
+		queryKey: ["office-my-properties", userId],
+		enabled: !!userId,
+		queryFn: async () => {
+			const { data, error } = await supabase.from("properties").select("id,property_number,title,price,area,kind,listing,state,neighborhood,cover_url,is_published,is_featured,views_count").eq("is_deleted", false).order("created_at", { ascending: false });
+			if (error) throw error;
+			return data ?? [];
+		}
+	});
+	const toggleFeatured = useMutation({
+		mutationFn: async ({ id, next }) => {
+			const { error } = await supabase.from("properties").update({ is_featured: next }).eq("id", id);
+			if (error) {
+				if (error.message.includes("featured_requires_pro")) throw new Error("التمييز ميزة احترافية — رقِّ باقتك أولًا.");
+				if (error.message.includes("featured_limit_reached")) throw new Error("يمكنك تمييز 3 عقارات كحد أقصى. ألغِ تمييز عقار أولًا.");
+				throw error;
+			}
+		},
+		onSuccess: (_, vars) => {
+			toast.success(vars.next ? "تم تمييز العرض ⭐" : "أُلغي تمييز العرض");
+			qc.invalidateQueries({ queryKey: ["office-my-properties"] });
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر تغيير التمييز")
+	});
+	const togglePublish = useMutation({
+		mutationFn: async ({ id, next }) => {
+			const { error } = await supabase.from("properties").update({ is_published: next }).eq("id", id);
+			if (error) throw error;
+		},
+		onSuccess: () => qc.invalidateQueries({ queryKey: ["office-my-properties"] }),
+		onError: () => toast.error("تعذّر تحديث حالة النشر")
+	});
+	const remove = useMutation({
+		mutationFn: async (id) => {
+			const { error } = await supabase.from("properties").update({ is_deleted: true }).eq("id", id);
+			if (error) throw error;
+		},
+		onSuccess: () => {
+			toast.success("تم حذف العرض");
+			qc.invalidateQueries({ queryKey: ["office-my-properties"] });
+		},
+		onError: () => toast.error("تعذّر حذف العرض")
+	});
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		className: "mx-auto flex min-h-screen w-full max-w-md flex-col bg-background",
+		children: [
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(AppHeader, { showSearch: false }),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("main", {
+				className: "flex-1 space-y-4 px-4 py-4",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "flex items-center justify-between",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
+						className: "font-display text-xl font-extrabold",
+						children: "عروضي"
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Link, {
+						to: "/office/properties/new",
+						className: "flex items-center gap-1.5 rounded-full bg-terracotta px-3.5 py-2 text-xs font-bold text-background",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Plus, { className: "size-3.5" }), " إضافة"]
+					})]
+				}), isLoading ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ListSkeleton, {}) : data?.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+					className: "space-y-2.5",
+					children: data.map((p) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "rounded-2xl bg-surface p-3 ring-1 ring-line",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "flex gap-3",
+							children: [p.cover_url ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
+								src: p.cover_url,
+								alt: p.title,
+								loading: "lazy",
+								className: "size-16 rounded-xl object-cover"
+							}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+								className: "grid size-16 place-items-center rounded-xl bg-sand",
+								children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(House, { className: "size-5 text-muted-foreground" })
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "min-w-0 flex-1",
+								children: [
+									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+										className: "flex items-center gap-1.5",
+										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+											className: "truncate font-display text-sm font-bold",
+											children: p.title
+										}), p.is_featured && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+											className: "flex shrink-0 items-center gap-0.5 rounded-full bg-forest px-1.5 py-0.5 text-[9px] font-bold text-background",
+											children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Star, { className: "size-2.5" }), " مميز"]
+										})]
+									}),
+									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+										className: "text-[11px] text-muted-foreground",
+										children: [
+											p.property_number,
+											" · ",
+											kindLabel(p.kind),
+											" · ",
+											listingLabel(p.listing),
+											" ·",
+											" ",
+											stateLabel(p.state)
+										]
+									}),
+									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+										className: "mt-0.5 text-xs font-bold text-forest",
+										children: [
+											formatPrice(p.price),
+											" ر.س · ",
+											formatArea(p.area)
+										]
+									})
+								]
+							})]
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "mt-2.5 flex items-center gap-2",
+							children: [
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+									onClick: () => {
+										if (!canFeature && !p.is_featured) {
+											toast.error("التمييز ميزة احترافية — رقِّ باقتك لإبراز عقاراتك.");
+											return;
+										}
+										toggleFeatured.mutate({
+											id: p.id,
+											next: !p.is_featured
+										});
+									},
+									disabled: toggleFeatured.isPending,
+									"aria-label": p.is_featured ? "إلغاء التمييز" : "تمييز",
+									className: "grid size-9 shrink-0 place-items-center rounded-xl " + (p.is_featured ? "bg-forest text-background" : "bg-sand text-muted-foreground"),
+									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Star, { className: "size-4 " + (p.is_featured ? "fill-current" : "") })
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+									onClick: () => togglePublish.mutate({
+										id: p.id,
+										next: !p.is_published
+									}),
+									className: "flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-sand py-2 text-xs font-semibold",
+									children: [p.is_published ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EyeOff, { className: "size-3.5" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Eye, { className: "size-3.5" }), p.is_published ? "إخفاء" : "نشر"]
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
+									to: "/office/properties/$propertyId/edit",
+									params: { propertyId: p.id },
+									className: "flex-1 rounded-xl bg-forest-soft py-2 text-center text-xs font-semibold text-forest",
+									children: "تعديل"
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
+									to: "/properties/$propertyId",
+									params: { propertyId: p.id },
+									className: "flex-1 rounded-xl bg-sand py-2 text-center text-xs font-semibold",
+									children: "معاينة"
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+									onClick: () => {
+										if (!canFeature) {
+											toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
+											return;
+										}
+										setQrFor({
+											id: p.id,
+											title: p.title
+										});
+									},
+									className: "grid size-9 place-items-center rounded-xl bg-sand text-forest",
+									"aria-label": "رمز QR",
+									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QrCode, { className: "size-4" })
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+									onClick: () => remove.mutate(p.id),
+									className: "grid size-9 place-items-center rounded-xl bg-destructive/10 text-destructive",
+									"aria-label": "حذف",
+									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Trash2, { className: "size-4" })
+								})
+							]
+						})]
+					}, p.id))
+				}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EmptyState, {
+					icon: House,
+					title: "لا توجد عروض بعد",
+					description: "ابدأ بإضافة أول عرض عقاري لمكتبك."
+				})]
+			}),
+			qrFor && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QrDialog, {
+				open: !!qrFor,
+				onClose: () => setQrFor(null),
+				value: `${typeof window !== "undefined" ? window.location.origin : ""}/properties/${qrFor.id}`,
+				title: qrFor.title,
+				subtitle: "امسح الرمز لفتح صفحة العقار",
+				fileName: `qr-${qrFor.title}`
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(BottomNav, {})
+		]
+	});
+}
+var SplitComponent = () => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RoleGuard, {
+	allow: ["office"],
+	guestsTo: "/auth/office",
+	children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(OfficeProperties, {})
+});
+//#endregion
+export { SplitComponent as component };

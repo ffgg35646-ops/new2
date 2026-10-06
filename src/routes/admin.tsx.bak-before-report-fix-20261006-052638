@@ -1,0 +1,1128 @@
+import { RoleGuard } from "@/lib/role-guard";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Flag, MapPin, Plus, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { AppHeader } from "@/components/AppHeader";
+import { AdminShell } from "@/components/AdminShell";
+import { BottomNav } from "@/components/BottomNav";
+import { EmptyState } from "@/components/EmptyState";
+import { useAuth } from "@/lib/auth";
+import { VERIFICATION_STATUS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+import {
+  isTodaySaudi,
+  useAdminDashboardStats,
+  useAdminDirectory,
+} from "@/lib/admin";
+import {
+  Activity,
+  Building2,
+  CalendarDays,
+  ChevronLeft,
+  Clock3,
+  FileText,
+  Home,
+  Users,
+} from "lucide-react";
+
+export const Route = createFileRoute("/admin")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: search["tab"] === "reports" ? "reports" : undefined,
+  }),
+  head: () => ({
+    meta: [
+      { title: "لوحة الإدارة | عقار البطين" },
+      {
+        name: "description",
+        content: "توثيق المكاتب، إدارة المحافظات والأحياء، ومتابعة البلاغات.",
+      },
+      { property: "og:title", content: "لوحة الإدارة | عقار البطين" },
+      { property: "og:description", content: "أدوات المشرف في منصة عقار البطين." },
+    ],
+  }),
+  component: () => (
+    <RoleGuard allow={["admin"]} guestsTo="/auth/admin">
+      <AdminShell>
+        <AdminPage />
+      </AdminShell>
+    </RoleGuard>
+  ),
+});
+
+type Tab = "dashboard" | "offices" | "plans" | "geo" | "reports";
+
+function AdminPage() {
+  const { isAdmin } = useAuth();
+  const [tab, setTab] = useState<Tab>("dashboard");
+
+  if (!isAdmin) {
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+        <AppHeader showSearch={false} />
+        <main className="flex-1 px-4 py-10">
+          <EmptyState icon={ShieldCheck} title="هذه الصفحة للمشرفين فقط" />
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+      <AppHeader showSearch={false} />
+      <main className="flex-1 space-y-4 px-4 py-4">
+        <h1 className="font-display text-xl font-extrabold">لوحة الإدارة</h1>
+        <div className="flex gap-1.5">
+          {(
+            [
+              ["dashboard", "الرئيسية"],
+              ["offices", "مراجعة المكاتب"],
+              ["plans", "الباقات"],
+              ["geo", "المحافظات"],
+              ["reports", "البلاغات"],
+            ] as [Tab, string][]
+          ).map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => setTab(v)}
+              className={cn(
+                "flex-1 rounded-full py-2 text-xs font-semibold transition",
+                tab === v ? "bg-forest text-background" : "bg-sand text-muted-foreground",
+              )}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {tab === "dashboard" && <DashboardTab />}
+        {tab === "offices" && <OfficesTab />}
+        {tab === "plans" && <PlansTab />}
+        {tab === "geo" && <GeoTab />}
+        {tab === "reports" && <ReportsTab />}
+      </main>
+      <BottomNav />
+    </div>
+  );
+}
+
+function PlansTab() {
+  const qc = useQueryClient();
+
+  const { data: requests = [] } = useQuery({
+    queryKey: ["admin-upgrade-requests"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("office_plan_events")
+        .select("id,office_id,created_at")
+        .eq("action", "upgrade_request")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: offices = [] } = useQuery({
+    queryKey: ["admin-offices-plans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("offices")
+        .select("id,name,phone,plan,plan_expires_at,verification_status")
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const setPlan = useMutation({
+    mutationFn: async (vars: { officeId: string; plan: "free" | "pro" }) => {
+      const { error } = await supabase.rpc("admin_set_office_plan", {
+        _office_id: vars.officeId,
+        _plan: vars.plan,
+        _days: 30,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      toast.success(
+        vars.plan === "pro"
+          ? "تم تفعيل الاحترافية والتوثيق ✓ (30 يومًا)"
+          : "تم إيقاف الاحترافية وسحب التوثيق",
+      );
+      qc.invalidateQueries({ queryKey: ["admin-offices-plans"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر تحديث الباقة"),
+  });
+
+  const pendingIds = new Set(requests.map((r) => r.office_id));
+
+  return (
+    <div className="space-y-2.5">
+      <p className="rounded-2xl bg-sand p-3 text-[11px] leading-relaxed text-muted-foreground">
+        التفعيل يدوي بعد إتمام الدفع خارج التطبيق. تفعيل الاحترافية يوثّق المكتب ✓ تلقائيًا،
+        وإيقافها يسحب التوثيق.
+      </p>
+      {offices.map((o) => {
+        const activePro =
+          o.plan === "pro" &&
+          (!o.plan_expires_at || new Date(o.plan_expires_at).getTime() > Date.now());
+        return (
+          <div key={o.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-sm font-bold">{o.name}</span>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  activePro ? "bg-forest-soft text-forest" : "bg-sand text-muted-foreground",
+                )}
+              >
+                {activePro ? "احترافي" : "مجاني"}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              {o.phone ?? "بدون رقم"}
+              {activePro && o.plan_expires_at
+                ? ` · ينتهي ${new Date(o.plan_expires_at).toLocaleDateString("ar-SA")}`
+                : ""}
+              {pendingIds.has(o.id) && !activePro && (
+                <span className="ms-1 font-bold text-terracotta">· طلب ترقية ⏳</span>
+              )}
+            </div>
+            <div className="mt-2 flex gap-2">
+              {activePro ? (
+                <button
+                  onClick={() => setPlan.mutate({ officeId: o.id, plan: "free" })}
+                  disabled={setPlan.isPending}
+                  className="flex-1 rounded-xl bg-terracotta-soft py-2 text-xs font-bold text-terracotta disabled:opacity-50"
+                >
+                  إيقاف الاحترافية
+                </button>
+              ) : (
+                <button
+                  onClick={() => setPlan.mutate({ officeId: o.id, plan: "pro" })}
+                  disabled={setPlan.isPending}
+                  className="flex-1 rounded-xl bg-forest py-2 text-xs font-bold text-background disabled:opacity-50"
+                >
+                  تفعيل احترافي 30 يومًا + توثيق ✓
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function OfficesTab() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["admin-offices"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("offices")
+        .select(
+          "id,name,phone,verification_status,rejection_reason,commercial_register,license_number,created_at",
+        )
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const [rejectFor, setRejectFor] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+
+  const setStatus = useMutation({
+    mutationFn: async ({
+      id,
+      status,
+      rejectionReason,
+    }: {
+      id: string;
+      status: string;
+      rejectionReason?: string | null;
+    }) => {
+      const patch: Record<string, unknown> = { verification_status: status };
+      patch["rejection_reason"] = status === "rejected" ? rejectionReason?.trim() || null : null;
+      const { error } = await supabase
+        .from("offices")
+        .update(patch as never)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تم تحديث حالة المكتب");
+      setRejectFor(null);
+      setReason("");
+      qc.invalidateQueries({ queryKey: ["admin-offices"] });
+    },
+    onError: () => toast.error("تعذّر التحديث"),
+  });
+
+  if (!data?.length) return <EmptyState icon={ShieldCheck} title="لا توجد مكاتب مسجلة" />;
+
+  return (
+    <div className="space-y-2.5">
+      {data.map((o) => (
+        <div key={o.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+          <div className="flex items-center justify-between">
+            <span className="font-display text-sm font-bold">{o.name}</span>
+            <span className="rounded-full bg-sand px-2 py-0.5 text-[10px] font-semibold">
+              {VERIFICATION_STATUS[o.verification_status]}
+            </span>
+          </div>
+          <div dir="ltr" className="mt-0.5 text-right text-[11px] text-muted-foreground">
+            {o.phone} · CR {o.commercial_register ?? "—"} · Lic {o.license_number ?? "—"}
+          </div>
+          {o.rejection_reason && o.verification_status === "rejected" && (
+            <p className="mt-1.5 rounded-xl bg-destructive/5 p-2 text-[11px] text-destructive">
+              سبب الرفض: {o.rejection_reason}
+            </p>
+          )}
+
+          {rejectFor === o.id ? (
+            <div className="mt-2 space-y-2">
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="سبب الرفض (يظهر للمكتب)…"
+                className="w-full rounded-xl bg-sand px-3 py-2 text-xs ring-1 ring-line outline-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() =>
+                    setStatus.mutate({ id: o.id, status: "rejected", rejectionReason: reason })
+                  }
+                  className="flex-1 rounded-xl bg-destructive/10 py-2 text-xs font-bold text-destructive"
+                >
+                  تأكيد الرفض
+                </button>
+                <button
+                  onClick={() => {
+                    setRejectFor(null);
+                    setReason("");
+                  }}
+                  className="flex-1 rounded-xl bg-sand py-2 text-xs font-bold"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => setStatus.mutate({ id: o.id, status: "verified" })}
+                className="flex-1 rounded-xl bg-forest py-2 text-xs font-bold text-background"
+              >
+                توثيق
+              </button>
+              <button
+                onClick={() => {
+                  setRejectFor(o.id);
+                  setReason("");
+                }}
+                className="flex-1 rounded-xl bg-destructive/10 py-2 text-xs font-bold text-destructive"
+              >
+                رفض
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GeoTab() {
+  const qc = useQueryClient();
+  const [govName, setGovName] = useState("");
+  const [govCode, setGovCode] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+  const [hood, setHood] = useState("");
+  const [banner, setBanner] = useState("");
+
+  const { data: govs } = useQuery({
+    queryKey: ["admin-governorates"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("governorates")
+        .select("id,name_ar,code,is_active,banner_url,neighborhoods(id,name_ar)")
+        .order("sort_order");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const addGov = useMutation({
+    mutationFn: async () => {
+      if (!govName.trim() || !govCode.trim()) throw new Error("أدخل الاسم والرمز");
+      const { error } = await supabase
+        .from("governorates")
+        .insert({ name_ar: govName.trim(), code: govCode.trim().toUpperCase() });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تمت إضافة المحافظة");
+      setGovName("");
+      setGovCode("");
+      qc.invalidateQueries({ queryKey: ["admin-governorates"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّرت الإضافة"),
+  });
+
+  const addHood = useMutation({
+    mutationFn: async () => {
+      if (!selected || !hood.trim()) throw new Error("اختر المحافظة وأدخل اسم الحي");
+      const { error } = await supabase
+        .from("neighborhoods")
+        .insert({ governorate_id: selected, name_ar: hood.trim() });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تمت إضافة الحي");
+      setHood("");
+      qc.invalidateQueries({ queryKey: ["admin-governorates"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّرت الإضافة"),
+  });
+
+  const saveBanner = useMutation({
+    mutationFn: async () => {
+      if (!selected) throw new Error("اختر المحافظة");
+      const { error } = await supabase
+        .from("governorates")
+        .update({ banner_url: banner.trim() || null })
+        .eq("id", selected);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تم تحديث الصورة الترويجية");
+      qc.invalidateQueries({ queryKey: ["admin-governorates"] });
+      qc.invalidateQueries({ queryKey: ["governorates"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر التحديث"),
+  });
+
+  return (
+    <div className="space-y-4">
+      <section className="space-y-2 rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+        <div className="text-sm font-bold">إضافة محافظة</div>
+        <div className="grid grid-cols-3 gap-2">
+          <input
+            value={govName}
+            onChange={(e) => setGovName(e.target.value)}
+            placeholder="اسم المحافظة"
+            className="col-span-2 rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+          />
+          <input
+            value={govCode}
+            onChange={(e) => setGovCode(e.target.value)}
+            placeholder="الرمز"
+            className="rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+          />
+        </div>
+        <button
+          onClick={() => addGov.mutate()}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-sm font-bold text-background"
+        >
+          <Plus className="size-4" /> إضافة
+        </button>
+      </section>
+
+      <section className="space-y-2.5">
+        {govs?.map((g) => (
+          <div key={g.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+            <button
+              onClick={() => {
+                const next = selected === g.id ? null : g.id;
+                setSelected(next);
+                setBanner(next ? (g.banner_url ?? "") : "");
+              }}
+              className="w-full text-right"
+            >
+              <div className="flex items-center gap-2">
+                <MapPin className="size-4 text-terracotta" />
+                <span className="text-sm font-bold">{g.name_ar}</span>
+                <span className="text-[11px] text-muted-foreground">({g.code})</span>
+                <span className="ms-auto text-[11px] text-muted-foreground">
+                  {(g.neighborhoods as { id: string }[] | null)?.length ?? 0} حي
+                </span>
+              </div>
+            </button>
+            {selected === g.id && (
+              <div className="mt-2.5 space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {(g.neighborhoods as { id: string; name_ar: string }[] | null)?.map((n) => (
+                    <span key={n.id} className="rounded-full bg-sand px-2.5 py-1 text-[11px]">
+                      {n.name_ar}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={hood}
+                    onChange={(e) => setHood(e.target.value)}
+                    placeholder="اسم الحي الجديد"
+                    className="flex-1 rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+                  />
+                  <button
+                    onClick={() => addHood.mutate()}
+                    className="rounded-xl bg-terracotta px-4 text-sm font-bold text-background"
+                  >
+                    إضافة
+                  </button>
+                </div>
+                <div className="space-y-2 border-t border-line pt-2.5">
+                  <div className="text-[11px] font-semibold text-muted-foreground">
+                    رابط الصورة الترويجية للمحافظة
+                  </div>
+                  {banner.trim() && (
+                    <img
+                      src={banner.trim()}
+                      alt={`صورة ${g.name_ar}`}
+                      className="h-auto w-full rounded-xl object-contain ring-1 ring-line"
+                    />
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      dir="ltr"
+                      value={banner}
+                      onChange={(e) => setBanner(e.target.value)}
+                      placeholder="https://…"
+                      className="flex-1 rounded-xl bg-sand px-3 py-2.5 text-right text-sm outline-none focus:ring-2 focus:ring-forest"
+                    />
+                    <button
+                      onClick={() => saveBanner.mutate()}
+                      className="rounded-xl bg-forest px-4 text-sm font-bold text-background"
+                    >
+                      حفظ
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+function ReportsTab() {
+  const qc = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ["admin-reports"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reports")
+        .select(
+          "id,reporter_id,reason,details,resolved,created_at,property_id,office_id,properties(title)",
+        )
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const rows = (data ?? []) as Array<{
+        id: string;
+        reporter_id: string;
+        reason: string;
+        details: string | null;
+        resolved: boolean;
+        created_at: string;
+        property_id: string | null;
+        office_id: string | null;
+        properties: { title: string } | null;
+      }>;
+
+      const ids = new Set<string>();
+
+      for (const row of rows) {
+        ids.add(row.reporter_id);
+
+        if (row.details) {
+          try {
+            const details = JSON.parse(row.details) as {
+              reported_user_id?: string;
+            };
+
+            if (details.reported_user_id) {
+              ids.add(details.reported_user_id);
+            }
+          } catch {}
+        }
+      }
+
+      const profileMap = new Map<
+        string,
+        { full_name: string; phone: string | null }
+      >();
+
+      const roleMap = new Map<string, string>();
+
+      if (ids.size) {
+        const idList = [...ids];
+
+        const [profilesRes, rolesRes] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("id,full_name,phone")
+            .in("id", idList),
+
+          supabase
+            .from("user_roles")
+            .select("user_id,role")
+            .in("user_id", idList),
+        ]);
+
+        for (const profile of profilesRes.data ?? []) {
+          profileMap.set(profile.id, {
+            full_name: profile.full_name,
+            phone: profile.phone,
+          });
+        }
+
+        for (const role of rolesRes.data ?? []) {
+          if (!roleMap.has(role.user_id)) {
+            roleMap.set(role.user_id, role.role);
+          }
+        }
+      }
+
+      return rows.map((row) => {
+        let chatDetails: {
+          source?: string;
+          conversation_id?: string;
+          message_id?: string;
+          message_body?: string | null;
+          message_image_url?: string | null;
+          reported_user_id?: string;
+        } = {};
+
+        if (row.details) {
+          try {
+            chatDetails = JSON.parse(row.details);
+          } catch {}
+        }
+
+        return {
+          ...row,
+          reporter_name:
+            profileMap.get(row.reporter_id)?.full_name ||
+            "مستخدم",
+          reporter_role:
+            roleMap.get(row.reporter_id) || "unknown",
+          reported_name: chatDetails.reported_user_id
+            ? profileMap.get(
+                chatDetails.reported_user_id,
+              )?.full_name || "مستخدم"
+            : null,
+          reported_role: chatDetails.reported_user_id
+            ? roleMap.get(
+                chatDetails.reported_user_id,
+              ) || "unknown"
+            : null,
+          chatDetails,
+        };
+      });
+    },
+  });
+
+  const resolve = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("reports")
+        .update({ resolved: true })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+
+    onSuccess: () =>
+      qc.invalidateQueries({
+        queryKey: ["admin-reports"],
+      }),
+
+    onError: () =>
+      toast.error("تعذّر التحديث"),
+  });
+
+  if (!data?.length) {
+    return (
+      <EmptyState
+        icon={Flag}
+        title="لا توجد بلاغات"
+      />
+    );
+  }
+
+  function roleLabel(role: string) {
+    if (role === "office") return "مكتب";
+    if (role === "individual") return "فرد";
+    if (role === "admin") return "أدمن";
+    return "مستخدم";
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {data.map((report) => (
+        <div
+          key={report.id}
+          className="rounded-2xl bg-surface p-3.5 ring-1 ring-line"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-bold">
+              {report.reason}
+            </span>
+
+            {report.resolved ? (
+              <span className="text-[10px] text-forest">
+                تمت المعالجة
+              </span>
+            ) : (
+              <button
+                onClick={() =>
+                  resolve.mutate(report.id)
+                }
+                className="rounded-full bg-forest px-3 py-1 text-[11px] font-bold text-background"
+              >
+                معالجة
+              </button>
+            )}
+          </div>
+
+          <div className="mt-2 rounded-xl bg-background p-2.5">
+            <p className="text-xs font-bold">
+              صاحب البلاغ:
+            </p>
+
+            <p className="mt-1 text-xs">
+              {report.reporter_name}
+              <span className="ms-1 text-[10px] text-muted-foreground">
+                ({roleLabel(report.reporter_role)})
+              </span>
+            </p>
+          </div>
+
+          {report.reported_name && (
+            <div className="mt-2 rounded-xl bg-background p-2.5">
+              <p className="text-xs font-bold">
+                المبلغ عليه:
+              </p>
+
+              <p className="mt-1 text-xs">
+                {report.reported_name}
+                <span className="ms-1 text-[10px] text-muted-foreground">
+                  ({roleLabel(report.reported_role ?? "unknown")})
+                </span>
+              </p>
+            </div>
+          )}
+
+          {report.chatDetails.source === "chat" && (
+            <div className="mt-2 rounded-xl bg-sand p-2.5">
+              <p className="text-[10px] font-bold text-forest">
+                بلاغ من الدردشة
+              </p>
+
+              {report.chatDetails.message_body && (
+                <p className="mt-1 text-xs">
+                  رسالة:
+                  {" "}
+                  {report.chatDetails.message_body}
+                </p>
+              )}
+
+              {report.chatDetails.message_image_url && (
+                <a
+                  href={report.chatDetails.message_image_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 block text-[11px] font-bold text-forest"
+                >
+                  عرض الصورة المبلغ عنها
+                </a>
+              )}
+            </div>
+          )}
+
+          {(
+            report.properties as {
+              title: string;
+            } | null
+          )?.title && (
+            <p className="mt-2 text-[11px] font-semibold text-forest">
+              العقار:
+              {" "}
+              {(
+                report.properties as {
+                  title: string;
+                }
+              ).title}
+            </p>
+          )}
+
+          {!report.chatDetails.source &&
+            report.details && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {report.details}
+              </p>
+            )}
+
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            {new Date(
+              report.created_at,
+            ).toLocaleString("ar-IQ")}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DashboardTab() {
+  const {
+    data: directory,
+    isLoading: directoryLoading,
+    isFetching: directoryFetching,
+  } = useAdminDirectory();
+
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    isFetching: statsFetching,
+  } = useAdminDashboardStats();
+
+  const individuals = directory?.individuals ?? [];
+  const offices = directory?.offices ?? [];
+
+  const todayIndividuals = individuals.filter((u) =>
+    isTodaySaudi(u.created_at),
+  ).length;
+
+  const todayOffices = offices.filter((o) =>
+    isTodaySaudi(o.created_at),
+  ).length;
+
+  const pendingOffices = offices.filter(
+    (o) => o.verification_status === "pending",
+  ).length;
+
+  const verifiedOffices = offices.filter(
+    (o) => o.verification_status === "verified",
+  ).length;
+
+  const initialLoading =
+    directoryLoading || statsLoading;
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-3xl bg-forest p-5 text-background">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs opacity-80">
+              أهلاً بك
+            </div>
+            <h2 className="mt-1 font-display text-2xl font-extrabold">
+              لوحة الإدارة
+            </h2>
+            <p className="mt-2 text-xs leading-relaxed opacity-80">
+              متابعة المستخدمين والمكاتب والعقارات والنشاط
+              العام للمنصة.
+            </p>
+          </div>
+
+          <Activity className="size-7 opacity-80" />
+        </div>
+
+        {(directoryFetching || statsFetching) &&
+          !initialLoading && (
+            <div className="mt-3 text-[10px] opacity-70">
+              تحديث البيانات في الخلفية...
+            </div>
+          )}
+      </section>
+
+      {initialLoading ? (
+        <StatsSkeleton />
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <StatCard
+            icon={Users}
+            label="إجمالي الأفراد"
+            value={individuals.length}
+            tone="forest"
+          />
+
+          <StatCard
+            icon={Clock3}
+            label="أفراد جدد اليوم"
+            value={todayIndividuals}
+            tone="terracotta"
+          />
+
+          <StatCard
+            icon={Building2}
+            label="إجمالي المكاتب"
+            value={offices.length}
+            tone="forest"
+          />
+
+          <StatCard
+            icon={Clock3}
+            label="مكاتب جديدة اليوم"
+            value={todayOffices}
+            tone="terracotta"
+          />
+
+          <StatCard
+            icon={FileText}
+            label="قيد مراجعة"
+            value={pendingOffices}
+            tone="terracotta"
+          />
+
+          <StatCard
+            icon={Building2}
+            label="مكاتب موثقة"
+            value={verifiedOffices}
+            tone="forest"
+          />
+
+          <StatCard
+            icon={Home}
+            label="العقارات"
+            value={stats?.properties ?? 0}
+            tone="forest"
+          />
+
+          <StatCard
+            icon={Home}
+            label="العقارات المنشورة"
+            value={stats?.publishedProperties ?? 0}
+            tone="terracotta"
+          />
+
+          <StatCard
+            icon={CalendarDays}
+            label="الطلبات العقارية"
+            value={stats?.propertyRequests ?? 0}
+            tone="forest"
+          />
+
+          <StatCard
+            icon={CalendarDays}
+            label="حجوزات المعاينة"
+            value={stats?.bookings ?? 0}
+            tone="terracotta"
+          />
+
+          <StatCard
+            icon={FileText}
+            label="البلاغات المفتوحة"
+            value={stats?.openReports ?? 0}
+            tone="terracotta"
+          />
+        </div>
+      )}
+
+      {!initialLoading && (
+        <>
+          <LatestSection
+            title="أحدث الأفراد"
+            empty="لا يوجد أفراد."
+            href="/admin/individuals"
+          >
+            {individuals.slice(0, 5).map((u) => (
+              <Link
+                key={u.id}
+                to="/admin/individuals/$userId"
+                params={{ userId: u.id }}
+                className="flex items-center gap-3 rounded-xl bg-sand p-3"
+              >
+                <span className="grid size-9 place-items-center rounded-xl bg-forest-soft text-forest">
+                  <Users className="size-4" />
+                </span>
+
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-bold">
+                    {u.full_name}
+                  </span>
+                  <span
+                    dir="ltr"
+                    className="mt-0.5 block truncate text-[10px] text-muted-foreground"
+                  >
+                    {u.email || u.phone || "—"}
+                  </span>
+                </span>
+
+                <span className="text-[9px] text-muted-foreground">
+                  {new Date(u.created_at).toLocaleDateString(
+                    "ar-SA",
+                  )}
+                </span>
+              </Link>
+            ))}
+          </LatestSection>
+
+          <LatestSection
+            title="أحدث المكاتب"
+            empty="لا توجد مكاتب."
+            href="/admin/offices"
+          >
+            {offices.slice(0, 5).map((o) => (
+              <Link
+                key={o.id}
+                to="/admin/offices/$officeId"
+                params={{ officeId: o.id }}
+                className="flex items-center gap-3 rounded-xl bg-sand p-3"
+              >
+                <span className="grid size-9 place-items-center rounded-xl bg-terracotta-soft text-terracotta">
+                  <Building2 className="size-4" />
+                </span>
+
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-bold">
+                    {o.name}
+                  </span>
+                  <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                    {o.manager_name || o.phone || "مكتب عقاري"}
+                  </span>
+                </span>
+
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-1 text-[9px] font-bold",
+                    o.verification_status === "verified"
+                      ? "bg-forest-soft text-forest"
+                      : o.verification_status === "rejected"
+                        ? "bg-destructive/10 text-destructive"
+                        : "bg-terracotta-soft text-terracotta",
+                  )}
+                >
+                  {o.verification_status === "verified"
+                    ? "موثق"
+                    : o.verification_status === "rejected"
+                      ? "مرفوض"
+                      : "مراجعة"}
+                </span>
+              </Link>
+            ))}
+          </LatestSection>
+        </>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => window.location.assign("/admin/individuals")}
+          className="flex items-center justify-between rounded-2xl bg-surface p-3.5 text-xs font-bold ring-1 ring-line"
+        >
+          إدارة الأفراد
+          <ChevronLeft className="size-4 text-muted-foreground" />
+        </button>
+
+        <button
+          onClick={() => window.location.assign("/admin/offices")}
+          className="flex items-center justify-between rounded-2xl bg-surface p-3.5 text-xs font-bold ring-1 ring-line"
+        >
+          إدارة المكاتب
+          <ChevronLeft className="size-4 text-muted-foreground" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: number;
+  tone: "forest" | "terracotta";
+}) {
+  return (
+    <div className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={cn(
+            "grid size-9 place-items-center rounded-xl",
+            tone === "forest"
+              ? "bg-forest-soft text-forest"
+              : "bg-terracotta-soft text-terracotta",
+          )}
+        >
+          <Icon className="size-4" />
+        </span>
+
+        <span className="font-display text-xl font-extrabold">
+          {value}
+        </span>
+      </div>
+
+      <div className="mt-2 text-[10px] text-muted-foreground">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function StatsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-28 animate-pulse rounded-2xl bg-sand"
+        />
+      ))}
+    </div>
+  );
+}
+
+function LatestSection({
+  title,
+  empty,
+  href,
+  children,
+}: {
+  title: string;
+  empty: string;
+  href: "/admin/individuals" | "/admin/offices";
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-2.5">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-base font-extrabold">
+          {title}
+        </h2>
+
+        <Link
+          to={href}
+          className="text-[11px] font-semibold text-terracotta"
+        >
+          عرض الكل
+        </Link>
+      </div>
+
+      <div className="space-y-2">
+        {children || (
+          <div className="rounded-2xl bg-surface p-5 text-center text-xs text-muted-foreground ring-1 ring-line">
+            {empty}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}

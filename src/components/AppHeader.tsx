@@ -1,11 +1,13 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Bell, ChevronDown, MapPin, Search } from "lucide-react";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BrandLogo } from "@/components/BrandLogo";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { homeForRoles } from "@/lib/role-guard";
 import { useSelectedGovernorate } from "@/lib/governorate";
+import { AdminChrome } from "@/components/AdminChrome";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +15,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function AppHeader({ showSearch = true }: { showSearch?: boolean }) {
+export function AppHeader({
+  showSearch = true,
+}: {
+  showSearch?: boolean;
+}) {
   const navigate = useNavigate();
-  const { userId, roles, isOffice, officeId } = useAuth();
-  const { governorates, governorate, select } = useSelectedGovernorate();
+  const location = useLocation();
+  const qc = useQueryClient();
+
+  const {
+    userId,
+    roles,
+    isOffice,
+    officeId,
+  } = useAuth();
+
+  const {
+    governorates,
+    governorate,
+    select,
+  } = useSelectedGovernorate();
 
   const { data: officeGovernorate } = useQuery({
     queryKey: ["office-governorate", officeId],
@@ -24,11 +43,19 @@ export function AppHeader({ showSearch = true }: { showSearch?: boolean }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offices")
-        .select("governorate_id, governorates(name_ar)")
+        .select(
+          "governorate_id, governorates(name_ar)"
+        )
         .eq("id", officeId!)
         .maybeSingle();
+
       if (error) throw error;
-      return (data?.governorates as { name_ar: string } | null)?.name_ar ?? null;
+
+      return (
+        data?.governorates as {
+          name_ar: string;
+        } | null
+      )?.name_ar ?? null;
     },
     staleTime: 5 * 60_000,
   });
@@ -37,40 +64,95 @@ export function AppHeader({ showSearch = true }: { showSearch?: boolean }) {
     queryKey: ["unread-notifications", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from("notifications")
-        .select("id", { count: "exact", head: true })
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("user_id", userId!)
         .eq("is_read", false);
+
+      if (error) throw error;
+
       return count ?? 0;
     },
     refetchInterval: 60_000,
   });
 
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`header-notifications-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void qc.invalidateQueries({
+            queryKey: [
+              "unread-notifications",
+              userId,
+            ],
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [userId, qc]);
+
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-background/95 backdrop-blur-sm">
       <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-        <Link to={homeForRoles(roles)} className="flex shrink-0 items-center gap-2">
+        <Link
+          to={homeForRoles(roles)}
+          className="flex shrink-0 items-center gap-2"
+        >
           <BrandLogo size={36} />
+
           <div className="leading-tight">
-            <div className="font-display text-[15px] font-extrabold">عقار البطين</div>
-            <div className="-mt-0.5 text-[9px] text-muted-foreground">وجهتك الأولى للعقار</div>
+            <div className="font-display text-[15px] font-extrabold">
+              عقار البطين
+            </div>
+
+            <div className="-mt-0.5 text-[9px] text-muted-foreground">
+              وجهتك الأولى للعقار
+            </div>
           </div>
         </Link>
 
         {isOffice ? (
           <span className="ms-auto flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 ring-1 ring-line">
             <MapPin className="size-3.5 text-terracotta" />
-            <span className="text-sm">{officeGovernorate ?? "—"}</span>
+            <span className="text-sm">
+              {officeGovernorate ?? "—"}
+            </span>
           </span>
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger className="ms-auto flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 ring-1 ring-line">
-              <span className="text-sm">{governorate?.name_ar ?? "اختر محافظتك"}</span>
+              <span className="text-sm">
+                {governorate?.name_ar ??
+                  "اختر محافظتك"}
+              </span>
+
               <ChevronDown className="size-3.5 text-terracotta" />
             </DropdownMenuTrigger>
+
             <DropdownMenuContent align="end">
               {governorates.map((g) => (
-                <DropdownMenuItem key={g.id} onSelect={() => void select(g.id)}>
+                <DropdownMenuItem
+                  key={g.id}
+                  onSelect={() => void select(g.id)}
+                >
                   {g.name_ar}
                 </DropdownMenuItem>
               ))}
@@ -84,8 +166,11 @@ export function AppHeader({ showSearch = true }: { showSearch?: boolean }) {
           className="relative grid size-9 place-items-center rounded-full bg-surface ring-1 ring-line"
         >
           <Bell className="size-[18px] text-muted-foreground" />
+
           {unread > 0 && (
-            <span className="absolute top-1.5 left-2 size-1.5 rounded-full bg-terracotta" />
+            <span className="absolute -top-1 -left-1 grid min-w-5 h-5 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
+              {unread > 99 ? "99+" : unread}
+            </span>
           )}
         </Link>
       </div>
@@ -93,11 +178,16 @@ export function AppHeader({ showSearch = true }: { showSearch?: boolean }) {
       {showSearch && (
         <div className="px-4 pb-3">
           <button
-            onClick={() => navigate({ to: "/search" })}
+            onClick={() =>
+              navigate({ to: "/search" })
+            }
             className="flex w-full items-center gap-2 rounded-2xl bg-surface px-3 py-2.5 text-right ring-1 ring-line"
           >
             <Search className="size-[18px] text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">ابحث عن حي، سعر، مساحة…</span>
+
+            <span className="text-sm text-muted-foreground">
+              ابحث عن حي، سعر، مساحة…
+            </span>
           </button>
         </div>
       )}

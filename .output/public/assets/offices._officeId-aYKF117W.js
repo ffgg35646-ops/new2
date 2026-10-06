@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-BkSabwWG.js";var t=e(),n=()=>(0,t.jsx)(`div`,{className:`p-6 text-center text-sm`,children:`المكتب غير موجود`});export{n as notFoundComponent};

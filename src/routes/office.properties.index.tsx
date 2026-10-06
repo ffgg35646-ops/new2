@@ -33,7 +33,8 @@ export const Route = createFileRoute("/office/properties/")({
 function OfficeProperties() {
   const { userId } = useAuth();
   const qc = useQueryClient();
-  const { isPro } = useMyPlan();
+  const { featuredLimit } = useMyPlan();
+  const canFeature = featuredLimit > 0;
   const [qrFor, setQrFor] = useState<{ id: string; title: string } | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -151,7 +152,7 @@ function OfficeProperties() {
                 <div className="mt-2.5 flex items-center gap-2">
                   <button
                     onClick={() => {
-                      if (!isPro && !p.is_featured) {
+                      if (!canFeature && !p.is_featured) {
                         toast.error("التمييز ميزة احترافية — رقِّ باقتك لإبراز عقاراتك.");
                         return;
                       }
@@ -195,7 +196,7 @@ function OfficeProperties() {
                   </Link>
                   <button
                     onClick={() => {
-                      if (!isPro) {
+                      if (!canFeature) {
                         toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
                         return;
                       }

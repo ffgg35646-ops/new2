@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-BkSabwWG.js";import{t}from"./AuthForm-b4xdmwVy.js";var n=e(),r=()=>(0,n.jsx)(t,{role:`individual`});export{r as component};

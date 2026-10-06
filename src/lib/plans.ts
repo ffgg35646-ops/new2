@@ -4,6 +4,22 @@ import { useMyOffice } from "@/lib/office";
 
 export type OfficePlan = "free" | "pro";
 
+export type OfficePackage = {
+  id: string;
+  code: string | null;
+  name: string;
+  description: string | null;
+  price: number;
+  duration_days: number;
+  property_limit: number | null;
+  chat_enabled: boolean;
+  featured_limit: number;
+  verification_included: boolean;
+  features: string[];
+  is_active: boolean;
+  sort_order: number;
+};
+
 export const FREE_PROPERTY_LIMIT = 5;
 
 export const PLAN_LABEL: Record<OfficePlan, string> = {
@@ -27,16 +43,37 @@ export const FREE_FEATURES = [
 ];
 
 export const PRO_FEATURES = [
-  "عقارات غير محدودة (المجانية حتى 5)",
-  "توثيق المكتب ✓ — يُمنح مع الاشتراك",
-  "دردشة خاصة ومستقلة مع كل عميل داخل التطبيق",
+  "عقارات غير محدودة",
+  "توثيق المكتب ✓",
+  "دردشة خاصة ومستقلة مع كل عميل",
   "إرسال الصور داخل المحادثة",
-  "معرفة العقار الذي يستفسر عنه كل عميل في محادثته",
-  "رمز QR للمكتب ولكل عقار — يفتح الصفحة عند مسحه",
-  "تمييز حتى 3 عقارات لتظهر أعلى القوائم وصفحة مكتبك ⭐",
-  "أولوية ظهور مكتبك في قسم المكاتب العقارية",
+  "معرفة العقار الذي يستفسر عنه العميل",
+  "رمز QR للمكتب والعقار",
+  "تمييز حتى 3 عقارات",
+  "أولوية ظهور المكتب",
   "كل مميزات الباقة المجانية",
 ];
+
+function normalizePackage(row: any): OfficePackage {
+  return {
+    id: String(row.id),
+    code: row.code ?? null,
+    name: String(row.name ?? "باقة"),
+    description: row.description ?? null,
+    price: Number(row.price ?? 0),
+    duration_days: Number(row.duration_days ?? 0),
+    property_limit:
+      row.property_limit == null ? null : Number(row.property_limit),
+    chat_enabled: Boolean(row.chat_enabled),
+    featured_limit: Number(row.featured_limit ?? 0),
+    verification_included: Boolean(row.verification_included),
+    features: Array.isArray(row.features)
+      ? row.features.map((x: unknown) => String(x))
+      : [],
+    is_active: Boolean(row.is_active),
+    sort_order: Number(row.sort_order ?? 0),
+  };
+}
 
 export function effectivePlan(
   office?: {
@@ -46,27 +83,102 @@ export function effectivePlan(
 ): OfficePlan {
   if (!office || office.plan !== "pro") return "free";
   if (!office.plan_expires_at) return "pro";
-  return new Date(office.plan_expires_at).getTime() > Date.now() ? "pro" : "free";
+  return new Date(office.plan_expires_at).getTime() > Date.now()
+    ? "pro"
+    : "free";
+}
+
+export function usePackages(activeOnly = true) {
+  return useQuery({
+    queryKey: ["public-package-catalog", activeOnly],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("package_catalog")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (activeOnly) q = q.eq("is_active", true);
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      return (data ?? []).map(normalizePackage);
+    },
+  });
 }
 
 export function useMyPlan() {
   const { data: membership, isLoading } = useMyOffice();
-  const office = membership?.office as
-    | { plan?: OfficePlan; plan_expires_at?: string | null; plan_started_at?: string }
-    | null
-    | undefined;
+  const office = membership?.office as any;
 
-  const plan = effectivePlan(office ?? null);
-  const expired = office?.plan === "pro" && plan === "free";
+  const packageId = office?.package_id ?? null;
+
+  const packageQuery = useQuery({
+    queryKey: ["my-package", packageId, office?.plan],
+    enabled: !!office,
+    queryFn: async () => {
+      if (packageId) {
+        const { data, error } = await (supabase as any)
+          .from("package_catalog")
+          .select("*")
+          .eq("id", packageId)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data) return normalizePackage(data);
+      }
+
+      const fallbackCode =
+        office?.plan === "pro" ? "pro" : "free";
+
+      const { data, error } = await (supabase as any)
+        .from("package_catalog")
+        .select("*")
+        .eq("code", fallbackCode)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data ? normalizePackage(data) : null;
+    },
+  });
+
+  const pkg = packageQuery.data;
+
+  const expired =
+    !!office?.plan_expires_at &&
+    Number(pkg?.duration_days ?? 0) > 0 &&
+    new Date(office.plan_expires_at).getTime() <= Date.now();
+
+  const currentPlan: OfficePlan =
+    expired
+      ? "free"
+      : pkg?.code === "pro" || Number(pkg?.price ?? 0) > 0
+        ? "pro"
+        : "free";
 
   return {
-    isLoading,
+    isLoading: isLoading || packageQuery.isLoading,
     office: office ?? null,
-    plan,
-    isPro: plan === "pro",
+    package: pkg,
+    plan: currentPlan,
+    isPro: currentPlan === "pro",
+    isPaid: Number(pkg?.price ?? 0) > 0,
     expired,
     expiresAt: office?.plan_expires_at ?? null,
     startedAt: office?.plan_started_at ?? null,
+    propertyLimit:
+      expired
+        ? 5
+        : pkg?.property_limit ?? null,
+    chatEnabled:
+      !expired && Boolean(pkg?.chat_enabled),
+    featuredLimit:
+      expired
+        ? 0
+        : Number(pkg?.featured_limit ?? 0),
+    verificationIncluded:
+      !expired && Boolean(pkg?.verification_included),
   };
 }
 
@@ -80,6 +192,7 @@ export function useOfficePropertiesCount(officeId?: string | null) {
         .select("id", { count: "exact", head: true })
         .eq("office_id", officeId!)
         .eq("is_deleted", false);
+
       if (error) throw error;
       return count ?? 0;
     },
@@ -96,22 +209,58 @@ export function usePlanEvents(officeId?: string | null) {
         .select("*")
         .eq("office_id", officeId!)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(20);
+
       if (error) throw error;
       return data ?? [];
     },
   });
 }
 
-export function useSetPlan() {
+export function useSetPackage() {
   const qc = useQueryClient();
+
   return useMutation({
-    mutationFn: async (plan: OfficePlan) => {
-      const { error } = await supabase.rpc("set_office_plan", { _plan: plan });
+    mutationFn: async (packageId: string) => {
+      const { error } = await (supabase as any).rpc(
+        "set_office_package",
+        { _package_id: packageId }
+      );
+
       if (error) throw error;
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["my-office-full"] });
+      void qc.invalidateQueries({ queryKey: ["my-package"] });
+      void qc.invalidateQueries({ queryKey: ["office-plan-events"] });
+    },
+  });
+}
+
+export function useSetPlan() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (plan: OfficePlan) => {
+      const { data, error } = await (supabase as any)
+        .from("package_catalog")
+        .select("id")
+        .eq("code", plan)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data?.id) throw new Error("الباقة غير موجودة");
+
+      const result = await (supabase as any).rpc(
+        "set_office_package",
+        { _package_id: data.id }
+      );
+
+      if (result.error) throw result.error;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["my-office-full"] });
+      void qc.invalidateQueries({ queryKey: ["my-package"] });
       void qc.invalidateQueries({ queryKey: ["office-plan-events"] });
     },
   });
@@ -119,6 +268,7 @@ export function useSetPlan() {
 
 export function useRequestUpgrade() {
   const qc = useQueryClient();
+
   return useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc("request_pro_upgrade");
@@ -132,7 +282,14 @@ export function useRequestUpgrade() {
 
 export function planErrorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e ?? "");
-  if (raw.includes("free_plan_property_limit"))
-    return `الباقة المجانية تسمح بـ ${FREE_PROPERTY_LIMIT} عقارات فقط. رقِّ إلى الباقة الاحترافية لعقارات غير محدودة.`;
+
+  if (raw.includes("property_limit")) {
+    return raw;
+  }
+
+  if (raw.includes("package_not_available")) {
+    return "هذه الباقة غير متاحة حاليًا.";
+  }
+
   return raw || "حدث خطأ غير متوقع، حاول مجددًا.";
 }
