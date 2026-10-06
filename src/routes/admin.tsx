@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Flag, MapPin, Plus, Save, ShieldCheck, Pencil, Trash2, Power, Package, Building2, Users, BarChart3 } from "lucide-react";
+import { Flag, MapPin, Plus, Save, ShieldCheck, Pencil, Trash2, Power, Package, Building2, Users, BarChart3, CalendarDays, CheckCircle2, Clock3, UserPlus, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -11,6 +11,11 @@ import { useAuth } from "@/lib/auth";
 import { VERIFICATION_STATUS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { AdminSupport } from "@/components/AdminSupport";
+import { AdminChrome } from "@/components/AdminChrome";
+import {
+  useAdminDashboardStats,
+  useAdminDirectory,
+} from "@/lib/admin";
 
 type Tab =
   | "dashboard"
@@ -77,139 +82,286 @@ function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-10">
-      <AppHeader showSearch={false} />
+    <div className="min-h-screen bg-background">
+      <AdminChrome />
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-5">
+      <main className="mx-auto w-full max-w-7xl px-4 py-5 md:px-6 lg:px-8">
         {tab === "dashboard" && <AdminStats />}
         {tab === "offices" && <OfficesTab />}
         {tab === "plans" && <PlansTab />}
         {tab === "geo" && <GeoTab />}
         {tab === "reports" && <ReportsTab />}
         {tab === "support" && <AdminSupport />}
-{tab === "privacy" && <LegalAdminTab title="سياسة الخصوصية" />}
-{tab === "terms" && <LegalAdminTab title="شروط الاستخدام" />}
+        {tab === "privacy" && <LegalAdminTab title="سياسة الخصوصية" />}
+        {tab === "terms" && <LegalAdminTab title="شروط الاستخدام" />}
       </main>
     </div>
   );
 }
 
 function AdminStats() {
-  const stats = useQuery({
-    queryKey: ["admin-dashboard-stats"],
-    queryFn: async () => {
-      const [offices, individuals, properties, reports] =
-        await Promise.all([
-          supabase
-            .from("offices")
-            .select("id", { count: "exact", head: true })
-            .eq("is_deleted", false),
+  const stats = useAdminDashboardStats();
+  const directory = useAdminDirectory();
 
-          supabase
-            .from("user_roles")
-            .select("user_id", { count: "exact", head: true })
-            .eq("role", "individual"),
+  const individuals = directory.data?.individuals ?? [];
+  const offices = directory.data?.offices ?? [];
+  const pendingOffices = offices.filter(
+    (office) => office.verification_status === "pending",
+  );
 
-          supabase
-            .from("properties")
-            .select("id", { count: "exact", head: true })
-            .eq("is_deleted", false)
-            .eq("is_published", true),
-
-          supabase
-            .from("reports")
-            .select("id", { count: "exact", head: true })
-            .eq("resolved", false),
-        ]);
-
-      for (const result of [
-        offices,
-        individuals,
-        properties,
-        reports,
-      ]) {
-        if (result.error) throw result.error;
-      }
-
-      return {
-        offices: offices.count ?? 0,
-        individuals: individuals.count ?? 0,
-        properties: properties.count ?? 0,
-        openReports: reports.count ?? 0,
-      };
-    },
-  });
+  const latestIndividuals = individuals.slice(0, 6);
+  const latestPendingOffices = pendingOffices.slice(0, 6);
 
   const cards = [
     {
-      label: "المكاتب",
-      value: stats.data?.offices ?? 0,
-      icon: Building2,
+      label: "إجمالي الحسابات",
+      value: stats.data?.totalUsers ?? 0,
+      icon: Users,
+      tone: "bg-forest-soft text-forest",
     },
     {
       label: "الأفراد",
-      value: stats.data?.individuals ?? 0,
-      icon: Users,
+      value: stats.data?.individualUsers ?? 0,
+      icon: UserPlus,
+      tone: "bg-blue-500/10 text-blue-700",
     },
     {
-      label: "العقارات المنشورة",
-      value: stats.data?.properties ?? 0,
+      label: "المكاتب",
+      value: stats.data?.officeUsers ?? 0,
+      icon: Building2,
+      tone: "bg-terracotta-soft text-terracotta",
+    },
+    {
+      label: "عقارات منشورة",
+      value: stats.data?.publishedProperties ?? 0,
       icon: BarChart3,
+      tone: "bg-purple-500/10 text-purple-700",
     },
     {
-      label: "البلاغات المفتوحة",
+      label: "إجمالي العقارات",
+      value: stats.data?.properties ?? 0,
+      icon: Package,
+      tone: "bg-sand text-foreground",
+    },
+    {
+      label: "طلبات عقارية",
+      value: stats.data?.propertyRequests ?? 0,
+      icon: FileText,
+      tone: "bg-amber-500/10 text-amber-700",
+    },
+    {
+      label: "حجوزات معاينة",
+      value: stats.data?.bookings ?? 0,
+      icon: CalendarDays,
+      tone: "bg-cyan-500/10 text-cyan-700",
+    },
+    {
+      label: "بلاغات مفتوحة",
       value: stats.data?.openReports ?? 0,
       icon: Flag,
+      tone: "bg-destructive/10 text-destructive",
     },
   ];
 
+  const loading = stats.isLoading || directory.isLoading;
+
   return (
     <section className="space-y-5" dir="rtl">
-      <div>
-        <h1 className="font-display text-2xl font-extrabold">
-          لوحة الإدارة
-        </h1>
+      <div className="rounded-3xl bg-forest p-5 text-background shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="text-xs font-semibold opacity-75">
+              إدارة عقار البطين
+            </div>
+            <h1 className="mt-1 font-display text-2xl font-extrabold md:text-3xl">
+              لوحة الإدارة
+            </h1>
+            <p className="mt-2 max-w-2xl text-xs leading-6 opacity-80">
+              متابعة الحسابات، المكاتب، العقارات، الطلبات والحجوزات من بيانات المنصة الفعلية.
+            </p>
+          </div>
 
-        <p className="mt-1 text-sm text-muted-foreground">
-          الإحصائيات الرئيسية للمنصة.
-        </p>
+          <div className="flex items-center gap-2 text-[11px] opacity-80">
+            <CheckCircle2 className="size-4" />
+            <span>البيانات تتحدث تلقائيًا كل دقيقة</span>
+          </div>
+        </div>
       </div>
 
-      {stats.isLoading ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {cards.map((card) => (
-            <div
-              key={card.label}
-              className="h-32 animate-pulse rounded-3xl bg-surface ring-1 ring-line"
-            />
-          ))}
-        </div>
-      ) : stats.isError ? (
-        <div className="rounded-3xl bg-destructive/5 p-5 text-sm text-destructive ring-1 ring-line">
+      {stats.isError ? (
+        <div className="rounded-2xl bg-destructive/5 p-4 text-sm text-destructive ring-1 ring-line">
           تعذّر تحميل إحصائيات لوحة الإدارة.
         </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {cards.map(({ label, value, icon: Icon }) => (
-            <div
-              key={label}
-              className="rounded-3xl bg-surface p-4 ring-1 ring-line"
-            >
-              <div className="grid size-10 place-items-center rounded-2xl bg-forest-soft text-forest">
-                <Icon className="size-5" />
-              </div>
+      ) : null}
 
-              <div className="mt-4 font-display text-3xl font-extrabold">
-                {value}
-              </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {cards.map(({ label, value, icon: Icon, tone }) => (
+          <div
+            key={label}
+            className="rounded-3xl bg-surface p-4 ring-1 ring-line"
+          >
+            {loading ? (
+              <div className="h-24 animate-pulse rounded-2xl bg-sand" />
+            ) : (
+              <>
+                <div className={`grid size-10 place-items-center rounded-2xl ${tone}`}>
+                  <Icon className="size-5" />
+                </div>
+                <div className="mt-4 font-display text-2xl font-extrabold md:text-3xl">
+                  {value}
+                </div>
+                <div className="mt-1 text-xs font-semibold text-muted-foreground">
+                  {label}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
 
-              <div className="mt-1 text-xs font-semibold text-muted-foreground">
-                {label}
-              </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-3xl bg-surface p-4 ring-1 ring-line">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-base font-extrabold">
+                آخر الأفراد
+              </h2>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                أحدث حسابات الأفراد المسجلة.
+              </p>
             </div>
-          ))}
-        </div>
-      )}
+
+            <a
+              href="/admin/individuals"
+              className="inline-flex items-center gap-1 rounded-xl bg-sand px-3 py-2 text-[11px] font-bold"
+            >
+              عرض الكل
+              <ChevronLeft className="size-3.5" />
+            </a>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {directory.isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-16 animate-pulse rounded-2xl bg-sand"
+                />
+              ))
+            ) : latestIndividuals.length ? (
+              latestIndividuals.map((user) => (
+                <a
+                  key={user.id}
+                  href={`/admin/individuals/${user.id}`}
+                  className="flex items-center gap-3 rounded-2xl bg-background p-3 ring-1 ring-line transition hover:bg-sand"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-soft text-forest">
+                    <Users className="size-4" />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold">
+                      {user.full_name}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                      {user.email || user.phone || "بدون بيانات اتصال"}
+                    </span>
+                  </span>
+
+                  <span className="text-left text-[10px] text-muted-foreground">
+                    {new Date(user.created_at).toLocaleDateString("ar-SA")}
+                  </span>
+                </a>
+              ))
+            ) : (
+              <div className="rounded-2xl bg-sand p-5 text-center text-xs text-muted-foreground">
+                لا توجد حسابات أفراد.
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-3xl bg-surface p-4 ring-1 ring-line">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-base font-extrabold">
+                المكاتب التي تحتاج مراجعة
+              </h2>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                طلبات تسجيل المكاتب التي لم تعتمد بعد.
+              </p>
+            </div>
+
+            <a
+              href="/admin/offices"
+              className="inline-flex items-center gap-1 rounded-xl bg-sand px-3 py-2 text-[11px] font-bold"
+            >
+              إدارة المكاتب
+              <ChevronLeft className="size-3.5" />
+            </a>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {directory.isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-16 animate-pulse rounded-2xl bg-sand"
+                />
+              ))
+            ) : latestPendingOffices.length ? (
+              latestPendingOffices.map((office) => (
+                <a
+                  key={office.id}
+                  href={`/admin/offices/${office.id}`}
+                  className="flex items-center gap-3 rounded-2xl bg-background p-3 ring-1 ring-line transition hover:bg-sand"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-terracotta-soft text-terracotta">
+                    <Building2 className="size-4" />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold">
+                      {office.name}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                      {office.manager_name || office.phone || "طلب تسجيل مكتب"}
+                    </span>
+                  </span>
+
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-[9px] font-bold text-amber-700">
+                    <Clock3 className="size-3" />
+                    قيد المراجعة
+                  </span>
+                </a>
+              ))
+            ) : (
+              <div className="rounded-2xl bg-sand p-5 text-center text-xs text-muted-foreground">
+                لا توجد مكاتب معلقة حاليًا.
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <a href="/admin/individuals" className="rounded-2xl bg-surface p-4 ring-1 ring-line">
+          <div className="text-xs text-muted-foreground">إدارة الأفراد</div>
+          <div className="mt-1 font-bold">عرض الحسابات وتفاصيل النشاط</div>
+        </a>
+        <a href="/admin/offices" className="rounded-2xl bg-surface p-4 ring-1 ring-line">
+          <div className="text-xs text-muted-foreground">إدارة المكاتب</div>
+          <div className="mt-1 font-bold">مراجعة التوثيق والرفض والقبول</div>
+        </a>
+        <a href="/admin/notifications" className="rounded-2xl bg-surface p-4 ring-1 ring-line">
+          <div className="text-xs text-muted-foreground">الإشعارات</div>
+          <div className="mt-1 font-bold">إرسال ومتابعة إشعارات المستخدمين</div>
+        </a>
+        <a href="/admin?tab=reports" className="rounded-2xl bg-surface p-4 ring-1 ring-line">
+          <div className="text-xs text-muted-foreground">البلاغات</div>
+          <div className="mt-1 font-bold">مراجعة البلاغات المفتوحة</div>
+        </a>
+      </div>
     </section>
   );
 }
