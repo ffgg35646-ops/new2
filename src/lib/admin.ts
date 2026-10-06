@@ -180,6 +180,9 @@ export function useAdminDirectory() {
 }
 
 export type AdminDashboardStats = {
+  totalUsers: number;
+  individualUsers: number;
+  officeUsers: number;
   properties: number;
   publishedProperties: number;
   propertyRequests: number;
@@ -189,12 +192,24 @@ export type AdminDashboardStats = {
 
 export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
   const [
+    individualUsersRes,
+    officeUsersRes,
     propertiesRes,
     publishedPropertiesRes,
     propertyRequestsRes,
     bookingsRes,
     openReportsRes,
   ] = await Promise.all([
+    supabase
+      .from("user_roles")
+      .select("user_id", { count: "exact", head: true })
+      .eq("role", "individual"),
+
+    supabase
+      .from("user_roles")
+      .select("user_id", { count: "exact", head: true })
+      .eq("role", "office"),
+
     supabase
       .from("properties")
       .select("id", { count: "exact", head: true })
@@ -220,6 +235,8 @@ export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
       .eq("resolved", false),
   ]);
 
+  if (individualUsersRes.error) throw individualUsersRes.error;
+  if (officeUsersRes.error) throw officeUsersRes.error;
   if (propertiesRes.error) throw propertiesRes.error;
   if (publishedPropertiesRes.error)
     throw publishedPropertiesRes.error;
@@ -228,7 +245,13 @@ export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
   if (bookingsRes.error) throw bookingsRes.error;
   if (openReportsRes.error) throw openReportsRes.error;
 
+  const individualUsers = individualUsersRes.count ?? 0;
+  const officeUsers = officeUsersRes.count ?? 0;
+
   return {
+    totalUsers: individualUsers + officeUsers,
+    individualUsers,
+    officeUsers,
     properties: propertiesRes.count ?? 0,
     publishedProperties:
       publishedPropertiesRes.count ?? 0,
