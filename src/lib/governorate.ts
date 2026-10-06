@@ -24,8 +24,8 @@ export function useGovernorates() {
       if (error) throw error;
       return (data ?? []) as Governorate[];
     },
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 10 * 60_000,
+    refetchOnMount: false,
   });
 }
 
