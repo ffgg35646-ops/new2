@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useAuth, type AppRole } from "@/lib/auth";
@@ -18,10 +18,23 @@ type Props = {
 export function RoleGuard({ allow, guestsTo, children }: Props) {
   const navigate = useNavigate();
   const { roles, session, data, isLoading } = useAuth();
+  const [authWaitExpired, setAuthWaitExpired] = useState(false);
 
-  // وجود بيانات سابقة كافٍ لعرض الصفحة.
-  // isFetching قد يكون مجرد تحديث خلفي، ولا يجوز أن يخفي الواجهة.
-  const settled = !isLoading || !!data;
+  useEffect(() => {
+    if (!isLoading || data) {
+      setAuthWaitExpired(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setAuthWaitExpired(true);
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [isLoading, data]);
+
+  // لا نخلي الصفحة محبوسة على سبينر لو خدمة الجلسة علقت.
+  const settled = !isLoading || !!data || authWaitExpired;
   const isGuest = settled && !session;
   const allowed = allow.some((r) => roles.includes(r));
   const effectiveRoles: AppRole[] = roles.length ? roles : ["individual"];
