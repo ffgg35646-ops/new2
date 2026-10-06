@@ -368,36 +368,264 @@ function AdminStats() {
 
 
 function LegalAdminTab({ title }: { title: string }) {
+  const qc = useQueryClient();
+  const key =
+    title === "سياسة الخصوصية"
+      ? "privacy_policy"
+      : "terms_of_use";
+
+  const query = useQuery({
+    queryKey: ["admin-legal-text", key],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("app_content")
+        .select("key,content,updated_at")
+        .eq("key", key)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [editing, setEditing] = useState(false);
+  const [lines, setLines] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!query.data) {
+      setLines([]);
+      return;
+    }
+
+    setLines(String(query.data.content ?? "").split("\n"));
+  }, [query.data?.content]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const content = lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+
+      const { error } = await supabase
+        .from("app_content")
+        .upsert(
+          {
+            key,
+            content,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "key" },
+        );
+
+      if (error) throw error;
+    },
+
+    onSuccess: () => {
+      toast.success(`تم تعديل ${title}`);
+      setEditing(false);
+
+      void qc.invalidateQueries({
+        queryKey: ["admin-legal-text", key],
+      });
+      void qc.invalidateQueries({
+        queryKey: ["legal-policy"],
+      });
+      void qc.invalidateQueries({
+        queryKey: ["privacy-policy"],
+      });
+    },
+
+    onError: () => {
+      toast.error(`تعذّر تعديل ${title}`);
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("app_content")
+        .upsert(
+          {
+            key,
+            content: "",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "key" },
+        );
+
+      if (error) throw error;
+    },
+
+    onSuccess: () => {
+      setLines([]);
+      setEditing(false);
+      toast.success(`تم حذف نص ${title}`);
+
+      void qc.invalidateQueries({
+        queryKey: ["admin-legal-text", key],
+      });
+      void qc.invalidateQueries({
+        queryKey: ["legal-policy"],
+      });
+      void qc.invalidateQueries({
+        queryKey: ["privacy-policy"],
+      });
+    },
+
+    onError: () => {
+      toast.error(`تعذّر حذف نص ${title}`);
+    },
+  });
+
+  function startEditing() {
+    setLines(String(query.data?.content ?? "").split("\n"));
+    setEditing(true);
+  }
+
+  function cancelEditing() {
+    setLines(String(query.data?.content ?? "").split("\n"));
+    setEditing(false);
+  }
+
+  function updateLine(index: number, value: string) {
+    setLines((current) =>
+      current.map((line, i) => (i === index ? value : line)),
+    );
+  }
+
+  function addLine() {
+    setLines((current) => [...current, ""]);
+  }
+
+  function deleteLine(index: number) {
+    setLines((current) => current.filter((_, i) => i !== index));
+  }
+
+  if (query.isLoading) {
+    return (
+      <section className="space-y-4" dir="rtl">
+        <div>
+          <h1 className="font-display text-xl font-extrabold">{title}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            جاري تحميل النص...
+          </p>
+        </div>
+
+        <div className="rounded-3xl bg-surface p-5 text-center text-sm text-muted-foreground ring-1 ring-line">
+          جاري تحميل {title}...
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-4" dir="rtl">
       <div>
         <h1 className="font-display text-xl font-extrabold">{title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          إدارة المحتوى القانوني الظاهر للمستخدمين.
+          النص الحالي محفوظ في قاعدة البيانات ويظهر للمستخدمين.
         </p>
       </div>
 
-      <div className="rounded-3xl bg-surface p-4 ring-1 ring-line">
-        <textarea
-          rows={18}
-          defaultValue={
-            title === "سياسة الخصوصية"
-              ? "اكتب هنا سياسة الخصوصية الخاصة بمنصة عقار البطين..."
-              : "اكتب هنا شروط الاستخدام الخاصة بمنصة عقار البطين..."
-          }
-          className="w-full rounded-2xl bg-background p-4 text-sm leading-7 outline-none ring-1 ring-line focus:ring-2 focus:ring-forest"
-        />
+      {!editing ? (
+        <div className="rounded-3xl bg-surface p-4 ring-1 ring-line">
+          <div className="whitespace-pre-wrap text-sm leading-8 text-foreground">
+            {query.data?.content?.trim()
+              ? query.data.content
+              : "لا يوجد نص حاليًا."}
+          </div>
 
-        <button
-          type="button"
-          className="mt-3 w-full rounded-2xl bg-forest py-3.5 font-display font-bold text-background"
-        >
-          حفظ
-        </button>
-      </div>
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={startEditing}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background"
+            >
+              <Pencil className="size-4" />
+              تعديل النص
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `هل أنت متأكد من حذف نص ${title} بالكامل؟`,
+                  )
+                ) {
+                  remove.mutate();
+                }
+              }}
+              disabled={remove.isPending}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-red-500/10 py-3.5 font-display font-bold text-red-700 disabled:opacity-50"
+            >
+              <Trash2 className="size-4" />
+              {remove.isPending ? "جاري الحذف..." : "حذف النص"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-3xl bg-surface p-4 ring-1 ring-line">
+          <div className="space-y-2">
+            {lines.map((line, index) => (
+              <div
+                key={`${key}-line-${index}`}
+                className="flex items-start gap-2"
+              >
+                <textarea
+                  value={line}
+                  onChange={(e) => updateLine(index, e.target.value)}
+                  rows={Math.max(1, Math.ceil(line.length / 85))}
+                  dir="rtl"
+                  className="min-h-11 flex-1 resize-y rounded-xl bg-background px-3 py-2.5 text-sm leading-7 outline-none ring-1 ring-line focus:ring-2 focus:ring-forest"
+                  placeholder={index === lines.length - 1 ? "اكتب النص هنا..." : ""}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => deleteLine(index)}
+                  className="mt-1 rounded-xl bg-red-500/10 p-2.5 text-red-700"
+                  aria-label={`حذف السطر ${index + 1}`}
+                  title="حذف السطر"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={addLine}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-background py-3 text-sm font-bold ring-1 ring-line"
+          >
+            <Plus className="size-4" />
+            إضافة سطر
+          </button>
+
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => save.mutate()}
+              disabled={save.isPending}
+              className="rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-50"
+            >
+              {save.isPending ? "جاري الحفظ..." : "حفظ التعديل"}
+            </button>
+
+            <button
+              type="button"
+              onClick={cancelEditing}
+              disabled={save.isPending}
+              className="rounded-2xl bg-background py-3.5 font-display font-bold ring-1 ring-line disabled:opacity-50"
+            >
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
+
 
 function PlansTab() {
   const qc = useQueryClient();
