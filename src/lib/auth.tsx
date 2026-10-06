@@ -102,8 +102,12 @@ async function loadSession(): Promise<SessionInfo> {
 
   // لو استعلام الأدوار تأخر لكن وُجد مكتب، نعرف أن الحساب حساب مكتب
   // بدل إبقاء الصفحة عالقة في شاشة التحميل.
-  if (roles.length === 0 && office?.id) {
-    roles.push("office");
+  if (roles.length === 0) {
+    if (office?.id) {
+      roles.push("office");
+    } else if (profileRes?.data) {
+      roles.push("individual");
+    }
   }
 
   return {
