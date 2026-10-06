@@ -19,13 +19,61 @@ export const Route = createFileRoute("/auth/verify-email")({
 });
 
 const PENDING_EMAIL_KEY = "ufuq.pending-email";
-const MAX_RESENDS = 5;
+const RESEND_STATE_KEY = "ufuq.email-resend-state";
+const MAX_RESENDS = 15;
+const PAUSE_MS = 5 * 60 * 1000;
 
 type PendingEmail = {
   email: string;
   role: "individual" | "office";
   sentAt: number;
 };
+
+type ResendState = {
+  email: string;
+  count: number;
+  pausedUntil: number;
+};
+
+function getResendState(email: string): ResendState {
+  const raw = localStorage.getItem(RESEND_STATE_KEY);
+  if (!raw) return { email, count: 0, pausedUntil: 0 };
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<ResendState>;
+    if (parsed.email !== email) return { email, count: 0, pausedUntil: 0 };
+
+    const count =
+      typeof parsed.count === "number" && parsed.count >= 0
+        ? Math.min(parsed.count, MAX_RESENDS)
+        : 0;
+
+    const pausedUntil =
+      typeof parsed.pausedUntil === "number" && parsed.pausedUntil > 0
+        ? parsed.pausedUntil
+        : 0;
+
+    if (pausedUntil > 0 && pausedUntil <= Date.now()) {
+      return { email, count: 0, pausedUntil: 0 };
+    }
+
+    return { email, count, pausedUntil };
+  } catch {
+    return { email, count: 0, pausedUntil: 0 };
+  }
+}
+
+function saveResendState(state: ResendState) {
+  localStorage.setItem(RESEND_STATE_KEY, JSON.stringify(state));
+}
+
+function formatRemaining(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return minutes > 0
+    ? minutes + " دقيقة و " + rest + " ثانية"
+    : rest + " ثانية";
+}
 
 function VerifyEmailPage() {
   const navigate = useNavigate();
@@ -34,16 +82,14 @@ function VerifyEmailPage() {
     useState<PendingEmail | null>(null);
 
   const [busy, setBusy] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
   const [resends, setResends] = useState(0);
+  const [pausedUntil, setPausedUntil] = useState(0);
+  const [now, setNow] = useState(Date.now());
 
-  const timer = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const raw =
-      localStorage.getItem(PENDING_EMAIL_KEY);
+    const raw = localStorage.getItem(PENDING_EMAIL_KEY);
 
     if (!raw) {
       navigate({ to: "/auth/individual" });
@@ -52,14 +98,12 @@ function VerifyEmailPage() {
 
     try {
       const parsed = JSON.parse(raw) as PendingEmail;
+      const state = getResendState(parsed.email);
 
       setPending(parsed);
-
-      const elapsed = Math.floor(
-        (Date.now() - parsed.sentAt) / 1000,
-      );
-
-      setCooldown(Math.max(0, 60 - elapsed));
+      setResends(state.count);
+      setPausedUntil(state.pausedUntil);
+      saveResendState(state);
     } catch {
       navigate({ to: "/auth/individual" });
     }
@@ -67,22 +111,55 @@ function VerifyEmailPage() {
 
   useEffect(() => {
     timer.current = setInterval(() => {
-      setCooldown((c) => (c <= 1 ? 0 : c - 1));
+      const current = Date.now();
+      setNow(current);
+
+      if (pausedUntil > 0 && current >= pausedUntil && pending) {
+        const reset = {
+          email: pending.email,
+          count: 0,
+          pausedUntil: 0,
+        };
+
+        saveResendState(reset);
+        setResends(0);
+        setPausedUntil(0);
+      }
     }, 1000);
 
     return () => {
-      if (timer.current) {
-        clearInterval(timer.current);
-      }
+      if (timer.current) clearInterval(timer.current);
     };
-  }, []);
+  }, [pausedUntil, pending]);
 
   async function resend() {
-    if (
-      !pending ||
-      cooldown > 0 ||
-      resends >= MAX_RESENDS
-    ) {
+    if (!pending) return;
+
+    const current = Date.now();
+
+    if (pausedUntil > current) return;
+
+    if (pausedUntil > 0) {
+      const reset = {
+        email: pending.email,
+        count: 0,
+        pausedUntil: 0,
+      };
+
+      saveResendState(reset);
+      setResends(0);
+      setPausedUntil(0);
+    }
+
+    if (resends >= MAX_RESENDS) {
+      const pause = {
+        email: pending.email,
+        count: MAX_RESENDS,
+        pausedUntil: current + PAUSE_MS,
+      };
+
+      saveResendState(pause);
+      setPausedUntil(pause.pausedUntil);
       return;
     }
 
@@ -93,44 +170,63 @@ function VerifyEmailPage() {
         type: "signup",
         email: pending.email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          emailRedirectTo: window.location.origin + "/auth/confirm",
         },
       });
 
       if (error) throw error;
 
-      const next = {
+      const nextCount = resends + 1;
+      const next =
+        nextCount >= MAX_RESENDS
+          ? {
+              email: pending.email,
+              count: MAX_RESENDS,
+              pausedUntil: Date.now() + PAUSE_MS,
+            }
+          : {
+              email: pending.email,
+              count: nextCount,
+              pausedUntil: 0,
+            };
+
+      const updatedPending = {
         ...pending,
         sentAt: Date.now(),
       };
 
+      saveResendState(next);
       localStorage.setItem(
         PENDING_EMAIL_KEY,
-        JSON.stringify(next),
+        JSON.stringify(updatedPending),
       );
 
-      setPending(next);
-      setResends((r) => r + 1);
-      setCooldown(60);
+      setPending(updatedPending);
+      setResends(next.count);
+      setPausedUntil(next.pausedUntil);
 
       toast.success(
-        "أعدنا إرسال رسالة تفعيل الحساب.",
+        next.pausedUntil > 0
+          ? "تم إرسال الرسالة. تم إيقاف إعادة الإرسال مؤقتًا لمدة 5 دقائق."
+          : "أعدنا إرسال رسالة تفعيل الحساب.",
       );
     } catch (e) {
-      toast.error(
+      const message =
         e instanceof Error
           ? e.message
-          : "تعذر إعادة إرسال رسالة التفعيل.",
-      );
+          : "تعذر إعادة إرسال رسالة التفعيل.";
+
+      if (/rate limit|too many|429/i.test(message)) {
+        toast.error(
+          "خدمة البريد نفسها تمنع الإرسال مؤقتًا. هذا الحد من Supabase وليس من زر إعادة الإرسال.",
+        );
+      } else {
+        toast.error(message);
+      }
     } finally {
       setBusy(false);
     }
   }
-
-  const loginRoute =
-    pending?.role === "office"
-      ? "/auth/office"
-      : "/auth/individual";
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-8">
@@ -175,21 +271,17 @@ function VerifyEmailPage() {
       <div className="mt-6 space-y-3">
         <button
           onClick={() => void resend()}
-          disabled={
-            busy ||
-            cooldown > 0 ||
-            resends >= MAX_RESENDS
-          }
+          disabled={busy || pausedUntil > now || resends >= MAX_RESENDS}
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
         >
           {busy && (
             <Loader2 className="size-4 animate-spin" />
           )}
 
-          {resends >= MAX_RESENDS
-            ? "تجاوزت الحد المسموح لإعادة الإرسال"
-            : cooldown > 0
-              ? `إعادة الإرسال بعد ${cooldown} ثانية`
+          {pausedUntil > now
+            ? "تم إيقاف الإرسال مؤقتًا — " + formatRemaining(Math.ceil((pausedUntil - now) / 1000))
+            : resends >= MAX_RESENDS
+              ? "سيُستأنف الإرسال بعد 5 دقائق"
               : "إعادة إرسال رسالة التفعيل"}
         </button>
 
