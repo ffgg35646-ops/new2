@@ -183,7 +183,7 @@ export function AuthForm({
       const { data } = await supabase.auth.getUser();
       if (data.user) await applyPendingSignup(data.user.id);
     }
-    await qc.invalidateQueries();
+    await qc.invalidateQueries({ queryKey: ["session"] });
     toast.success(register ? "تم إنشاء الحساب" : "تم تسجيل الدخول");
     navigate({ to: destination });
   }
