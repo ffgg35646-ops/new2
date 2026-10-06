@@ -62,7 +62,7 @@ function getResendState(email: string): ResendState {
   if (!raw) return empty;
 
   try {
-    const parsed = JSON.parse(raw) as
+    let parsed = JSON.parse(raw) as
       | StoredResendStates
       | Partial<ResendState>;
 
