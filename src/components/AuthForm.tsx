@@ -211,10 +211,10 @@ export function AuthForm({
           },
         });
         if (error) throw error;
-        recordEmailSendSuccess(signupEmail);
         if (data.user && data.user.identities && data.user.identities.length === 0) {
           throw new Error("البريد الإلكتروني مسجل مسبقًا");
         }
+        recordEmailSendSuccess(signupEmail);
         localStorage.setItem(PENDING_KEY, JSON.stringify(signupPayload()));
         localStorage.setItem(
           PENDING_EMAIL_KEY,
