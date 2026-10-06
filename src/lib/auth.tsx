@@ -23,9 +23,39 @@ export type SessionInfo = {
   officeRejectionReason: string | null;
 };
 
+const AUTH_QUERY_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(
+  promise: PromiseLike<T>,
+  fallback: T,
+  timeoutMs = AUTH_QUERY_TIMEOUT_MS,
+): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const finish = (value: T) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+
+    const timer = setTimeout(() => finish(fallback), timeoutMs);
+
+    Promise.resolve(promise).then(finish, () => finish(fallback));
+  });
+}
+
 async function loadSession(): Promise<SessionInfo> {
-  const { data } = await supabase.auth.getSession();
-  const session = data.session ?? null;
+  const sessionResult = await withTimeout(
+    supabase.auth.getSession(),
+    {
+      data: { session: null },
+      error: null,
+    },
+  );
+
+  const session = sessionResult.data.session ?? null;
 
   if (!session) {
     return {
@@ -40,38 +70,56 @@ async function loadSession(): Promise<SessionInfo> {
   }
 
   const [rolesRes, profileRes, officeRes] = await Promise.all([
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id),
+    withTimeout(
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id),
+      null,
+    ),
 
-    supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", session.user.id)
-      .maybeSingle(),
+    withTimeout(
+      supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .maybeSingle(),
+      null,
+    ),
 
-    supabase
-      .from("offices")
-      .select("id,verification_status,rejection_reason")
-      .eq("owner_id", session.user.id)
-      .maybeSingle(),
+    withTimeout(
+      supabase
+        .from("offices")
+        .select("id,verification_status,rejection_reason")
+        .eq("owner_id", session.user.id)
+        .maybeSingle(),
+      null,
+    ),
   ]);
+
+  const roles = (rolesRes?.data ?? []).map((r) => r.role as AppRole);
+  const office = officeRes?.data ?? null;
+
+  // لو استعلام الأدوار تأخر لكن وُجد مكتب، نعرف أن الحساب حساب مكتب
+  // بدل إبقاء الصفحة عالقة في شاشة التحميل.
+  if (roles.length === 0 && office?.id) {
+    roles.push("office");
+  }
 
   return {
     session,
     userId: session.user.id,
-    roles: (rolesRes.data ?? []).map((r) => r.role as AppRole),
+    roles,
     profile:
-      (profileRes.data as SessionInfo["profile"]) ?? null,
-    officeId: officeRes.data?.id ?? null,
+      (profileRes?.data as SessionInfo["profile"]) ?? null,
+    officeId: office?.id ?? null,
     officeVerificationStatus:
-      (officeRes.data?.verification_status as
+      (office?.verification_status as
         | "pending"
         | "verified"
         | "rejected"
         | null) ?? null,
-    officeRejectionReason: officeRes.data?.rejection_reason ?? null,
+    officeRejectionReason: office?.rejection_reason ?? null,
   };
 }
 
