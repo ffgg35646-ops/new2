@@ -602,7 +602,7 @@ function Primary({
   return (
     <button
       onClick={() => void onClick()}
-      disabled={busy}
+      disabled={busy || disabled}
       className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
     >
       {busy && <Loader2 className="size-4 animate-spin" />}
