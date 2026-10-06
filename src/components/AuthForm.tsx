@@ -9,6 +9,70 @@ import { LegalPolicyModal } from "@/components/LegalPolicyModal";
 
 const PENDING_KEY = "ufuq.pending-signup";
 const PENDING_EMAIL_KEY = "ufuq.pending-email";
+const EMAIL_SEND_STATE_KEY = "ufuq.email-send-state";
+const MAX_EMAIL_SENDS = 15;
+const EMAIL_SEND_PAUSE_MS = 5 * 60 * 1000;
+
+type EmailSendState = { count: number; pausedUntil: number };
+type EmailSendStateMap = Record<string, EmailSendState>;
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function readEmailSendStates(): EmailSendStateMap {
+  try {
+    const raw = localStorage.getItem(EMAIL_SEND_STATE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as EmailSendStateMap)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function ensureEmailSendAllowed(email: string) {
+  const key = normalizeEmail(email);
+  const states = readEmailSendStates();
+  const state = states[key] ?? { count: 0, pausedUntil: 0 };
+  const now = Date.now();
+
+  if (state.pausedUntil > 0 && state.pausedUntil <= now) {
+    states[key] = { count: 0, pausedUntil: 0 };
+    localStorage.setItem(EMAIL_SEND_STATE_KEY, JSON.stringify(states));
+    return;
+  }
+
+  if (state.pausedUntil > now || state.count >= MAX_EMAIL_SENDS) {
+    if (state.count >= MAX_EMAIL_SENDS && state.pausedUntil <= now) {
+      states[key] = {
+        count: MAX_EMAIL_SENDS,
+        pausedUntil: now + EMAIL_SEND_PAUSE_MS,
+      };
+      localStorage.setItem(EMAIL_SEND_STATE_KEY, JSON.stringify(states));
+    }
+    throw new Error("EMAIL_SEND_PAUSED");
+  }
+}
+
+function recordEmailSendSuccess(email: string) {
+  const key = normalizeEmail(email);
+  const states = readEmailSendStates();
+  const previous = states[key] ?? { count: 0, pausedUntil: 0 };
+  const nextCount = previous.count + 1;
+
+  states[key] = {
+    count: Math.min(nextCount, MAX_EMAIL_SENDS),
+    pausedUntil:
+      nextCount >= MAX_EMAIL_SENDS
+        ? Date.now() + EMAIL_SEND_PAUSE_MS
+        : 0,
+  };
+
+  localStorage.setItem(EMAIL_SEND_STATE_KEY, JSON.stringify(states));
+}
 
 function authErrorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e ?? "");
@@ -25,6 +89,8 @@ function authErrorMessage(e: unknown): string {
   if (m.includes("invalid login credentials")) return "البريد أو كلمة المرور غير صحيحة.";
   if (m.includes("email not confirmed"))
     return "لم يتم تأكيد البريد بعد. افتح رسالة التحقق في بريدك أولًا.";
+  if (m.includes("email_send_paused"))
+    return "هذا الإيميل استنفد 15 محاولة إرسال. سيتم إيقاف الإرسال لمدة 5 دقائق ثم يبدأ العداد من جديد.";
   if (m.includes("rate limit") || m.includes("too many") || m.includes("email rate limit"))
     return "خدمة إرسال البريد وصلت إلى حد الإرسال مؤقتًا. المشكلة من مزود البريد في Supabase وليست من الإيميل الذي أدخلته.";
   if (m.includes("unable to validate email") || m.includes("invalid email"))
@@ -133,8 +199,11 @@ export function AuthForm({
       if (isRegister) {
         if (password.length < 8) throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف.");
         validateRegisterFields();
+        const signupEmail = normalizeEmail(email);
+        ensureEmailSendAllowed(signupEmail);
+
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: signupEmail,
           password,
           options: {
             data: { full_name: fullName.trim() },
@@ -142,13 +211,14 @@ export function AuthForm({
           },
         });
         if (error) throw error;
+        recordEmailSendSuccess(signupEmail);
         if (data.user && data.user.identities && data.user.identities.length === 0) {
           throw new Error("البريد الإلكتروني مسجل مسبقًا");
         }
         localStorage.setItem(PENDING_KEY, JSON.stringify(signupPayload()));
         localStorage.setItem(
           PENDING_EMAIL_KEY,
-          JSON.stringify({ email: email.trim(), role, sentAt: Date.now() }),
+          JSON.stringify({ email: signupEmail, role, sentAt: Date.now() }),
         );
         if (data.session) await supabase.auth.signOut();
         toast.success("أرسلنا رسالة التحقق إلى بريدك الإلكتروني");
