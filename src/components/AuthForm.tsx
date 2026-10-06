@@ -260,6 +260,43 @@ export function AuthForm({
             type="password"
             dir="ltr"
           />
+          {isRegister && (
+          <div className="mt-3">
+            <div className="flex items-start gap-2 text-xs leading-6 text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={privacyAccepted && termsAccepted}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setPrivacyAccepted(checked);
+                  setTermsAccepted(checked);
+                }}
+                className="mt-1 size-4 shrink-0 accent-forest"
+              />
+
+              <span>
+                أوافق على{" "}
+                <button
+                  type="button"
+                  onClick={() => setTermsOpen(true)}
+                  className="font-bold text-forest underline underline-offset-4"
+                >
+                  شروط الاستخدام
+                </button>
+                {" "}
+                و
+                {" "}
+                <button
+                  type="button"
+                  onClick={() => setPrivacyOpen(true)}
+                  className="font-bold text-forest underline underline-offset-4"
+                >
+                  سياسة الخصوصية
+                </button>
+              </span>
+            </div>
+          </div>
+          )}
           <Primary
             busy={busy}
             disabled={isRegister && (!privacyAccepted || !termsAccepted)}
@@ -298,44 +335,6 @@ export function AuthForm({
       >
         {isRegister ? "لدي حساب بالفعل" : "ليس لدي حساب — تسجيل جديد"}
       </button>
-
-      {isRegister && (
-        <div className="mt-auto pt-6">
-          <div className="flex items-start gap-2 text-xs leading-6 text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={privacyAccepted && termsAccepted}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setPrivacyAccepted(checked);
-                setTermsAccepted(checked);
-              }}
-              className="mt-1 size-4 shrink-0 accent-forest"
-            />
-
-            <span>
-              أوافق على{" "}
-              <button
-                type="button"
-                onClick={() => setTermsOpen(true)}
-                className="font-bold text-forest underline underline-offset-4"
-              >
-                شروط الاستخدام
-              </button>
-              {" "}
-              و
-              {" "}
-              <button
-                type="button"
-                onClick={() => setPrivacyOpen(true)}
-                className="font-bold text-forest underline underline-offset-4"
-              >
-                سياسة الخصوصية
-              </button>
-            </span>
-          </div>
-        </div>
-      )}
 
       <LegalPolicyModal
         open={privacyOpen}
