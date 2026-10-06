@@ -35,36 +35,127 @@ type ResendState = {
   pausedUntil: number;
 };
 
+type StoredResendStates = Record<
+  string,
+  {
+    count: number;
+    pausedUntil: number;
+  }
+>;
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
 function getResendState(email: string): ResendState {
+  const normalizedEmail = normalizeEmail(email);
+  const empty = {
+    email: normalizedEmail,
+    count: 0,
+    pausedUntil: 0,
+  };
+
   const raw = localStorage.getItem(RESEND_STATE_KEY);
-  if (!raw) return { email, count: 0, pausedUntil: 0 };
+  if (!raw) return empty;
 
   try {
-    const parsed = JSON.parse(raw) as Partial<ResendState>;
-    if (parsed.email !== email) return { email, count: 0, pausedUntil: 0 };
+    const parsed = JSON.parse(raw) as
+      | StoredResendStates
+      | Partial<ResendState>;
+
+    // Migrate the old single-email format without losing its counter.
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "email" in parsed &&
+      typeof parsed.email === "string"
+    ) {
+      const old = parsed as Partial<ResendState>;
+      const oldEmail = normalizeEmail(old.email);
+      const migrated: StoredResendStates = {
+        [oldEmail]: {
+          count:
+            typeof old.count === "number" && old.count >= 0
+              ? Math.min(old.count, MAX_RESENDS)
+              : 0,
+          pausedUntil:
+            typeof old.pausedUntil === "number" && old.pausedUntil > 0
+              ? old.pausedUntil
+              : 0,
+        },
+      };
+      localStorage.setItem(
+        RESEND_STATE_KEY,
+        JSON.stringify(migrated),
+      );
+      parsed = migrated;
+    }
+
+    const states = parsed as StoredResendStates;
+    const state = states[normalizedEmail];
+    if (!state) return empty;
 
     const count =
-      typeof parsed.count === "number" && parsed.count >= 0
-        ? Math.min(parsed.count, MAX_RESENDS)
+      typeof state.count === "number" && state.count >= 0
+        ? Math.min(state.count, MAX_RESENDS)
         : 0;
 
     const pausedUntil =
-      typeof parsed.pausedUntil === "number" && parsed.pausedUntil > 0
-        ? parsed.pausedUntil
+      typeof state.pausedUntil === "number" && state.pausedUntil > 0
+        ? state.pausedUntil
         : 0;
 
     if (pausedUntil > 0 && pausedUntil <= Date.now()) {
-      return { email, count: 0, pausedUntil: 0 };
+      const reset = {
+        ...states,
+        [normalizedEmail]: { count: 0, pausedUntil: 0 },
+      };
+      localStorage.setItem(
+        RESEND_STATE_KEY,
+        JSON.stringify(reset),
+      );
+      return empty;
     }
 
-    return { email, count, pausedUntil };
+    return {
+      email: normalizedEmail,
+      count,
+      pausedUntil,
+    };
   } catch {
-    return { email, count: 0, pausedUntil: 0 };
+    return empty;
   }
 }
 
 function saveResendState(state: ResendState) {
-  localStorage.setItem(RESEND_STATE_KEY, JSON.stringify(state));
+  const normalizedEmail = normalizeEmail(state.email);
+  const raw = localStorage.getItem(RESEND_STATE_KEY);
+
+  let states: StoredResendStates = {};
+
+  try {
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      !("email" in parsed)
+    ) {
+      states = parsed as StoredResendStates;
+    }
+  } catch {
+    states = {};
+  }
+
+  states[normalizedEmail] = {
+    count: Math.min(Math.max(state.count, 0), MAX_RESENDS),
+    pausedUntil:
+      state.pausedUntil > 0 ? state.pausedUntil : 0,
+  };
+
+  localStorage.setItem(
+    RESEND_STATE_KEY,
+    JSON.stringify(states),
+  );
 }
 
 function formatRemaining(seconds: number) {
