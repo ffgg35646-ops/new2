@@ -427,7 +427,7 @@ export function AuthForm({
                     />
                     <button
                       onClick={() => void loginWithPhonePassword()}
-                      disabled={busy || disabled}
+                      disabled={busy}
                       className="w-full rounded-2xl bg-surface py-3.5 text-sm font-bold ring-1 ring-line"
                     >
                       دخول بكلمة المرور
