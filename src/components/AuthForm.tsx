@@ -92,7 +92,7 @@ function authErrorMessage(e: unknown): string {
   if (m.includes("email_send_paused"))
     return "هذا الإيميل استنفد 15 محاولة إرسال. سيتم إيقاف الإرسال لمدة 5 دقائق ثم يبدأ العداد من جديد.";
   if (m.includes("rate limit") || m.includes("too many") || m.includes("email rate limit"))
-    return "خدمة إرسال البريد وصلت إلى حد الإرسال مؤقتًا. المشكلة من مزود البريد في Supabase وليست من الإيميل الذي أدخلته.";
+    return "تعذر إرسال رسالة التفعيل الآن. حاول مرة أخرى بعد قليل.";
   if (m.includes("unable to validate email") || m.includes("invalid email"))
     return "صيغة البريد الإلكتروني غير صحيحة.";
   return raw || "حدث خطأ غير متوقع، حاول مجددًا.";
