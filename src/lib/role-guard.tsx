@@ -38,7 +38,7 @@ export function RoleGuard({ allow, guestsTo, children }: Props) {
   const isGuest = settled && !session;
   const allowed = allow.some((r) => roles.includes(r));
   const effectiveRoles: AppRole[] = roles.length ? roles : ["individual"];
-  const blocked = settled && !!session && !allowed;
+  const blocked = settled && !!session && roles.length > 0 && !allowed;
 
   useEffect(() => {
     if (isGuest && guestsTo) {
