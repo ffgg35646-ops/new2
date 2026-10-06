@@ -3,7 +3,7 @@ import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[.
 import { n as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { n as useAuth } from "./auth-DfdXUDDw.mjs";
 import { b as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import { V as Heart } from "../_libs/lucide-react.mjs";
+import { U as Heart } from "../_libs/lucide-react.mjs";
 import { t as RoleGuard } from "./role-guard-BlGqbnI9.mjs";
 import { t as AppHeader } from "./AppHeader-1-nIT4X8.mjs";
 import { t as BottomNav } from "./BottomNav-DyvwyVUV.mjs";

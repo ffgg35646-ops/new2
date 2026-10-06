@@ -3,7 +3,7 @@ import { t as supabase } from "./client-BDpUJ4Jl.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { n as useQuery, t as useMutation } from "../_libs/tanstack__react-query.mjs";
-import { A as Mail, ct as Check, dt as Building2, h as Search, m as Send, n as Users } from "../_libs/lucide-react.mjs";
+import { M as Mail, _t as Building2, h as Search, m as Send, n as Users, pt as Check } from "../_libs/lucide-react.mjs";
 import { t as RoleGuard } from "./role-guard-BlGqbnI9.mjs";
 import { t as cn } from "./utils-C_uf36nf.mjs";
 import { t as AppHeader } from "./AppHeader-1-nIT4X8.mjs";

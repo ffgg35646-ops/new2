@@ -23,6 +23,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as AdminIndividualsRouteImport } from './routes/admin.individuals'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminOfficesRouteImport } from './routes/admin.offices'
+import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminLoginRouteImport } from './routes/admin_.login'
 import { Route as AuthAdminRouteImport } from './routes/auth.admin'
 import { Route as AuthConfirmRouteImport } from './routes/auth.confirm'
@@ -118,6 +119,11 @@ const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
 const AdminOfficesRoute = AdminOfficesRouteImport.update({
   id: '/offices',
   path: '/offices',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
@@ -267,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/admin/individuals': typeof AdminIndividualsRouteWithChildren
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/offices': typeof AdminOfficesRouteWithChildren
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/confirm': typeof AuthConfirmRoute
@@ -309,6 +316,7 @@ export interface FileRoutesByTo {
   '/admin/individuals': typeof AdminIndividualsRouteWithChildren
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/offices': typeof AdminOfficesRouteWithChildren
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/confirm': typeof AuthConfirmRoute
@@ -352,6 +360,7 @@ export interface FileRoutesById {
   '/admin/individuals': typeof AdminIndividualsRouteWithChildren
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/offices': typeof AdminOfficesRouteWithChildren
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin_/login': typeof AdminLoginRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/confirm': typeof AuthConfirmRoute
@@ -396,6 +405,7 @@ export interface FileRouteTypes {
     | '/admin/individuals'
     | '/admin/notifications'
     | '/admin/offices'
+    | '/admin/payments'
     | '/admin/login'
     | '/auth/admin'
     | '/auth/confirm'
@@ -438,6 +448,7 @@ export interface FileRouteTypes {
     | '/admin/individuals'
     | '/admin/notifications'
     | '/admin/offices'
+    | '/admin/payments'
     | '/admin/login'
     | '/auth/admin'
     | '/auth/confirm'
@@ -480,6 +491,7 @@ export interface FileRouteTypes {
     | '/admin/individuals'
     | '/admin/notifications'
     | '/admin/offices'
+    | '/admin/payments'
     | '/admin_/login'
     | '/auth/admin'
     | '/auth/confirm'
@@ -644,6 +656,13 @@ declare module '@tanstack/react-router' {
       path: '/offices'
       fullPath: '/admin/offices'
       preLoaderRoute: typeof AdminOfficesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin_/login': {
@@ -858,12 +877,14 @@ interface AdminRouteChildren {
   AdminIndividualsRoute: typeof AdminIndividualsRouteWithChildren
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminOfficesRoute: typeof AdminOfficesRouteWithChildren
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminIndividualsRoute: AdminIndividualsRouteWithChildren,
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminOfficesRoute: AdminOfficesRouteWithChildren,
+  AdminPaymentsRoute: AdminPaymentsRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)

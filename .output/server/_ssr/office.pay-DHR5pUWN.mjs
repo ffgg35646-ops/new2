@@ -3,7 +3,7 @@ import { t as supabase } from "./client-BDpUJ4Jl.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { n as useQuery } from "../_libs/tanstack__react-query.mjs";
-import { F as LoaderCircle, f as ShieldCheck } from "../_libs/lucide-react.mjs";
+import { L as LoaderCircle, f as ShieldCheck } from "../_libs/lucide-react.mjs";
 import { t as RoleGuard } from "./role-guard-BlGqbnI9.mjs";
 import { t as AppHeader } from "./AppHeader-1-nIT4X8.mjs";
 import { a as usePackages } from "./plans-CricE-8e.mjs";

@@ -2,7 +2,7 @@ import "../_runtime.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { b as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import { J as Crown, t as X } from "../_libs/lucide-react.mjs";
+import { Q as Crown, t as X } from "../_libs/lucide-react.mjs";
 require_react();
 var import_jsx_runtime = require_jsx_runtime();
 var PRO_LOCK_MESSAGE = "هذه الميزة متاحة ضمن باقة تتضمنها. اختر الباقة المناسبة للاستفادة منها.";

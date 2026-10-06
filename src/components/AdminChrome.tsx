@@ -12,18 +12,20 @@ import {
   X,
   ShieldCheck,
   FileText,
+  CreditCard,
 } from "lucide-react";
 import { useLocation } from "@tanstack/react-router";
 
 const items = [
   { label: "الرئيسية", href: "/admin", icon: LayoutDashboard },
-  { label: "المكاتب", href: "/admin?tab=offices", icon: Building2 },
+  { label: "المكاتب", href: "/admin/offices", icon: Building2 },
   { label: "الأفراد", href: "/admin/individuals", icon: Users },
   { label: "الباقات", href: "/admin?tab=plans", icon: Package },
   { label: "المحافظات والأحياء", href: "/admin?tab=geo", icon: MapPin },
   { label: "البلاغات", href: "/admin?tab=reports", icon: Flag },
   { label: "الدعم", href: "/admin?tab=support", icon: Headphones },
   { label: "إدارة الإشعارات", href: "/admin/notifications", icon: Bell },
+  { label: "المدفوعات", href: "/admin/payments", icon: CreditCard },
   { label: "سياسة الخصوصية", href: "/admin?tab=privacy", icon: ShieldCheck },
   { label: "شروط الاستخدام", href: "/admin?tab=terms", icon: FileText },
 ] as const;

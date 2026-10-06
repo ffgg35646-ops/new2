@@ -2,7 +2,7 @@ import { i as __toESM } from "../_runtime.mjs";
 import { t as supabase } from "./client-BDpUJ4Jl.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
-import { F as LoaderCircle, t as X, z as ImagePlus } from "../_libs/lucide-react.mjs";
+import { L as LoaderCircle, V as ImagePlus, t as X } from "../_libs/lucide-react.mjs";
 import { n as toast } from "../_libs/sonner.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/MediaUploader-_s7o_iau.js
 var import_react = /* @__PURE__ */ __toESM(require_react());

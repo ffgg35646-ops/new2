@@ -1,7 +1,7 @@
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { n as useAuth } from "./auth-DfdXUDDw.mjs";
 import { b as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import { $ as ClipboardList, B as House, E as MessageSquare, I as LayoutGrid, dt as Building2, l as Sparkles, nt as CirclePlus, r as User } from "../_libs/lucide-react.mjs";
+import { D as MessageSquare, H as House, R as LayoutGrid, _t as Building2, it as ClipboardList, l as Sparkles, r as User, st as CirclePlus } from "../_libs/lucide-react.mjs";
 import { n as useMyOffice, r as useNewInquiriesCount } from "./office-C4hHv7Zt.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/BottomNav-DyvwyVUV.js
 var import_jsx_runtime = require_jsx_runtime();

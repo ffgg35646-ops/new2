@@ -5,7 +5,7 @@ import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[.
 import { i as useQueryClient, n as useQuery, t as useMutation } from "../_libs/tanstack__react-query.mjs";
 import { n as useAuth } from "./auth-DfdXUDDw.mjs";
 import { C as useRouter } from "../_libs/@tanstack/react-router+[...].mjs";
-import { ft as Bell } from "../_libs/lucide-react.mjs";
+import { vt as Bell } from "../_libs/lucide-react.mjs";
 import { t as cn } from "./utils-C_uf36nf.mjs";
 import { t as AppHeader } from "./AppHeader-1-nIT4X8.mjs";
 import { t as BottomNav } from "./BottomNav-DyvwyVUV.mjs";

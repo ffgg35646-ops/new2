@@ -3,7 +3,7 @@ import { t as supabase } from "./client-BDpUJ4Jl.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { b as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import { F as LoaderCircle, R as KeyRound, vt as ArrowRight } from "../_libs/lucide-react.mjs";
+import { B as KeyRound, L as LoaderCircle, wt as ArrowRight } from "../_libs/lucide-react.mjs";
 import { n as toast } from "../_libs/sonner.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/auth.forgot-password-B7gOTLiW.js
 var import_react = /* @__PURE__ */ __toESM(require_react());

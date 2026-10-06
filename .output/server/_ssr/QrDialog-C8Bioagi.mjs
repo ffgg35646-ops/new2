@@ -1,7 +1,7 @@
 import { i as __toESM } from "../_runtime.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
-import { q as Download, t as X } from "../_libs/lucide-react.mjs";
+import { Z as Download, t as X } from "../_libs/lucide-react.mjs";
 import { n as toast } from "../_libs/sonner.mjs";
 import { t as require_lib } from "../_libs/qrcode.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/QrDialog-C8Bioagi.js

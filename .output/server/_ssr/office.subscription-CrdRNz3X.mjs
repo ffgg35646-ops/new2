@@ -1,6 +1,6 @@
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { b as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import { F as LoaderCircle, J as Crown, dt as Building2 } from "../_libs/lucide-react.mjs";
+import { L as LoaderCircle, Q as Crown, _t as Building2 } from "../_libs/lucide-react.mjs";
 import { t as RoleGuard } from "./role-guard-BlGqbnI9.mjs";
 import { t as AppHeader } from "./AppHeader-1-nIT4X8.mjs";
 import { n as useMyOffice } from "./office-C4hHv7Zt.mjs";

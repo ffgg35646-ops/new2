@@ -1,7 +1,7 @@
 import { t as supabase } from "./client-BDpUJ4Jl.mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { n as useQuery } from "../_libs/tanstack__react-query.mjs";
-import { dt as Building2 } from "../_libs/lucide-react.mjs";
+import { _t as Building2 } from "../_libs/lucide-react.mjs";
 import { r as useSelectedGovernorate } from "./governorate-21auhEUK.mjs";
 import { t as AppHeader } from "./AppHeader-1-nIT4X8.mjs";
 import { t as BottomNav } from "./BottomNav-DyvwyVUV.mjs";

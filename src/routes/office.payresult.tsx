@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/components/AppHeader";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/office/payresult")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -40,13 +41,33 @@ function ResultPage() {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), timeoutMs);
       try {
+        const { data: sessionData } =
+          await supabase.auth.getSession();
+
+        const accessToken =
+          sessionData.session?.access_token;
+
+        if (!accessToken) {
+          throw new Error("انتهت جلسة الدخول");
+        }
+
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json", apikey },
+          headers: {
+            "Content-Type": "application/json",
+            apikey,
+            Authorization: `Bearer ${accessToken}`,
+          },
           body: JSON.stringify({ checkoutId }),
           signal: ctrl.signal,
         });
-        return (await res.json()) as { success?: boolean; description?: string };
+
+        return (await res.json()) as {
+          success?: boolean;
+          description?: string;
+          status?: string;
+          pending?: boolean;
+        };
       } finally {
         clearTimeout(t);
       }

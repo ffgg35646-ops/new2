@@ -3,7 +3,7 @@ import { t as supabase } from "./client-BDpUJ4Jl.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { i as useQueryClient, n as useQuery, t as useMutation } from "../_libs/tanstack__react-query.mjs";
-import { $ as ClipboardList, D as MessageCircle, F as LoaderCircle, S as Phone, m as Send } from "../_libs/lucide-react.mjs";
+import { C as Phone, L as LoaderCircle, O as MessageCircle, it as ClipboardList, m as Send } from "../_libs/lucide-react.mjs";
 import { t as RoleGuard } from "./role-guard-BlGqbnI9.mjs";
 import { r as useSelectedGovernorate } from "./governorate-21auhEUK.mjs";
 import { t as cn } from "./utils-C_uf36nf.mjs";

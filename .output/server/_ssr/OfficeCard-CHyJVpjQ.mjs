@@ -1,6 +1,6 @@
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { b as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import { J as Crown, c as Star, f as ShieldCheck } from "../_libs/lucide-react.mjs";
+import { Q as Crown, c as Star, f as ShieldCheck } from "../_libs/lucide-react.mjs";
 import { i as timeAgo } from "./format-B7MVuK_u.mjs";
 import { t as effectivePlan } from "./plans-CricE-8e.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/OfficeCard-CHyJVpjQ.js

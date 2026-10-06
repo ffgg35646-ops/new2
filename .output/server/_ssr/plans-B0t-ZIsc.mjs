@@ -3,7 +3,7 @@ import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { n as useAuth } from "./auth-DfdXUDDw.mjs";
 import { b as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import { N as Lock, ct as Check, l as Sparkles } from "../_libs/lucide-react.mjs";
+import { F as Lock, l as Sparkles, pt as Check } from "../_libs/lucide-react.mjs";
 import { t as RoleGuard } from "./role-guard-BlGqbnI9.mjs";
 import { t as AppHeader } from "./AppHeader-1-nIT4X8.mjs";
 import { t as BottomNav } from "./BottomNav-DyvwyVUV.mjs";

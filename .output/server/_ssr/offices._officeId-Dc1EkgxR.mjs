@@ -5,7 +5,7 @@ import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[.
 import { i as useQueryClient, n as useQuery, t as useMutation } from "../_libs/tanstack__react-query.mjs";
 import { n as useAuth } from "./auth-DfdXUDDw.mjs";
 import { S as useParams, b as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import { D as MessageCircle, S as Phone, W as FileCheckCorner, Z as Clock, _t as BadgeCheck, c as Star, ct as Check, dt as Building2, ft as Bell, k as MapPin, o as UserPlus, p as Share2, pt as BellOff, vt as ArrowRight } from "../_libs/lucide-react.mjs";
+import { C as Phone, Ct as BadgeCheck, J as FileCheckCorner, O as MessageCircle, _t as Building2, c as Star, j as MapPin, nt as Clock, o as UserPlus, p as Share2, pt as Check, vt as Bell, wt as ArrowRight, yt as BellOff } from "../_libs/lucide-react.mjs";
 import { t as cn } from "./utils-C_uf36nf.mjs";
 import { i as whatsappHref, t as shareLink } from "./office-C4hHv7Zt.mjs";
 import { n as ListSkeleton, t as EmptyState } from "./EmptyState-C5iUqUGB.mjs";

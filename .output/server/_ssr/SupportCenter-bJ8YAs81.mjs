@@ -4,7 +4,7 @@ import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { i as useQueryClient, n as useQuery, t as useMutation } from "../_libs/tanstack__react-query.mjs";
 import { n as useAuth } from "./auth-DfdXUDDw.mjs";
-import { F as LoaderCircle, U as File, m as Send, t as X, vt as ArrowRight, x as Plus, z as ImagePlus } from "../_libs/lucide-react.mjs";
+import { K as File, L as LoaderCircle, S as Plus, V as ImagePlus, m as Send, t as X, wt as ArrowRight } from "../_libs/lucide-react.mjs";
 import { n as formatDate } from "./format-B7MVuK_u.mjs";
 import { n as toast } from "../_libs/sonner.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/SupportCenter-bJ8YAs81.js

@@ -4,7 +4,7 @@ import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { a as require_jsx_runtime } from "../_libs/@radix-ui/react-collection+[...].mjs";
 import { i as useQueryClient, n as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { b as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import { E as MessageSquare, F as LoaderCircle, J as Crown } from "../_libs/lucide-react.mjs";
+import { D as MessageSquare, L as LoaderCircle, Q as Crown } from "../_libs/lucide-react.mjs";
 import { t as RoleGuard } from "./role-guard-BlGqbnI9.mjs";
 import { t as AppHeader } from "./AppHeader-1-nIT4X8.mjs";
 import { n as useMyOffice } from "./office-C4hHv7Zt.mjs";
