@@ -19,7 +19,8 @@ export const Route = createFileRoute("/auth/verify-email")({
 });
 
 const PENDING_EMAIL_KEY = "ufuq.pending-email";
-const RESEND_STATE_KEY = "ufuq.email-resend-state";
+const RESEND_STATE_KEY = "ufuq.email-send-state";
+const LEGACY_RESEND_STATE_KEY = "ufuq.email-resend-state";
 const MAX_RESENDS = 15;
 const PAUSE_MS = 5 * 60 * 1000;
 
@@ -55,7 +56,9 @@ function getResendState(email: string): ResendState {
     pausedUntil: 0,
   };
 
-  const raw = localStorage.getItem(RESEND_STATE_KEY);
+  const raw =
+    localStorage.getItem(RESEND_STATE_KEY) ??
+    localStorage.getItem(LEGACY_RESEND_STATE_KEY);
   if (!raw) return empty;
 
   try {
