@@ -52,7 +52,7 @@ export const Route = createFileRoute("/request")({
 });
 
 function RequestPage() {
-  const { userId } = useAuth();
+  const { userId, session, roles } = useAuth();
   const qc = useQueryClient();
   const { governorateId } = useSelectedGovernorate();
   const { data: neighborhoods = [] } = useNeighborhoods(governorateId);
@@ -67,9 +67,14 @@ function RequestPage() {
   const [durationDays, setDurationDays] = useState<7 | 30>(7);
   const [attachment, setAttachment] = useState<string[]>([]);
 
+  const canPublish =
+    !!userId &&
+    !!session?.user?.email_confirmed_at &&
+    roles.some((role) => role === "individual" || role === "admin");
+
   const { data: myRequests, isLoading } = useQuery({
     queryKey: ["my-requests", userId],
-    enabled: !!userId,
+    enabled: canPublish,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("property_requests")
@@ -99,7 +104,8 @@ function RequestPage() {
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!userId) throw new Error("سجّل الدخول لنشر الطلب");
+      if (!userId || !session?.user?.email_confirmed_at) throw new Error("يجب تسجيل الدخول وتأكيد البريد الإلكتروني لنشر الطلب");
+      if (!roles.some((role) => role === "individual" || role === "admin")) throw new Error("هذا الحساب غير مسموح له بنشر الطلبات");
       if (description.trim().length < 10) throw new Error("اكتب وصفًا أوضح لطلبك");
       if (!governorateId) {
         throw new Error("اختر المحافظة أولًا");
@@ -125,6 +131,8 @@ function RequestPage() {
 
       if (error) throw error;
 
+      if (!createdRequest) throw new Error("تم إنشاء الطلب لكن لم يُرجع الخادم رقم الطلب");
+
       if (createdRequest) {
         const { error: notifyError } = await supabase.rpc(
           "notify_matching_offices_for_request" as never,
@@ -138,15 +146,17 @@ function RequestPage() {
           );
         }
       }
+
+      return createdRequest;
     },
-    onSuccess: () => {
-      toast.success("تم نشر طلبك، ستصلك عروض المكاتب");
+    onSuccess: (requestId) => {
+      toast.success(`تم نشر طلبك بنجاح`);
       setDescription("");
       setBudgetMin("");
       setBudgetMax("");
       setDurationDays(7);
       setAttachment([]);
-      qc.invalidateQueries({ queryKey: ["my-requests"] });
+      void qc.invalidateQueries({ queryKey: ["my-requests"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر نشر الطلب"),
   });
@@ -243,7 +253,7 @@ function RequestPage() {
             />
           </label>
 
-          {userId ? (
+          {canPublish ? (
             <button
               onClick={() => create.mutate()}
               disabled={create.isPending}
@@ -261,7 +271,7 @@ function RequestPage() {
           )}
         </section>
 
-        {userId && (
+        {canPublish && (
           <section className="space-y-3">
             <h2 className="font-display text-lg font-extrabold">طلباتي</h2>
             {isLoading ? (
