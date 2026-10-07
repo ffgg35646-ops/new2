@@ -100,6 +100,40 @@ async function loadSession(): Promise<SessionInfo> {
   const roles = (rolesRes?.data ?? []).map((r) => r.role as AppRole);
   const office = officeRes?.data ?? null;
 
+  const metadata =
+    session.user.user_metadata as Record<string, unknown>;
+  const dbProfile =
+    (profileRes?.data as SessionInfo["profile"]) ?? null;
+  const fallbackProfile: SessionInfo["profile"] = {
+    id: session.user.id,
+    full_name:
+      typeof metadata.full_name === "string"
+        ? metadata.full_name
+        : "",
+    phone:
+      typeof metadata.phone === "string"
+        ? metadata.phone
+        : session.user.phone ?? null,
+    email: session.user.email ?? null,
+    avatar_url:
+      typeof metadata.avatar_url === "string"
+        ? metadata.avatar_url
+        : null,
+    governorate_id: null,
+  };
+
+  const profile = dbProfile
+    ? {
+        ...fallbackProfile,
+        ...dbProfile,
+        full_name:
+          dbProfile.full_name || fallbackProfile.full_name,
+        phone: dbProfile.phone || fallbackProfile.phone,
+        email: dbProfile.email || fallbackProfile.email,
+        avatar_url: dbProfile.avatar_url || fallbackProfile.avatar_url,
+      }
+    : fallbackProfile;
+
   // لو استعلام الأدوار تأخر لكن وُجد مكتب، نعرف أن الحساب حساب مكتب
   // بدل إبقاء الصفحة عالقة في شاشة التحميل.
   if (roles.length === 0) {
@@ -114,8 +148,7 @@ async function loadSession(): Promise<SessionInfo> {
     session,
     userId: session.user.id,
     roles,
-    profile:
-      (profileRes?.data as SessionInfo["profile"]) ?? null,
+    profile,
     officeId: office?.id ?? null,
     officeVerificationStatus:
       (office?.verification_status as
