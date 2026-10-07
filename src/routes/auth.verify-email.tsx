@@ -44,12 +44,12 @@ type StoredResendStates = Record<
   }
 >;
 
-function normalizeEmail(email: string) {
+function normalizePendingEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
 function getResendState(email: string): ResendState {
-  const normalizedEmail = normalizeEmail(email);
+  const normalizedEmail = normalizePendingEmail(email);
   const empty = {
     email: normalizedEmail,
     count: 0,
@@ -74,7 +74,7 @@ function getResendState(email: string): ResendState {
       typeof parsed.email === "string"
     ) {
       const old = parsed as Partial<ResendState>;
-      const oldEmail = normalizeEmail(old.email);
+      const oldEmail = normalizePendingEmail(old.email);
       const migrated: StoredResendStates = {
         [oldEmail]: {
           count:
@@ -131,7 +131,7 @@ function getResendState(email: string): ResendState {
 }
 
 function saveResendState(state: ResendState) {
-  const normalizedEmail = normalizeEmail(state.email);
+  const normalizedEmail = normalizePendingEmail(state.email);
   const raw = localStorage.getItem(RESEND_STATE_KEY);
 
   let states: StoredResendStates = {};
