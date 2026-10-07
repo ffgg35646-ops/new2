@@ -59,11 +59,15 @@ function OfficeProperties() {
 
   const toggleFeatured = useMutation({
     mutationFn: async ({ id, next }: { id: string; next: boolean }) => {
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("properties")
         .update({ is_featured: next })
         .eq("id", id)
-        .eq("office_id", officeId!);
+        .eq("office_id", officeId!)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!updated) throw new Error("العقار غير موجود ضمن عروض مكتبك.");
       if (error) {
         if (error.message.includes("featured_requires_pro"))
           throw new Error("التمييز ميزة احترافية — رقِّ باقتك أولًا.");
@@ -81,12 +85,15 @@ function OfficeProperties() {
 
   const togglePublish = useMutation({
     mutationFn: async ({ id, next }: { id: string; next: boolean }) => {
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("properties")
         .update({ is_published: next })
         .eq("id", id)
-        .eq("office_id", officeId!);
+        .eq("office_id", officeId!)
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
+      if (!updated) throw new Error("العقار غير موجود ضمن عروض مكتبك.");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["office-my-properties"] }),
     onError: () => toast.error("تعذّر تحديث حالة النشر"),
@@ -94,8 +101,15 @@ function OfficeProperties() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("properties").update({ is_deleted: true }).eq("id", id).eq("office_id", officeId!);
+      const { data: updated, error } = await supabase
+        .from("properties")
+        .update({ is_deleted: true })
+        .eq("id", id)
+        .eq("office_id", officeId!)
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
+      if (!updated) throw new Error("العقار غير موجود ضمن عروض مكتبك.");
     },
     onSuccess: () => {
       toast.success("تم حذف العرض");
