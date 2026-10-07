@@ -180,11 +180,6 @@ function VerifyEmailPage() {
   const [pausedUntil, setPausedUntil] = useState(0);
   const [now, setNow] = useState(Date.now());
 
-  const loginRoute =
-    pending?.role === "office"
-      ? "/auth/office"
-      : "/auth/individual";
-
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -330,7 +325,7 @@ function VerifyEmailPage() {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-8">
       <Link
-        to={loginRoute}
+        to={pending?.role === "office" ? "/auth/office" : "/auth/individual"}
         className="flex size-9 items-center justify-center rounded-full bg-surface ring-1 ring-line"
       >
         <ArrowRight className="size-4" />
