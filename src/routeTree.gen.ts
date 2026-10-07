@@ -25,7 +25,10 @@ import { Route as AdminNotificationsRouteImport } from './routes/admin.notificat
 import { Route as AdminOfficesRouteImport } from './routes/admin.offices'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminLoginRouteImport } from './routes/admin_.login'
+import { Route as ApiPaymentCheckoutRouteImport } from './routes/api.payment-checkout'
+import { Route as ApiPaymentStatusRouteImport } from './routes/api.payment-status'
 import { Route as AuthAdminRouteImport } from './routes/auth.admin'
+import { Route as AuthChangeEmailRouteImport } from './routes/auth.change-email'
 import { Route as AuthConfirmRouteImport } from './routes/auth.confirm'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
 import { Route as AuthIndividualRouteImport } from './routes/auth.individual'
@@ -47,6 +50,7 @@ import { Route as PropertiesIndexRouteImport } from './routes/properties.index'
 import { Route as PropertiesPropertyIdRouteImport } from './routes/properties.$propertyId'
 import { Route as AdminIndividualsUserIdRouteImport } from './routes/admin.individuals.$userId'
 import { Route as AdminOfficesOfficeIdRouteImport } from './routes/admin.offices.$officeId'
+import { Route as ApiMediaIdRouteImport } from './routes/api.media.$id'
 import { Route as OfficePropertiesIndexRouteImport } from './routes/office.properties.index'
 import { Route as OfficePropertiesNewRouteImport } from './routes/office.properties.new'
 import { Route as OfficePropertiesPropertyIdEditRouteImport } from './routes/office.properties.$propertyId.edit'
@@ -131,9 +135,24 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaymentCheckoutRoute = ApiPaymentCheckoutRouteImport.update({
+  id: '/api/payment-checkout',
+  path: '/api/payment-checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaymentStatusRoute = ApiPaymentStatusRouteImport.update({
+  id: '/api/payment-status',
+  path: '/api/payment-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthAdminRoute = AuthAdminRouteImport.update({
   id: '/auth/admin',
   path: '/auth/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthChangeEmailRoute = AuthChangeEmailRouteImport.update({
+  id: '/auth/change-email',
+  path: '/auth/change-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthConfirmRoute = AuthConfirmRouteImport.update({
@@ -241,6 +260,11 @@ const AdminOfficesOfficeIdRoute = AdminOfficesOfficeIdRouteImport.update({
   path: '/$officeId',
   getParentRoute: () => AdminOfficesRoute,
 } as any)
+const ApiMediaIdRoute = ApiMediaIdRouteImport.update({
+  id: '/api/media/$id',
+  path: '/api/media/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OfficePropertiesIndexRoute = OfficePropertiesIndexRouteImport.update({
   id: '/office/properties/',
   path: '/office/properties/',
@@ -275,7 +299,10 @@ export interface FileRoutesByFullPath {
   '/admin/offices': typeof AdminOfficesRouteWithChildren
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/login': typeof AdminLoginRoute
+  '/api/payment-checkout': typeof ApiPaymentCheckoutRoute
+  '/api/payment-status': typeof ApiPaymentStatusRoute
   '/auth/admin': typeof AuthAdminRoute
+  '/auth/change-email': typeof AuthChangeEmailRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/individual': typeof AuthIndividualRoute
@@ -297,6 +324,7 @@ export interface FileRoutesByFullPath {
   '/properties/': typeof PropertiesIndexRoute
   '/admin/individuals/$userId': typeof AdminIndividualsUserIdRoute
   '/admin/offices/$officeId': typeof AdminOfficesOfficeIdRoute
+  '/api/media/$id': typeof ApiMediaIdRoute
   '/office/properties/new': typeof OfficePropertiesNewRoute
   '/office/properties/': typeof OfficePropertiesIndexRoute
   '/office/properties/$propertyId/edit': typeof OfficePropertiesPropertyIdEditRoute
@@ -318,7 +346,10 @@ export interface FileRoutesByTo {
   '/admin/offices': typeof AdminOfficesRouteWithChildren
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/login': typeof AdminLoginRoute
+  '/api/payment-checkout': typeof ApiPaymentCheckoutRoute
+  '/api/payment-status': typeof ApiPaymentStatusRoute
   '/auth/admin': typeof AuthAdminRoute
+  '/auth/change-email': typeof AuthChangeEmailRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/individual': typeof AuthIndividualRoute
@@ -340,6 +371,7 @@ export interface FileRoutesByTo {
   '/properties': typeof PropertiesIndexRoute
   '/admin/individuals/$userId': typeof AdminIndividualsUserIdRoute
   '/admin/offices/$officeId': typeof AdminOfficesOfficeIdRoute
+  '/api/media/$id': typeof ApiMediaIdRoute
   '/office/properties/new': typeof OfficePropertiesNewRoute
   '/office/properties': typeof OfficePropertiesIndexRoute
   '/office/properties/$propertyId/edit': typeof OfficePropertiesPropertyIdEditRoute
@@ -362,7 +394,10 @@ export interface FileRoutesById {
   '/admin/offices': typeof AdminOfficesRouteWithChildren
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin_/login': typeof AdminLoginRoute
+  '/api/payment-checkout': typeof ApiPaymentCheckoutRoute
+  '/api/payment-status': typeof ApiPaymentStatusRoute
   '/auth/admin': typeof AuthAdminRoute
+  '/auth/change-email': typeof AuthChangeEmailRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/individual': typeof AuthIndividualRoute
@@ -384,6 +419,7 @@ export interface FileRoutesById {
   '/properties/': typeof PropertiesIndexRoute
   '/admin/individuals/$userId': typeof AdminIndividualsUserIdRoute
   '/admin/offices/$officeId': typeof AdminOfficesOfficeIdRoute
+  '/api/media/$id': typeof ApiMediaIdRoute
   '/office/properties/new': typeof OfficePropertiesNewRoute
   '/office/properties/': typeof OfficePropertiesIndexRoute
   '/office/properties/$propertyId/edit': typeof OfficePropertiesPropertyIdEditRoute
@@ -407,7 +443,10 @@ export interface FileRouteTypes {
     | '/admin/offices'
     | '/admin/payments'
     | '/admin/login'
+    | '/api/payment-checkout'
+    | '/api/payment-status'
     | '/auth/admin'
+    | '/auth/change-email'
     | '/auth/confirm'
     | '/auth/forgot-password'
     | '/auth/individual'
@@ -429,6 +468,7 @@ export interface FileRouteTypes {
     | '/properties/'
     | '/admin/individuals/$userId'
     | '/admin/offices/$officeId'
+    | '/api/media/$id'
     | '/office/properties/new'
     | '/office/properties/'
     | '/office/properties/$propertyId/edit'
@@ -450,7 +490,10 @@ export interface FileRouteTypes {
     | '/admin/offices'
     | '/admin/payments'
     | '/admin/login'
+    | '/api/payment-checkout'
+    | '/api/payment-status'
     | '/auth/admin'
+    | '/auth/change-email'
     | '/auth/confirm'
     | '/auth/forgot-password'
     | '/auth/individual'
@@ -472,6 +515,7 @@ export interface FileRouteTypes {
     | '/properties'
     | '/admin/individuals/$userId'
     | '/admin/offices/$officeId'
+    | '/api/media/$id'
     | '/office/properties/new'
     | '/office/properties'
     | '/office/properties/$propertyId/edit'
@@ -493,7 +537,10 @@ export interface FileRouteTypes {
     | '/admin/offices'
     | '/admin/payments'
     | '/admin_/login'
+    | '/api/payment-checkout'
+    | '/api/payment-status'
     | '/auth/admin'
+    | '/auth/change-email'
     | '/auth/confirm'
     | '/auth/forgot-password'
     | '/auth/individual'
@@ -515,6 +562,7 @@ export interface FileRouteTypes {
     | '/properties/'
     | '/admin/individuals/$userId'
     | '/admin/offices/$officeId'
+    | '/api/media/$id'
     | '/office/properties/new'
     | '/office/properties/'
     | '/office/properties/$propertyId/edit'
@@ -533,7 +581,10 @@ export interface RootRouteChildren {
   RequestRoute: typeof RequestRoute
   SearchRoute: typeof SearchRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  ApiPaymentCheckoutRoute: typeof ApiPaymentCheckoutRoute
+  ApiPaymentStatusRoute: typeof ApiPaymentStatusRoute
   AuthAdminRoute: typeof AuthAdminRoute
+  AuthChangeEmailRoute: typeof AuthChangeEmailRoute
   AuthConfirmRoute: typeof AuthConfirmRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthIndividualRoute: typeof AuthIndividualRoute
@@ -553,6 +604,7 @@ export interface RootRouteChildren {
   OfficeIndexRoute: typeof OfficeIndexRoute
   OfficesIndexRoute: typeof OfficesIndexRoute
   PropertiesIndexRoute: typeof PropertiesIndexRoute
+  ApiMediaIdRoute: typeof ApiMediaIdRoute
   OfficePropertiesNewRoute: typeof OfficePropertiesNewRoute
   OfficePropertiesIndexRoute: typeof OfficePropertiesIndexRoute
   OfficePropertiesPropertyIdEditRoute: typeof OfficePropertiesPropertyIdEditRoute
@@ -672,11 +724,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/payment-checkout': {
+      id: '/api/payment-checkout'
+      path: '/api/payment-checkout'
+      fullPath: '/api/payment-checkout'
+      preLoaderRoute: typeof ApiPaymentCheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payment-status': {
+      id: '/api/payment-status'
+      path: '/api/payment-status'
+      fullPath: '/api/payment-status'
+      preLoaderRoute: typeof ApiPaymentStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/admin': {
       id: '/auth/admin'
       path: '/auth/admin'
       fullPath: '/auth/admin'
       preLoaderRoute: typeof AuthAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/change-email': {
+      id: '/auth/change-email'
+      path: '/auth/change-email'
+      fullPath: '/auth/change-email'
+      preLoaderRoute: typeof AuthChangeEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/confirm': {
@@ -826,6 +899,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOfficesOfficeIdRouteImport
       parentRoute: typeof AdminOfficesRoute
     }
+    '/api/media/$id': {
+      id: '/api/media/$id'
+      path: '/api/media/$id'
+      fullPath: '/api/media/$id'
+      preLoaderRoute: typeof ApiMediaIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/office/properties/': {
       id: '/office/properties/'
       path: '/office/properties'
@@ -902,7 +982,10 @@ const rootRouteChildren: RootRouteChildren = {
   RequestRoute: RequestRoute,
   SearchRoute: SearchRoute,
   AdminLoginRoute: AdminLoginRoute,
+  ApiPaymentCheckoutRoute: ApiPaymentCheckoutRoute,
+  ApiPaymentStatusRoute: ApiPaymentStatusRoute,
   AuthAdminRoute: AuthAdminRoute,
+  AuthChangeEmailRoute: AuthChangeEmailRoute,
   AuthConfirmRoute: AuthConfirmRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthIndividualRoute: AuthIndividualRoute,
@@ -922,6 +1005,7 @@ const rootRouteChildren: RootRouteChildren = {
   OfficeIndexRoute: OfficeIndexRoute,
   OfficesIndexRoute: OfficesIndexRoute,
   PropertiesIndexRoute: PropertiesIndexRoute,
+  ApiMediaIdRoute: ApiMediaIdRoute,
   OfficePropertiesNewRoute: OfficePropertiesNewRoute,
   OfficePropertiesIndexRoute: OfficePropertiesIndexRoute,
   OfficePropertiesPropertyIdEditRoute: OfficePropertiesPropertyIdEditRoute,

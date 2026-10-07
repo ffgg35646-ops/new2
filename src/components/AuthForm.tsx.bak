@@ -14,12 +14,7 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 function authErrorMessage(e: unknown): string {
-  const raw =
-    e instanceof Error
-      ? e.message
-      : e && typeof e === "object" && "message" in e
-        ? String((e as { message?: unknown }).message ?? "")
-        : String(e ?? "");
+  const raw = e instanceof Error ? e.message : String(e ?? "");
   const m = raw.toLowerCase();
   if (m.includes("office_commercial_register_required"))
     return "رقم السجل التجاري مطلوب لحساب المكتب.";

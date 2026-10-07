@@ -134,20 +134,10 @@ async function loadSession(): Promise<SessionInfo> {
       }
     : fallbackProfile;
 
-  // الـsession نفسه يحمل الدور القادم من users.role في MongoDB.
-  // نستخدمه أولًا حتى لا يتحول admin إلى individual عند تأخر user_roles.
-  const sessionRole = metadata.role;
-  const validSessionRole =
-    sessionRole === "admin" ||
-    sessionRole === "office" ||
-    sessionRole === "individual"
-      ? sessionRole
-      : null;
-
+  // لو استعلام الأدوار تأخر لكن وُجد مكتب، نعرف أن الحساب حساب مكتب
+  // بدل إبقاء الصفحة عالقة في شاشة التحميل.
   if (roles.length === 0) {
-    if (validSessionRole) {
-      roles.push(validSessionRole);
-    } else if (office?.id) {
+    if (office?.id) {
       roles.push("office");
     } else if (profileRes?.data) {
       roles.push("individual");

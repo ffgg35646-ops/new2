@@ -78,7 +78,7 @@ function NotificationsPage() {
     };
   }, [userId, qc]);
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["notifications", userId],
     enabled: !!userId,
     queryFn: async () => {
@@ -113,15 +113,6 @@ function NotificationsPage() {
           <EmptyState icon={Bell} title="سجّل الدخول لعرض إشعاراتك" />
         ) : isLoading ? (
           <ListSkeleton />
-        ) : isError ? (
-          <div className="rounded-2xl bg-destructive/5 p-4 text-xs text-destructive ring-1 ring-line">
-            تعذر تحميل الإشعارات.
-            <div className="mt-1 break-words opacity-80">
-              {error instanceof Error
-                ? error.message
-                : "خطأ غير معروف"}
-            </div>
-          </div>
         ) : data?.length ? (
           <div className="space-y-2.5">
             {data.map((n) => (

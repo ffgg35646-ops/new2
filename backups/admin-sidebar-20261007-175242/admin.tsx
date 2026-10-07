@@ -76,18 +76,6 @@ function AdminRouteContent() {
   return <Outlet />;
 }
 
-function AdminContent() {
-  const location = useLocation();
-
-  // الصفحة الرئيسية /admin
-  if (location.pathname === "/admin") {
-    return <AdminPage />;
-  }
-
-  // كل route آخر يظهر هنا مباشرة.
-  return <Outlet />;
-}
-
 function AdminPage() {
   const { isAdmin } = useAuth();
   const { tab } = Route.useSearch();
@@ -108,7 +96,9 @@ function AdminPage() {
 
   return (
     <div className="min-h-screen bg-background pb-10">
-      <main className="w-full px-0">
+      <AdminChrome />
+
+      <main className="mx-auto w-full max-w-6xl px-4 py-5">
         {tab === "dashboard" && <AdminDashboard />}
         {tab === "offices" && <OfficesTab />}
         {tab === "plans" && <PlansTab />}

@@ -31,10 +31,6 @@ export function AppHeader({
     officeId,
   } = useAuth();
 
-  const notificationsPath = roles.includes("admin")
-    ? "/admin/notifications"
-    : "/notifications";
-
   const {
     governorates,
     governorate,
@@ -165,7 +161,7 @@ export function AppHeader({
         )}
 
         <Link
-          to={notificationsPath}
+          to="/notifications"
           aria-label="الإشعارات"
           className="relative grid size-9 place-items-center rounded-full bg-surface ring-1 ring-line"
         >

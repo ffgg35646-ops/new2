@@ -238,14 +238,11 @@ function VerifyEmailPage() {
         replace: true,
       });
     } catch (e) {
-      const message =
+      toast.error(
         e instanceof Error
           ? e.message
-          : e && typeof e === "object" && "message" in e
-            ? String((e as { message?: unknown }).message ?? "")
-            : String(e ?? "");
-
-      toast.error(message || "تعذر إكمال تفعيل الحساب.");
+          : "رمز التأكيد غير صحيح أو منتهي.",
+      );
     } finally {
       setBusy(false);
     }

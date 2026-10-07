@@ -1,18 +1,18 @@
-import { useEffect, useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Bell,
   Building2,
+  CreditCard,
+  FileText,
   Flag,
   Headphones,
   LayoutDashboard,
   MapPin,
   Menu,
   Package,
+  ShieldCheck,
   Users,
   X,
-  ShieldCheck,
-  FileText,
-  CreditCard,
 } from "lucide-react";
 import { useLocation } from "@tanstack/react-router";
 
@@ -24,121 +24,230 @@ const items = [
   { label: "المحافظات والأحياء", href: "/admin?tab=geo", icon: MapPin },
   { label: "البلاغات", href: "/admin?tab=reports", icon: Flag },
   { label: "الدعم", href: "/admin?tab=support", icon: Headphones },
-  { label: "إدارة الإشعارات", href: "/admin/notifications", icon: Bell },
+  { label: "الإشعارات", href: "/admin/notifications", icon: Bell },
   { label: "المدفوعات", href: "/admin/payments", icon: CreditCard },
-  { label: "سياسة الخصوصية", href: "/admin?tab=privacy", icon: ShieldCheck },
-  { label: "شروط الاستخدام", href: "/admin?tab=terms", icon: FileText },
+  { label: "الخصوصية", href: "/admin?tab=privacy", icon: ShieldCheck },
+  { label: "الشروط", href: "/admin?tab=terms", icon: FileText },
 ] as const;
 
-export function AdminChrome() {
-  const location = useLocation();
-  const [open, setOpen] = useState(false);
+function activeItem(
+  pathname: string,
+  search: Record<string, unknown>,
+  href: string,
+) {
+  const tab =
+    typeof search.tab === "string"
+      ? search.tab
+      : null;
 
-  useEffect(() => {
-    setOpen(false);
-  }, [location.pathname, location.search]);
+  if (href === "/admin") {
+    return pathname === "/admin" && !tab;
+  }
 
-  const search = location.search as Record<string, unknown>;
-  const tab = typeof search.tab === "string" ? search.tab : null;
+  if (href.startsWith("/admin?")) {
+    const wanted =
+      new URLSearchParams(
+        href.split("?")[1] ?? "",
+      ).get("tab");
 
-  function isActive(href: string) {
-    if (href === "/admin") {
-      return location.pathname === "/admin" && !tab;
-    }
-
-    if (href.startsWith("/admin?")) {
-      const query = new URLSearchParams(href.split("?")[1] ?? "");
-      const wantedTab = query.get("tab");
-      return location.pathname === "/admin" && tab === wantedTab;
-    }
-
-    return (
-      location.pathname === href ||
-      location.pathname.startsWith(`${href}/`)
-    );
+    return pathname === "/admin" && tab === wanted;
   }
 
   return (
-    <>
-      <header className="sticky top-0 z-40 border-b border-line bg-background/95 backdrop-blur-sm">
-        <div className="flex h-14 items-center gap-3 px-4">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label="فتح قائمة الإدارة"
-            className="grid size-9 place-items-center rounded-xl bg-surface ring-1 ring-line"
-          >
-            <Menu className="size-5" />
-          </button>
+    pathname === href ||
+    pathname.startsWith(`${href}/`)
+  );
+}
 
-          <div className="font-display text-sm font-extrabold">
-            لوحة الإدارة
-          </div>
+function Navigation({
+  onNavigate,
+}: {
+  onNavigate?: () => void;
+}) {
+  const location = useLocation();
 
-          <a
-            href="/admin/notifications"
-            aria-label="الإشعارات"
-            className="ms-auto grid size-9 place-items-center rounded-full bg-surface ring-1 ring-line"
-          >
-            <Bell className="size-[18px] text-muted-foreground" />
-          </a>
-        </div>
-      </header>
+  const search =
+    location.search as Record<string, unknown>;
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 bg-black/35"
-          onClick={() => setOpen(false)}
-          aria-hidden="true"
-        />
+  return (
+    <nav className="space-y-1.5">
+      {items.map(
+        ({
+          label,
+          href,
+          icon: Icon,
+        }) => {
+          const active = activeItem(
+            location.pathname,
+            search,
+            href,
+          );
+
+          return (
+            <a
+              key={href}
+              href={href}
+              onClick={onNavigate}
+              className={[
+                "flex items-center gap-3 rounded-2xl px-3.5 py-3",
+                "text-sm font-bold transition-colors",
+                active
+                  ? "bg-forest text-background"
+                  : "text-foreground hover:bg-sand",
+              ].join(" ")}
+            >
+              <Icon className="size-[18px] shrink-0" />
+              <span>{label}</span>
+            </a>
+          );
+        },
       )}
+    </nav>
+  );
+}
 
-      <aside
-        className={
-          "fixed inset-y-0 right-0 z-[60] w-[290px] max-w-[86vw] border-l border-line bg-background shadow-2xl transition-transform duration-200 " +
-          (open ? "translate-x-0" : "translate-x-full")
-        }
-        dir="rtl"
-        aria-label="قائمة إدارة الأدمن"
-      >
-        <div className="flex h-16 items-center justify-between border-b border-line px-4">
-          <div className="font-display text-base font-extrabold">
-            أقسام الإدارة
+export function AdminChrome({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [mobileOpen, setMobileOpen] =
+    useState(false);
+
+  return (
+    <div
+      dir="rtl"
+      className="min-h-screen bg-background"
+    >
+      {/* DESKTOP */}
+      <div className="hidden min-h-screen lg:flex">
+        {/* SIDEBAR */}
+        <aside className="sticky top-0 h-screen w-64 shrink-0 border-l border-line bg-background">
+          <div className="flex h-full flex-col">
+            <div className="border-b border-line px-5 py-5">
+              <div className="font-display text-lg font-extrabold">
+                إدارة عقار البطين
+              </div>
+
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                لوحة الإدارة
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3">
+              <Navigation />
+            </div>
+
+            <div className="border-t border-line p-4">
+              <div className="rounded-2xl bg-sand p-3 text-center text-[10px] font-semibold text-muted-foreground">
+                لوحة التحكم
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* CONTENT */}
+        <div className="min-w-0 flex-1">
+          <header className="sticky top-0 z-30 border-b border-line bg-background/95 backdrop-blur">
+            <div className="flex h-16 items-center px-6">
+              <div>
+                <div className="font-display text-base font-extrabold">
+                  لوحة الإدارة
+                </div>
+
+                <div className="text-[10px] text-muted-foreground">
+                  إدارة عقار البطين
+                </div>
+              </div>
+
+              <a
+                href="/admin/notifications"
+                className="ms-auto grid size-10 place-items-center rounded-full bg-surface ring-1 ring-line"
+                aria-label="الإشعارات"
+              >
+                <Bell className="size-[18px] text-muted-foreground" />
+              </a>
+            </div>
+          </header>
+
+          <main className="min-w-0 px-6 py-6">
+            {children}
+          </main>
+        </div>
+      </div>
+
+      {/* MOBILE */}
+      <div className="min-h-screen lg:hidden">
+        <header className="sticky top-0 z-40 border-b border-line bg-background/95 backdrop-blur">
+          <div className="flex h-14 items-center gap-3 px-4">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="grid size-9 place-items-center rounded-xl bg-surface ring-1 ring-line"
+              aria-label="فتح القائمة"
+            >
+              <Menu className="size-5" />
+            </button>
+
+            <div className="font-display text-sm font-extrabold">
+              لوحة الإدارة
+            </div>
+
+            <a
+              href="/admin/notifications"
+              className="ms-auto grid size-9 place-items-center rounded-full bg-surface ring-1 ring-line"
+              aria-label="الإشعارات"
+            >
+              <Bell className="size-[18px] text-muted-foreground" />
+            </a>
+          </div>
+        </header>
+
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 z-50 bg-black/35"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
+
+        <aside
+          className={[
+            "fixed inset-y-0 right-0 z-[60] w-[290px]",
+            "max-w-[86vw] bg-background shadow-2xl",
+            "transition-transform duration-200",
+            mobileOpen
+              ? "translate-x-0"
+              : "translate-x-full",
+          ].join(" ")}
+        >
+          <div className="flex h-16 items-center justify-between border-b border-line px-4">
+            <div className="font-display font-extrabold">
+              أقسام الإدارة
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              className="grid size-9 place-items-center rounded-xl bg-surface ring-1 ring-line"
+              aria-label="إغلاق القائمة"
+            >
+              <X className="size-4" />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="إغلاق قائمة الإدارة"
-            className="grid size-9 place-items-center rounded-xl bg-surface ring-1 ring-line"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+          <div className="overflow-y-auto p-3">
+            <Navigation
+              onNavigate={() =>
+                setMobileOpen(false)
+              }
+            />
+          </div>
+        </aside>
 
-        <nav className="space-y-1.5 p-3">
-          {items.map(({ label, href, icon: Icon }) => {
-            const active = isActive(href);
-
-            return (
-              <a
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className={
-                  "flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-semibold transition " +
-                  (active
-                    ? "bg-forest text-background"
-                    : "bg-surface text-foreground ring-1 ring-line")
-                }
-              >
-                <Icon className="size-[18px] shrink-0" />
-                <span>{label}</span>
-              </a>
-            );
-          })}
-        </nav>
-      </aside>
-    </>
+        <main className="min-w-0 px-4 py-5">
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }

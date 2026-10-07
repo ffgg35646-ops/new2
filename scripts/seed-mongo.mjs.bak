@@ -13,7 +13,7 @@ function hashPassword(password) {
     const salt = randomBytes(16).toString("hex");
     scrypt(password, salt, 64, (error, derived) => {
       if (error) return reject(error);
-      resolve(`scrypt$${salt}$${Buffer.from(derived).toString("hex")}`);
+      resolve(\`scrypt$\${salt}$\${Buffer.from(derived).toString("hex")}\`);
     });
   });
 }

@@ -1,5 +1,5 @@
 import { RoleGuard } from "@/lib/role-guard";
-import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Flag, MapPin, Plus, Save, ShieldCheck, Pencil, Trash2, Power, Package, Building2, Users, BarChart3 } from "lucide-react";
@@ -59,34 +59,10 @@ export const Route = createFileRoute("/admin")({
 
   component: () => (
     <RoleGuard allow={["admin"]} guestsTo="/admin/login">
-      <AdminRouteContent />
+      <AdminPage />
     </RoleGuard>
   ),
 });
-
-function AdminRouteContent() {
-  const location = useLocation();
-
-  // /admin يعرض لوحة التحكم.
-  // أي route ابن يذهب إلى Outlet بدل إعادة رسم لوحة التحكم.
-  if (location.pathname === "/admin") {
-    return <AdminPage />;
-  }
-
-  return <Outlet />;
-}
-
-function AdminContent() {
-  const location = useLocation();
-
-  // الصفحة الرئيسية /admin
-  if (location.pathname === "/admin") {
-    return <AdminPage />;
-  }
-
-  // كل route آخر يظهر هنا مباشرة.
-  return <Outlet />;
-}
 
 function AdminPage() {
   const { isAdmin } = useAuth();
@@ -108,7 +84,9 @@ function AdminPage() {
 
   return (
     <div className="min-h-screen bg-background pb-10">
-      <main className="w-full px-0">
+      <AdminChrome />
+
+      <main className="mx-auto w-full max-w-6xl px-4 py-5">
         {tab === "dashboard" && <AdminDashboard />}
         {tab === "offices" && <OfficesTab />}
         {tab === "plans" && <PlansTab />}

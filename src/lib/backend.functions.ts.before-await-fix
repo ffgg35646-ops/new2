@@ -529,7 +529,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         const role = args._role === "office" ? "office" : "individual";
 
-        await (await getMongoCollection("profiles")).updateOne(
+        await getMongoCollection("profiles").updateOne(
           { id: userId },
           {
             $set: {
@@ -546,7 +546,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           { upsert: true },
         );
 
-        await (await getMongoCollection("user_roles")).updateOne(
+        await getMongoCollection("user_roles").updateOne(
           { user_id: userId, role },
           {
             $setOnInsert: {
@@ -567,7 +567,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
         if (role === "office") {
           const office = (args._office ?? {}) as Record<string, unknown>;
 
-          await (await getMongoCollection("offices")).updateOne(
+          await getMongoCollection("offices").updateOne(
             { owner_id: userId, is_deleted: { $ne: true } },
             {
               $set: {
@@ -641,7 +641,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           },
         );
 
-        await (await getMongoCollection("office_plan_events")).insertOne({
+        await getMongoCollection("office_plan_events").insertOne({
           id: randomUUID(),
           office_id: office.id,
           action: "package_changed",
@@ -932,13 +932,13 @@ export const rpcRequest = createServerFn({ method: "POST" })
           "support_tickets",
           "support_messages",
         ]) {
-          await (await getMongoCollection(collection)).deleteMany({
+          await getMongoCollection(collection).deleteMany({
             $or: [{ user_id: targetId }, { owner_id: targetId }, { reporter_id: targetId }],
           });
         }
 
-        await (await getMongoCollection("offices")).deleteMany({ owner_id: targetId });
-        await (await getMongoCollection("users")).deleteOne({ _id: targetId });
+        await getMongoCollection("offices").deleteMany({ owner_id: targetId });
+        await getMongoCollection("users").deleteOne({ _id: targetId });
 
         return { data: null, error: null };
       }
@@ -966,7 +966,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             ? String(args._link)
             : "/notifications";
 
-        await (await getMongoCollection("notifications")).insertMany(
+        await getMongoCollection("notifications").insertMany(
           ids.map((recipientId) => ({
             id: randomUUID(),
             _id: randomUUID(),
@@ -1010,7 +1010,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         if (!office) throw new Error("المكتب غير موجود.");
 
-        await (await getMongoCollection("office_plan_events")).insertOne({
+        await getMongoCollection("office_plan_events").insertOne({
           id: randomUUID(),
           office_id: office.id,
           plan: "pro",

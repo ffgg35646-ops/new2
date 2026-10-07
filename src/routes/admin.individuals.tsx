@@ -1,288 +1,227 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronUp,
-  Loader2,
+  createFileRoute,
+  Link,
+  Outlet,
+  useLocation,
+} from "@tanstack/react-router";
+import {
+  ArrowRight,
   Mail,
   Phone,
   User,
-  UserRoundX,
 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { RoleGuard } from "@/lib/role-guard";
-import { AdminShell } from "@/components/AdminShell";
+import { useQuery } from "@tanstack/react-query";
 import {
-  isTodaySaudi,
-  useAdminDirectory,
-  useIndividualActivity,
+  fetchAdminDirectory,
   type AdminIndividual,
 } from "@/lib/admin";
-import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/admin/individuals")({
   head: () => ({
-    meta: [
-      { title: "الأفراد | إدارة عقار البطين" },
-      {
-        name: "description",
-        content:
-          "إدارة حسابات الأفراد المسجلين في عقار البطين.",
-      },
-    ],
+    meta: [{ title: "الأفراد | إدارة عقار البطين" }],
   }),
-  component: () => (
-    <RoleGuard allow={["admin"]} guestsTo="/auth/admin">
-      <AdminShell>
-        <IndividualsPage />
-      </AdminShell>
-    </RoleGuard>
-  ),
+  component: IndividualsRoute,
 });
 
+function IndividualsRoute() {
+  const location = useLocation();
+
+  if (location.pathname !== "/admin/individuals") {
+    return <Outlet />;
+  }
+
+  return <IndividualsPage />;
+}
+
 function IndividualsPage() {
-  const { data, isLoading, isFetching } =
-    useAdminDirectory();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin-directory"],
+    queryFn: fetchAdminDirectory,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
 
   const individuals = data?.individuals ?? [];
 
+  const today = individuals.filter((user) => {
+    const created = new Date(user.created_at);
+    const now = new Date();
+
+    return (
+      created.getFullYear() === now.getFullYear() &&
+      created.getMonth() === now.getMonth() &&
+      created.getDate() === now.getDate()
+    );
+  }).length;
+
   return (
-    <div className="space-y-4">
-      <section className="rounded-3xl bg-forest p-4 text-background">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs opacity-80">
-              إجمالي الأفراد
-            </div>
-            <div className="mt-1 font-display text-3xl font-extrabold">
-              {isLoading ? "—" : individuals.length}
-            </div>
+    <div dir="rtl" className="space-y-5 pb-8">
+      <section className="overflow-hidden rounded-[30px] bg-forest p-5 text-background">
+        <Link
+          to="/admin"
+          className="inline-flex items-center gap-1 text-[11px] font-bold opacity-80"
+        >
+          <ArrowRight className="size-3.5" />
+          لوحة الإدارة
+        </Link>
+
+        <div className="mt-5 flex items-center gap-3">
+          <div className="grid size-14 place-items-center rounded-2xl bg-background/15">
+            <User className="size-7" />
           </div>
 
-          <div className="text-left">
-            <div className="text-xs opacity-80">
-              جدد اليوم
+          <div>
+            <div className="text-[10px] opacity-70">
+              إدارة المستخدمين
             </div>
-            <div className="mt-1 font-display text-2xl font-extrabold">
-              {isLoading
-                ? "—"
-                : individuals.filter((u) =>
-                    isTodaySaudi(u.created_at),
-                  ).length}
-            </div>
+
+            <h1 className="mt-1 font-display text-2xl font-extrabold">
+              الأفراد
+            </h1>
+
+            <p className="mt-1 text-xs opacity-80">
+              إدارة حسابات الأفراد المسجلين.
+            </p>
           </div>
         </div>
-
-        {isFetching && !isLoading && (
-          <div className="mt-2 text-[10px] opacity-70">
-            تحديث البيانات في الخلفية...
-          </div>
-        )}
       </section>
 
+      <div className="grid grid-cols-2 gap-3">
+        <Stat
+          title="إجمالي الأفراد"
+          value={individuals.length}
+        />
+
+        <Stat
+          title="مسجلون اليوم"
+          value={today}
+        />
+      </div>
+
       {isLoading ? (
-        <ListSkeleton />
-      ) : individuals.length ? (
-        <div className="space-y-2.5">
+        <Skeleton />
+      ) : isError ? (
+        <div className="rounded-[26px] bg-surface p-8 text-center ring-1 ring-line">
+          <div className="text-sm font-bold text-destructive">
+            تعذر تحميل الأفراد.
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="mt-4 rounded-xl bg-forest px-5 py-2.5 text-xs font-bold text-background"
+          >
+            إعادة المحاولة
+          </button>
+        </div>
+      ) : individuals.length === 0 ? (
+        <div className="rounded-[26px] bg-surface p-10 text-center text-sm text-muted-foreground ring-1 ring-line">
+          لا يوجد أفراد مسجلون حاليًا.
+        </div>
+      ) : (
+        <div className="space-y-3">
           {individuals.map((user) => (
-            <IndividualRow
+            <IndividualCard
               key={user.id}
               user={user}
             />
           ))}
-        </div>
-      ) : (
-        <div className="rounded-2xl bg-surface p-8 text-center text-sm text-muted-foreground ring-1 ring-line">
-          لا يوجد أفراد مسجلون حاليًا.
         </div>
       )}
     </div>
   );
 }
 
-function IndividualRow({
+function IndividualCard({
   user,
 }: {
   user: AdminIndividual;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
-  const { data: activity, isLoading } =
-    useIndividualActivity(
-      user.id,
-      expanded,
-    );
-
-  const qc = useQueryClient();
-  const [deleting, setDeleting] = useState(false);
-
-  async function deleteUser() {
-    const ok = window.confirm(
-      `هل أنت متأكد من حذف حساب "${user.full_name}" نهائيًا؟`,
-    );
-
-    if (!ok) return;
-
-    setDeleting(true);
-
-    try {
-      const { error } = await supabase.rpc(
-        "admin_delete_user" as never,
-        { _user_id: user.id } as never,
-      );
-
-      if (error) throw error;
-
-      toast.success("تم حذف حساب الفرد.");
-
-      await qc.invalidateQueries({
-        queryKey: ["admin-directory"],
-      });
-
-      await qc.invalidateQueries({
-        queryKey: ["admin-dashboard-stats"],
-      });
-    } catch (e) {
-      toast.error(
-        e instanceof Error
-          ? e.message
-          : "تعذر حذف الحساب.",
-      );
-    } finally {
-      setDeleting(false);
-    }
-  }
-
   return (
-    <div className="overflow-hidden rounded-2xl bg-surface ring-1 ring-line">
-      <div
-        className="flex cursor-pointer items-center gap-3 p-3.5"
-        onClick={() => setExpanded((v) => !v)}
+    <article className="overflow-hidden rounded-[26px] bg-surface ring-1 ring-line">
+      <Link
+        to="/admin/individuals/$userId"
+        params={{ userId: user.id }}
+        className="block p-4 transition hover:bg-sand/60"
       >
-        <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-forest-soft text-forest">
-          <User className="size-5" />
-        </div>
+        <div className="flex items-start gap-3">
+          <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-forest-soft text-forest">
+            <User className="size-5" />
+          </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-bold">
-              {user.full_name}
-            </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-extrabold">
+                  {user.full_name || "بدون اسم"}
+                </h2>
 
-            {isTodaySaudi(user.created_at) && (
-              <span className="shrink-0 rounded-full bg-forest px-2 py-0.5 text-[9px] font-bold text-background">
-                جديد
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  حساب فرد
+                </p>
+              </div>
+
+              <span className="shrink-0 rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">
+                فرد
               </span>
-            )}
-          </div>
-
-          <div
-            dir="ltr"
-            className="mt-0.5 truncate text-[11px] text-muted-foreground"
-          >
-            {user.email || user.phone || "بدون بيانات اتصال"}
-          </div>
-        </div>
-
-        {expanded ? (
-          <ChevronUp className="size-5 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="size-5 text-muted-foreground" />
-        )}
-      </div>
-
-      {expanded && (
-        <div className="space-y-3 border-t border-line bg-background/50 p-3.5">
-          <div className="grid grid-cols-2 gap-2">
-            <Info
-              label="تاريخ التسجيل"
-              value={new Date(
-                user.created_at,
-              ).toLocaleString("ar-SA")}
-            />
-
-            <Info
-              label="المحافظة"
-              value={user.governorate_name || "—"}
-            />
-
-            <Info
-              label="الجوال"
-              value={user.phone || "—"}
-              icon={Phone}
-            />
-
-            <Info
-              label="البريد"
-              value={user.email || "—"}
-              icon={Mail}
-            />
-          </div>
-
-          <div>
-            <div className="mb-2 text-xs font-extrabold">
-              نشاط الحساب
             </div>
 
-            {isLoading ? (
-              <div className="flex items-center gap-2 rounded-xl bg-sand p-3 text-xs text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                جاري جلب النشاط...
-              </div>
-            ) : activity ? (
-              <div className="grid grid-cols-2 gap-2">
-                <Metric
-                  label="مشاهدات العقارات"
-                  value={activity.propertyViews}
-                />
-                <Metric
-                  label="العقارات المحفوظة"
-                  value={activity.favorites}
-                />
-                <Metric
-                  label="الطلبات العقارية"
-                  value={activity.propertyRequests}
-                />
-                <Metric
-                  label="حجوزات المعاينة"
-                  value={activity.bookings}
-                />
-                <Metric
-                  label="تقييمات المكاتب"
-                  value={activity.officeReviews}
-                />
-              </div>
-            ) : null}
-          </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Info
+                label="البريد"
+                value={user.email || "—"}
+                icon={Mail}
+              />
 
-          <div className="flex gap-2">
-            <Link
-              to="/admin/individuals/$userId"
-              params={{ userId: user.id }}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background"
-            >
-              فتح التفاصيل
-              <ChevronLeft className="size-3.5" />
-            </Link>
+              <Info
+                label="الجوال"
+                value={user.phone || "—"}
+                icon={Phone}
+              />
 
-            <button
-              onClick={() => void deleteUser()}
-              disabled={deleting}
-              className="flex items-center justify-center gap-1.5 rounded-xl bg-destructive/10 px-4 py-2.5 text-xs font-bold text-destructive disabled:opacity-50"
-            >
-              {deleting ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <UserRoundX className="size-3.5" />
-              )}
-              حذف
-            </button>
+              <Info
+                label="المحافظة"
+                value={user.governorate_name || "—"}
+              />
+
+              <Info
+                label="التسجيل"
+                value={formatDate(user.created_at)}
+              />
+            </div>
           </div>
         </div>
-      )}
+      </Link>
+
+      <div className="border-t border-line bg-background/60 p-3">
+        <Link
+          to="/admin/individuals/$userId"
+          params={{ userId: user.id }}
+          className="block w-full rounded-xl bg-forest py-3 text-center text-xs font-bold text-background"
+        >
+          فتح ملف الفرد
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function Stat({
+  title,
+  value,
+}: {
+  title: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-2xl bg-surface p-4 ring-1 ring-line">
+      <div className="text-[10px] text-muted-foreground">
+        {title}
+      </div>
+
+      <div className="mt-1 font-display text-2xl font-extrabold">
+        {value}
+      </div>
     </div>
   );
 }
@@ -294,49 +233,39 @@ function Info({
 }: {
   label: string;
   value: string;
-  icon?: typeof Phone;
+  icon?: typeof Mail;
 }) {
   return (
-    <div className="rounded-xl bg-sand p-3">
-      <div className="text-[10px] text-muted-foreground">
-        {Icon && (
-          <Icon className="mb-1 inline-block size-3.5" />
-        )}{" "}
+    <div className="rounded-xl bg-sand p-2.5">
+      <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+        {Icon && <Icon className="size-3" />}
         {label}
       </div>
-      <div className="mt-1 break-words text-xs font-semibold">
+
+      <div className="mt-1 truncate text-[11px] font-bold">
         {value}
       </div>
     </div>
   );
 }
 
-function Metric({
-  label,
-  value,
-}: {
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="rounded-xl bg-surface p-3 ring-1 ring-line">
-      <div className="font-display text-lg font-extrabold">
-        {value}
-      </div>
-      <div className="mt-0.5 text-[10px] text-muted-foreground">
-        {label}
-      </div>
-    </div>
-  );
+function formatDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return date.toLocaleDateString("ar-SA");
 }
 
-function ListSkeleton() {
+function Skeleton() {
   return (
-    <div className="space-y-2.5">
-      {Array.from({ length: 6 }).map((_, i) => (
+    <div className="space-y-3">
+      {Array.from({ length: 6 }).map((_, index) => (
         <div
-          key={i}
-          className="h-20 animate-pulse rounded-2xl bg-sand"
+          key={index}
+          className="h-40 animate-pulse rounded-[26px] bg-sand"
         />
       ))}
     </div>

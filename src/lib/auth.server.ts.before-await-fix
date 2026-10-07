@@ -97,7 +97,7 @@ async function issueVerificationCode(user: UserDoc) {
 
   if (currentCount >= 15) {
     const nextPause = new Date(now + 5 * 60_000);
-    await (await getMongoCollection<UserDoc>("users")).updateOne(
+    await getMongoCollection<UserDoc>("users").updateOne(
       { _id: user._id },
       { $set: { verification_paused_until: nextPause, verification_sent_count: 15, updated_at: new Date() } },
     );
@@ -105,7 +105,7 @@ async function issueVerificationCode(user: UserDoc) {
   }
 
   const code = generateCode();
-  await (await getMongoCollection<UserDoc>("users")).updateOne(
+  await getMongoCollection<UserDoc>("users").updateOne(
     { _id: user._id },
     {
       $set: {
