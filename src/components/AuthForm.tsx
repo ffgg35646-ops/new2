@@ -20,6 +20,18 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function normalizePhone(raw: string) {
+  const digits = raw.replace(/[^\d]/g, "");
+  if (digits.startsWith("966")) return `+${digits}`;
+  if (digits.startsWith("0")) return `+966${digits.slice(1)}`;
+  if (digits.startsWith("5")) return `+966${digits}`;
+  return `+${digits}`;
+}
+
+function isValidSaudiPhone(raw: string) {
+  return /^\+9665\d{8}$/.test(normalizePhone(raw));
+}
+
 function readEmailSendStates(): EmailSendStateMap {
   try {
     const raw = localStorage.getItem(EMAIL_SEND_STATE_KEY);
@@ -113,6 +125,7 @@ export function AuthForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [officeName, setOfficeName] = useState("");
   const [officeAddress, setOfficeAddress] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
@@ -130,6 +143,9 @@ export function AuthForm({
 
   function validateRegisterFields() {
     if (!fullName.trim()) throw new Error("الرجاء إدخال الاسم الكامل.");
+    if (!phone.trim() || !isValidSaudiPhone(phone)) {
+      throw new Error("رقم الجوال غير صحيح. مثال: 05XXXXXXXX");
+    }
     if (!selectedGov) throw new Error("الرجاء اختيار المحافظة.");
     if (role === "office") {
       if (!officeName.trim()) throw new Error("الرجاء إدخال اسم المكتب.");
@@ -142,7 +158,7 @@ export function AuthForm({
     return {
       _role: role,
       _full_name: fullName.trim(),
-      _phone: "",
+      _phone: normalizePhone(phone),
       _governorate_id: selectedGov,
       _office:
         role === "office"
@@ -206,7 +222,11 @@ export function AuthForm({
           email: signupEmail,
           password,
           options: {
-            data: { full_name: fullName.trim() },
+            data: {
+              full_name: fullName.trim(),
+              phone: normalizePhone(phone),
+              role,
+            },
             emailRedirectTo: `${window.location.origin}/auth/confirm`,
           },
         });
@@ -262,6 +282,16 @@ export function AuthForm({
             value={fullName}
             onChange={setFullName}
             placeholder="مثال: محمد العتيبي"
+          />
+        )}
+        {isRegister && (
+          <Field
+            label="رقم الجوال"
+            value={phone}
+            onChange={setPhone}
+            placeholder="05xxxxxxxx"
+            type="tel"
+            dir="ltr"
           />
         )}
         {isRegister && (
