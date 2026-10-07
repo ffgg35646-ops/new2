@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useAuth, type AppRole } from "@/lib/auth";
@@ -17,49 +17,38 @@ type Props = {
 
 export function RoleGuard({ allow, guestsTo, children }: Props) {
   const navigate = useNavigate();
-  const { roles, session, data, isLoading, isError, error, refetch } = useAuth();
-  const [authWaitExpired, setAuthWaitExpired] = useState(false);
+  const { roles, session, isLoading, isError, error, refetch } = useAuth();
 
-  useEffect(() => {
-    if (!isLoading || data) {
-      setAuthWaitExpired(false);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setAuthWaitExpired(true);
-    }, 3000);
-
-    return () => window.clearTimeout(timer);
-  }, [isLoading, data]);
-
-  // صفحات الضيوف العامة لا تتوقف إذا تعذر تحميل معلومات الحساب.
-  if (isError && !guestsTo) return <>{children}</>;
-
-  const settled = !isLoading || !!data || authWaitExpired;
+  const settled = !isLoading;
   const isGuest = settled && !session;
   const allowed = allow.some((r) => roles.includes(r));
-  const blocked = settled && !!session && !allowed;
   const unknownRole = settled && !!session && roles.length === 0;
+  const blocked = settled && !!session && !unknownRole && !allowed;
+
+  if (isError && !guestsTo) return <>{children}</>;
 
   useEffect(() => {
     if (isGuest && guestsTo) {
       navigate({ to: guestsTo, replace: true });
       return;
     }
-    if (blocked && !unknownRole && roles.length > 0) {
+
+    if (blocked && roles.length > 0) {
       navigate({ to: homeForRoles(roles), replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGuest, blocked, guestsTo, roles.join(",")]);
+  }, [isGuest, blocked, guestsTo, roles, navigate]);
 
-  if (isError && guestsTo) {
+  if ((isError || unknownRole) && guestsTo) {
     return (
       <div className="grid min-h-screen place-items-center bg-background px-5">
         <div className="max-w-md text-center">
           <h2 className="font-display text-lg font-extrabold">تعذر التحقق من الحساب</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : "حدث خطأ أثناء تحميل صلاحيات الحساب."}
+            {isError
+              ? error instanceof Error
+                ? error.message
+                : "حدث خطأ أثناء تحميل صلاحيات الحساب."
+              : "لم يتم العثور على دور صالح لهذا الحساب."}
           </p>
           <button
             type="button"
@@ -73,7 +62,7 @@ export function RoleGuard({ allow, guestsTo, children }: Props) {
     );
   }
 
-  if (!settled || blocked || unknownRole || (isGuest && guestsTo)) {
+  if (!settled || blocked || (isGuest && guestsTo)) {
     return (
       <div className="grid min-h-screen place-items-center bg-background">
         <Loader2 className="size-6 animate-spin text-forest" />
