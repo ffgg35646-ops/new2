@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { clearPersistedQueryCache } from "@/lib/query-cache";
 
 export type AppRole = "individual" | "office" | "admin";
 
@@ -27,33 +26,29 @@ const AUTH_QUERY_TIMEOUT_MS = 5000;
 
 function withTimeout<T>(
   promise: PromiseLike<T>,
-  fallback: T,
   timeoutMs = AUTH_QUERY_TIMEOUT_MS,
 ): Promise<T> {
-  return new Promise((resolve) => {
-    let settled = false;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("AUTH_QUERY_TIMEOUT"));
+    }, timeoutMs);
 
-    const finish = (value: T) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve(value);
-    };
-
-    const timer = setTimeout(() => finish(fallback), timeoutMs);
-
-    Promise.resolve(promise).then(finish, () => finish(fallback));
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
   });
 }
 
 async function loadSession(): Promise<SessionInfo> {
-  const sessionResult = await withTimeout(
-    supabase.auth.getSession(),
-    {
-      data: { session: null },
-      error: null,
-    },
-  );
+  const sessionResult = await withTimeout(supabase.auth.getSession());
+  if (sessionResult.error) throw sessionResult.error;
 
   const session = sessionResult.data.session ?? null;
 
@@ -97,8 +92,12 @@ async function loadSession(): Promise<SessionInfo> {
     ),
   ]);
 
-  const roles = (rolesRes?.data ?? []).map((r) => r.role as AppRole);
-  const office = officeRes?.data ?? null;
+  if (rolesRes?.error) throw rolesRes.error;
+  if (profileRes?.error) throw profileRes.error;
+  if (officeRes?.error) throw officeRes.error;
+
+  const roles = (rolesRes.data ?? []).map((r) => r.role as AppRole);
+  const office = officeRes.data ?? null;
 
   const metadata =
     session.user.user_metadata as Record<string, unknown>;
@@ -134,15 +133,7 @@ async function loadSession(): Promise<SessionInfo> {
       }
     : fallbackProfile;
 
-  // لو استعلام الأدوار تأخر لكن وُجد مكتب، نعرف أن الحساب حساب مكتب
-  // بدل إبقاء الصفحة عالقة في شاشة التحميل.
-  if (roles.length === 0) {
-    if (office?.id) {
-      roles.push("office");
-    } else if (profileRes?.data) {
-      roles.push("individual");
-    }
-  }
+
 
   return {
     session,
