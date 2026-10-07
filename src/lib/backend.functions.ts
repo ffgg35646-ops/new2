@@ -1,7 +1,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { randomUUID } from "node:crypto";
-import { getMongoCollection, storeMedia, deleteMedia } from "./mongo.server";
+import { getMongoCollection, getMongoDb, storeMedia, deleteMedia } from "./mongo.server";
 import {
   currentUser,
   registerUser,
@@ -215,7 +215,7 @@ async function runDb(input: DbInput) {
     let ownOffice = null;
 
     if (role === "office" && userId) {
-      ownOffice = await collection.db
+      ownOffice = await (await getMongoDb())
         .collection("offices")
         .findOne({ owner_id: userId, is_deleted: { $ne: true } });
     }
