@@ -39,7 +39,6 @@ function NewProperty() {
   const navigate = useNavigate();
   const { userId } = useAuth();
   const { governorateId } = useSelectedGovernorate();
-  const { data: neighborhoods = [] } = useNeighborhoods(governorateId);
 
   const { data: office } = useQuery({
     queryKey: ["my-office-id", userId],
@@ -54,6 +53,9 @@ function NewProperty() {
       return data;
     },
   });
+
+  const propertyGovernorateId = office?.governorate_id ?? governorateId;
+  const { data: neighborhoods = [] } = useNeighborhoods(propertyGovernorateId);
 
   const { propertyLimit } = useMyPlan();
   const { data: propertiesCount = 0 } = useOfficePropertiesCount(office?.id);
@@ -90,7 +92,7 @@ function NewProperty() {
         .insert({
           property_number: "",
           office_id: office.id,
-          governorate_id: office.governorate_id ?? governorateId!,
+          governorate_id: propertyGovernorateId! ,
           kind: kind as never,
           listing: listing as never,
           title: title.trim(),
