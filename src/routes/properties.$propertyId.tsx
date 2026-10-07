@@ -37,6 +37,8 @@ import { notifyWhatsApp } from "@/lib/notify-whatsapp";
 import { googleMapsUrl } from "@/lib/location";
 import { shareLink, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
+import { AppHeader } from "@/components/AppHeader";
+import { BottomNav } from "@/components/BottomNav";
 
 const REPORT_REASONS = [
   "معلومات غير صحيحة",
@@ -272,6 +274,7 @@ function PropertyDetail() {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background pb-28">
+      <AppHeader showSearch={false} />
       <div className="relative">
         <div className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto">
           {images.length ? (
@@ -297,8 +300,8 @@ function PropertyDetail() {
           )}
         </div>
         <button
-          onClick={() => navigate({ to: "/home" })}
-          aria-label="رجوع"
+          onClick={() => navigate({ to: isOffice ? "/office" : "/home" })}
+          aria-label="رجوع للرئيسية"
           className="absolute top-4 right-4 grid size-9 place-items-center rounded-full bg-background/90 ring-1 ring-line"
         >
           <ArrowRight className="size-4" />
@@ -623,7 +626,12 @@ function PropertyDetail() {
         </div>
       )}
 
-      <div className="fixed bottom-0 z-30 mx-auto flex w-full max-w-md gap-2 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur">
+      <div
+        className={cn(
+          "fixed z-30 mx-auto flex w-full max-w-md gap-2 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur",
+          isOffice ? "bottom-[72px]" : "bottom-0",
+        )}
+      >
         {userId ? (
           <>
             {!isOffice && (
@@ -671,6 +679,8 @@ function PropertyDetail() {
           </Link>
         )}
       </div>
+
+      <BottomNav variant={isOffice ? "office" : "individual"} />
     </div>
   );
 }
