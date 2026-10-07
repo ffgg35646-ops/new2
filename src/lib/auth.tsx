@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { Session } from "@/lib/backend-client";
 import { supabase } from "@/integrations/supabase/client";
 import { clearPersistedQueryCache } from "@/lib/query-cache";
 
