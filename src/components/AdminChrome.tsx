@@ -14,7 +14,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useLocation } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 
 const items = [
   { label: "الرئيسية", href: "/admin", icon: LayoutDashboard },
@@ -84,9 +84,10 @@ function Navigation({
           );
 
           return (
-            <a
+            <Link
               key={href}
-              href={href}
+              to={href}
+              preload="intent"
               onClick={onNavigate}
               className={[
                 "flex items-center gap-3 rounded-2xl px-3.5 py-3",
@@ -98,7 +99,7 @@ function Navigation({
             >
               <Icon className="size-[18px] shrink-0" />
               <span>{label}</span>
-            </a>
+            </Link>
           );
         },
       )}
@@ -160,13 +161,14 @@ export function AdminChrome({
                 </div>
               </div>
 
-              <a
-                href="/admin/notifications"
+              <Link
+                to="/admin/notifications"
+                preload="intent"
                 className="ms-auto grid size-10 place-items-center rounded-full bg-surface ring-1 ring-line"
                 aria-label="الإشعارات"
               >
                 <Bell className="size-[18px] text-muted-foreground" />
-              </a>
+              </Link>
             </div>
           </header>
 
@@ -193,13 +195,14 @@ export function AdminChrome({
               لوحة الإدارة
             </div>
 
-            <a
-              href="/admin/notifications"
+            <Link
+              to="/admin/notifications"
+              preload="intent"
               className="ms-auto grid size-9 place-items-center rounded-full bg-surface ring-1 ring-line"
               aria-label="الإشعارات"
             >
               <Bell className="size-[18px] text-muted-foreground" />
-            </a>
+            </Link>
           </div>
         </header>
 
