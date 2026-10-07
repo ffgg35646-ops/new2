@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, MailCheck, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const PENDING_KEY = "ufuq.pending-signup";
@@ -32,6 +32,7 @@ function ConfirmEmailPage() {
 
   const [tokenHash, setTokenHash] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const tokenFlowRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -44,6 +45,8 @@ function ConfirmEmailPage() {
         const hashType = params.get("type");
 
         if (hashToken) {
+          tokenFlowRef.current = true;
+
           if (hashType !== "email") {
             throw new Error("رابط تفعيل البريد غير صالح.");
           }
@@ -104,17 +107,17 @@ function ConfirmEmailPage() {
     const { data: subscription } =
       supabase.auth.onAuthStateChange((event) => {
         if (
-          event === "SIGNED_IN" ||
-          event === "USER_UPDATED"
+          !tokenFlowRef.current &&
+          (event === "SIGNED_IN" || event === "USER_UPDATED")
         ) {
           void finishConfirmation();
         }
       });
 
-    async function finishConfirmation() {
+    async function finishConfirmation(userOverride?: import("@supabase/supabase-js").User) {
       try {
-        const { data } = await supabase.auth.getUser();
-        const user = data.user;
+        const user =
+          userOverride ?? (await supabase.auth.getUser()).data.user;
 
         if (!user) {
           throw new Error(
@@ -255,30 +258,27 @@ function ConfirmEmailPage() {
     setMessage("جاري تأكيد بريدك الإلكتروني...");
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      const { data, error } = await supabase.auth.verifyOtp({
         token_hash: tokenHash,
         type: "email",
       });
 
       if (error) throw error;
 
-      const { data } = await supabase.auth.getUser();
-
       if (!data.user) {
-        throw new Error(
-          "تعذر إنشاء جلسة بعد تفعيل البريد.",
-        );
+        throw new Error("تم تأكيد البريد لكن تعذر استعادة الحساب.");
       }
 
       if (!data.user.email_confirmed_at) {
-        throw new Error(
-          "لم يتم تأكيد البريد الإلكتروني بعد.",
-        );
+        throw new Error("لم يتم تأكيد البريد الإلكتروني بعد.");
+      }
+
+      if (data.session) {
+        await supabase.auth.setSession(data.session);
       }
 
       setTokenHash(null);
-
-      window.location.reload();
+      await finishConfirmation(data.user);
     } catch (e) {
       setState("error");
       setMessage(
