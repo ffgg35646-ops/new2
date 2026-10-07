@@ -1,14 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { DEFAULT_PRIVACY_POLICY, DEFAULT_TERMS_OF_USE } from "@/lib/legal-content";
 
 type PolicyKey = "privacy_policy" | "terms_of_use";
 
 const DEFAULT_CONTENT: Record<PolicyKey, string> = {
-  privacy_policy:
-    "سياسة الخصوصية\n\nسيتم عرض سياسة الخصوصية هنا.",
-  terms_of_use:
-    "شروط الاستخدام\n\nسيتم عرض شروط الاستخدام هنا.",
+  privacy_policy: DEFAULT_PRIVACY_POLICY,
+  terms_of_use: DEFAULT_TERMS_OF_USE,
 };
 
 export function LegalPolicyModal({
@@ -27,6 +26,8 @@ export function LegalPolicyModal({
   const { data, isLoading } = useQuery({
     queryKey: ["legal-policy", policyKey],
     enabled: open,
+    initialData: DEFAULT_CONTENT[policyKey],
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("app_content")
