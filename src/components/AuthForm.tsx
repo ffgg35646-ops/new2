@@ -170,9 +170,9 @@ export function AuthForm({
         );
 
         if (!data.session) {
-          throw new Error(
-            "التسجيل يحتاج جلسة مباشرة. عطّل Confirm Email في Supabase ثم جرّب مرة أخرى.",
-          );
+          toast.success("أرسلنا رمز تأكيد مكوّنًا من 6 أرقام إلى بريدك الإلكتروني.");
+          navigate({ to: "/auth/verify-email" });
+          return;
         }
 
         await finishSignup(payload);
