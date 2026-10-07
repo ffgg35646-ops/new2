@@ -17,6 +17,7 @@ import {
   useAdminDirectory,
 } from "@/lib/admin";
 import { AdminSupport } from "@/components/AdminSupport";
+import { DEFAULT_PRIVACY_POLICY, DEFAULT_TERMS_OF_USE } from "@/lib/legal-content";
 
 type Tab =
   | "dashboard"
@@ -59,7 +60,9 @@ export const Route = createFileRoute("/admin")({
 
   component: () => (
     <RoleGuard allow={["admin"]} guestsTo="/admin/login">
-      <AdminRouteContent />
+      <AdminChrome>
+        <AdminRouteContent />
+      </AdminChrome>
     </RoleGuard>
   ),
 });
@@ -411,31 +414,122 @@ function AdminDashboard() {
 }
 
 function LegalAdminTab({ title }: { title: string }) {
+  const policyKey =
+    title === "سياسة الخصوصية"
+      ? "privacy_policy"
+      : "terms_of_use";
+
+  const fallback =
+    policyKey === "privacy_policy"
+      ? DEFAULT_PRIVACY_POLICY
+      : DEFAULT_TERMS_OF_USE;
+
+  const qc = useQueryClient();
+  const [content, setContent] = useState(fallback);
+
+  const policyQuery = useQuery({
+    queryKey: ["admin-legal-content", policyKey],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("app_content")
+        .select("content")
+        .eq("key", policyKey)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data?.content || fallback;
+    },
+    initialData: fallback,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (policyQuery.data != null) {
+      setContent(String(policyQuery.data));
+    }
+  }, [policyQuery.data]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const clean = content.trim();
+
+      if (!clean) {
+        throw new Error("لا يمكن حفظ محتوى فارغ.");
+      }
+
+      const { data, error } = await (supabase as any)
+        .from("app_content")
+        .upsert(
+          {
+            key: policyKey,
+            content: clean,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "key" },
+        )
+        .select("content")
+        .maybeSingle();
+
+      if (error) throw error;
+
+      return String(data?.content ?? clean);
+    },
+    onSuccess: (saved) => {
+      setContent(saved);
+
+      qc.setQueryData(
+        ["admin-legal-content", policyKey],
+        saved,
+      );
+
+      qc.setQueryData(
+        ["legal-policy", policyKey],
+        saved,
+      );
+
+      toast.success(
+        policyKey === "privacy_policy"
+          ? "تم حفظ سياسة الخصوصية."
+          : "تم حفظ شروط الاستخدام.",
+      );
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "تعذر حفظ المحتوى.",
+      );
+    },
+  });
+
   return (
     <section className="space-y-4" dir="rtl">
       <div>
-        <h1 className="font-display text-xl font-extrabold">{title}</h1>
+        <h1 className="font-display text-xl font-extrabold">
+          {title}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          إدارة المحتوى القانوني الظاهر للمستخدمين.
+          النص المحفوظ هنا يظهر مباشرة في نافذة {title} أثناء التسجيل.
         </p>
       </div>
 
       <div className="rounded-3xl bg-surface p-4 ring-1 ring-line">
         <textarea
-          rows={18}
-          defaultValue={
-            title === "سياسة الخصوصية"
-              ? "اكتب هنا سياسة الخصوصية الخاصة بمنصة عقار البطين..."
-              : "اكتب هنا شروط الاستخدام الخاصة بمنصة عقار البطين..."
-          }
+          rows={20}
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
           className="w-full rounded-2xl bg-background p-4 text-sm leading-7 outline-none ring-1 ring-line focus:ring-2 focus:ring-forest"
         />
 
         <button
           type="button"
-          className="mt-3 w-full rounded-2xl bg-forest py-3.5 font-display font-bold text-background"
+          onClick={() => save.mutate()}
+          disabled={save.isPending}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:cursor-not-allowed disabled:opacity-50"
         >
-          حفظ
+          <Save className="size-4" />
+          {save.isPending ? "جارٍ الحفظ..." : "حفظ"}
         </button>
       </div>
     </section>
