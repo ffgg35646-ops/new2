@@ -16,6 +16,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { ProLockDialog, CHAT_LOCK_MESSAGE, PRO_LOCK_MESSAGE } from "@/components/ProLock";
 import { RoleGuard } from "@/lib/role-guard";
 import { useMyPlan } from "@/lib/plans";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/extras")({
   head: () => ({
@@ -44,6 +45,7 @@ export const Route = createFileRoute("/extras")({
 
 function ExtrasPage() {
   const { isPro } = useMyPlan();
+  const { isOffice } = useAuth();
   const [lock, setLock] = useState<string | null>(null);
 
   return (
@@ -60,11 +62,15 @@ function ExtrasPage() {
 
         <section className="space-y-2">
           <h2 className="px-1 font-display text-sm font-extrabold">متاحة لك</h2>
-          <Row to="/chats" icon={MessageSquare} label="محادثاتي مع المكاتب" />
-          <Row to="/offices/following" icon={Bell} label="إشعارات المكاتب التي أتابعها" />
+          {!isOffice && (
+            <>
+              <Row to="/chats" icon={MessageSquare} label="محادثاتي مع المكاتب" />
+              <Row to="/offices/following" icon={Bell} label="إشعارات المكاتب التي أتابعها" />
+              <Row to="/favorites" icon={Heart} label="المفضلة" />
+              <Row to="/request" icon={ClipboardList} label="طلباتي العقارية" />
+            </>
+          )}
           <Row to="/properties" icon={Building2} label="جميع العقارات" />
-          <Row to="/favorites" icon={Heart} label="المفضلة" />
-          <Row to="/request" icon={ClipboardList} label="طلباتي العقارية" />
           <Row to="/plans" icon={Sparkles} label="الباقات" />
         </section>
 
