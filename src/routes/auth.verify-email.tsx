@@ -380,7 +380,7 @@ function VerifyEmailPage() {
         </button>
 
         <Link
-          to={loginRoute}
+          to={pending?.role === "office" ? "/auth/office" : "/auth/individual"}
           className="block w-full rounded-2xl bg-surface py-3.5 text-center text-sm font-bold ring-1 ring-line"
         >
           العودة لتسجيل الدخول
