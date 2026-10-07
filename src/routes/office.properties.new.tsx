@@ -11,7 +11,7 @@ import { LocationPicker } from "@/components/LocationPicker";
 import type { LatLng } from "@/lib/location";
 import { FACINGS, LISTING_TYPES, PROPERTY_KINDS } from "@/lib/constants";
 import { useAuth } from "@/lib/auth";
-import { useNeighborhoods, useSelectedGovernorate } from "@/lib/governorate";
+import { useSelectedGovernorate } from "@/lib/governorate";
 import {
   planErrorMessage,
   useMyPlan,
@@ -55,7 +55,6 @@ function NewProperty() {
   });
 
   const propertyGovernorateId = office?.governorate_id ?? governorateId;
-  const { data: neighborhoods = [] } = useNeighborhoods(propertyGovernorateId);
 
   const { propertyLimit } = useMyPlan();
   const { data: propertiesCount = 0 } = useOfficePropertiesCount(office?.id);
@@ -65,7 +64,6 @@ function NewProperty() {
   const [listing, setListing] = useState("sale");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [neighborhood, setNeighborhood] = useState("");
   const [price, setPrice] = useState("");
   const [area, setArea] = useState("");
   const [facing, setFacing] = useState("");
@@ -84,7 +82,6 @@ function NewProperty() {
           `باقتك تسمح بـ ${propertyLimit} عقار فقط. اختر باقة أخرى لزيادة الحد.`,
         );
       if (!title.trim()) throw new Error("أدخل عنوان العرض");
-      if (!neighborhood) throw new Error("اختر الحي");
       if (!price || !area) throw new Error("أدخل السعر والمساحة");
 
       const { data, error } = await supabase
@@ -97,7 +94,6 @@ function NewProperty() {
           listing: listing as never,
           title: title.trim(),
           description: description.trim() || null,
-          neighborhood,
           price: Number(price),
           area: Number(area),
           facing: facing || null,
@@ -177,16 +173,6 @@ function NewProperty() {
             placeholder="أرض سكنية بحي الروضة"
           />
 
-          <Row label="الحي">
-            {neighborhoods.map((n) => (
-              <Pill
-                key={n.id}
-                label={n.name_ar}
-                active={neighborhood === n.name_ar}
-                onClick={() => setNeighborhood(n.name_ar)}
-              />
-            ))}
-          </Row>
 
           <div className="grid grid-cols-2 gap-2">
             <Field label="السعر (ر.س)" value={price} onChange={setPrice} type="number" />
