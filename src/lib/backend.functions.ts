@@ -278,6 +278,7 @@ async function roleFor(userId: string) {
   const roles = await getMongoCollection<Record<string, unknown>>("user_roles");
   const rows = await roles.find({ user_id: userId }).toArray();
 
+  if (rows.some((row) => row.role === "admin")) return "admin";
   return rows.some((row) => row.role === "office") ? "office" : "individual";
 }
 
