@@ -28,6 +28,7 @@ import { useMyPlan } from "@/lib/plans";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { SupportCenter } from "@/components/SupportCenter";
+import { ProfileModal } from "@/components/ProfileModal";
 
 export const Route = createFileRoute("/office/profile")({
   head: () => ({
@@ -67,7 +68,7 @@ type FormKey =
 function OfficeProfile() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { userId } = useAuth();
+  const { userId, session } = useAuth();
   const { data: membership, isLoading } = useMyOffice();
   const office = membership?.office ?? null;
   const isOwner = membership?.isOwner ?? false;
@@ -76,6 +77,7 @@ function OfficeProfile() {
   const [editing, setEditing] = useState(false);
   const [dark, setDark] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const supportTicketId =
     typeof window !== "undefined"
@@ -209,15 +211,34 @@ function OfficeProfile() {
               </div>
             </div>
             {office && (
-              <Link
-                to="/offices/$officeId"
-                params={{ officeId: office.id }}
-                className="shrink-0 text-xs font-semibold text-terracotta"
-              >
-                الملف العام
-              </Link>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <Link
+                  to="/offices/$officeId"
+                  params={{ officeId: office.id }}
+                  className="text-xs font-semibold text-terracotta"
+                >
+                  الملف العام
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen(true)}
+                  className="text-xs font-semibold text-forest"
+                >
+                  الملف الشخصي
+                </button>
+              </div>
             )}
           </div>
+          <ProfileModal
+            open={profileOpen}
+            onClose={() => setProfileOpen(false)}
+            email={session?.user?.email ?? office?.email ?? ""}
+            emailVerified={!!session?.user?.email_confirmed_at}
+            rows={readRows
+              .filter(([label]) => label !== "البريد الإلكتروني")
+              .map(([label, value]) => ({ label, value }))}
+          />
+
           {office?.verification_status === "rejected" && office.rejection_reason && (
             <p className="mt-2 rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">
               سبب الرفض: {office.rejection_reason}
