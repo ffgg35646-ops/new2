@@ -15,8 +15,6 @@ import {
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { RoleGuard } from "@/lib/role-guard";
-import { AdminShell } from "@/components/AdminShell";
 import {
   fetchIndividualActivity,
   isTodaySaudi,
@@ -31,13 +29,7 @@ export const Route = createFileRoute(
       { title: "بيانات الفرد | إدارة عقار البطين" },
     ],
   }),
-  component: () => (
-    <RoleGuard allow={["admin"]} guestsTo="/auth/admin">
-      <AdminShell>
-        <IndividualDetails />
-      </AdminShell>
-    </RoleGuard>
-  ),
+  component: IndividualDetails,
 });
 
 function IndividualDetails() {
