@@ -180,10 +180,18 @@ export function AuthForm({
   }
 
   async function applyPendingSignup(userId: string) {
-    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-    if (roles && roles.length > 0) return;
+    const [rolesRes, profileRes] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", userId),
+      supabase.from("profiles").select("id").eq("id", userId).maybeSingle(),
+    ]);
+
+    if (rolesRes.error) throw rolesRes.error;
+    if (profileRes.error) throw profileRes.error;
+    if ((rolesRes.data?.length ?? 0) > 0 || profileRes.data) return;
+
     const raw = localStorage.getItem(PENDING_KEY);
     if (!raw) return;
+
     try {
       await finishSignup(JSON.parse(raw) as Record<string, unknown>);
     } finally {
@@ -226,6 +234,7 @@ export function AuthForm({
               full_name: fullName.trim(),
               phone: normalizePhone(phone),
               role,
+              signup_payload: signupPayload(),
             },
             emailRedirectTo: `${window.location.origin}/auth/confirm`,
           },
