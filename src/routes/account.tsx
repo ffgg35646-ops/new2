@@ -21,6 +21,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { EmptyState } from "@/components/EmptyState";
 import { useAuth, signOut } from "@/lib/auth";
+import { useSelectedGovernorate } from "@/lib/governorate";
 import { BOOKING_STATUS } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import { SupportCenter } from "@/components/SupportCenter";
@@ -45,6 +46,7 @@ export const Route = createFileRoute("/account")({
 function AccountPage() {
   const navigate = useNavigate();
   const { userId, profile, session, isAdmin, isOffice } = useAuth();
+  const { governorate } = useSelectedGovernorate();
   const [dark, setDark] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -146,7 +148,7 @@ function AccountPage() {
               rows={[
                 ["الاسم الكامل", profile?.full_name ?? "—"],
                 ["رقم الجوال", profile?.phone ?? "—"],
-                ["المحافظة", profile?.governorate_id ?? "—"],
+                ["المحافظة", governorate?.name_ar ?? "—"],
               ].map(([label, value]) => ({ label, value }))}
             />
 
