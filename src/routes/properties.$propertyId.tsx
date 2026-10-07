@@ -680,7 +680,7 @@ function PropertyDetail() {
         )}
       </div>
 
-      <BottomNav variant={isOffice ? "office" : "individual"} />
+      <BottomNav variant={isOffice ? "office" : "individual"} fixed />
     </div>
   );
 }
