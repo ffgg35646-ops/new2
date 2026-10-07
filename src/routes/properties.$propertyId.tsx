@@ -200,13 +200,15 @@ function PropertyDetail() {
         throw new Error("الدردشة غير متاحة لهذا المكتب — تواصل عبر الاتصال أو واتساب");
       }
 
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from("conversations")
         .select("id")
         .eq("user_id", userId)
         .eq("office_id", officeId)
+        .eq("property_id", data!.id)
         .limit(1)
         .maybeSingle();
+      if (existingError) throw existingError;
       if (existing) return existing.id;
 
       const { data: created, error } = await supabase
@@ -227,7 +229,7 @@ function PropertyDetail() {
       if (!reportReason) throw new Error("اختر سبب البلاغ");
       const { error } = await supabase.from("reports").insert({
         reporter_id: userId,
-        property_id: propertyId,
+        property_id: data.id,
         reason: reportReason,
         details: reportDetails.trim() || null,
       });
