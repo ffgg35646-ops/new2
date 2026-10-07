@@ -123,12 +123,80 @@ class QueryBuilder<T = unknown> {
 }
 
 class Channel {
+  private callback: ((payload: any) => void) | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private filterField: string | null = null;
+  private filterValue: string | null = null;
+  private lastSignature = "";
+
   constructor(private readonly table: string) {}
-  on(_event: string, _config: unknown, _callback: (payload: any) => void) {
+
+  on(
+    _event: string,
+    config: { filter?: string; table?: string },
+    callback: (payload: any) => void,
+  ) {
+    this.callback = callback;
+
+    const match = config.filter?.match(/^([a-zA-Z0-9_]+)=eq\\.(.*)$/);
+    this.filterField = match?.[1] ?? null;
+    this.filterValue = match?.[2] ? decodeURIComponent(match[2]) : null;
+
     return this;
   }
+
   subscribe() {
+    const poll = async () => {
+      if (!this.callback) return;
+
+      try {
+        let query: any = backend
+          .from(this.table)
+          .select("*")
+          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(20);
+
+        if (this.filterField && this.filterValue != null) {
+          query = query.eq(this.filterField, this.filterValue);
+        }
+
+        const result = await query;
+        if (result.error) return;
+
+        const rows = Array.isArray(result.data) ? result.data : [];
+        const signature = rows
+          .map((row) =>
+            String(
+              row.id ??
+                row._id ??
+                row.updated_at ??
+                row.created_at ??
+                "",
+            ),
+          )
+          .join("|");
+
+        if (!signature || signature === this.lastSignature) return;
+
+        const previous = this.lastSignature;
+        this.lastSignature = signature;
+
+        if (!previous) return;
+
+        this.callback({
+          eventType: "*",
+          new: rows[0] ?? null,
+          old: null,
+        });
+      } catch {
+        // Best effort polling.
+      }
+    };
+
+    void poll();
+    this.timer = setInterval(() => void poll(), 5000);
+
     return {
       unsubscribe: () => {
         if (this.timer) clearInterval(this.timer);
@@ -136,6 +204,7 @@ class Channel {
       },
     };
   }
+
   unsubscribe() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
