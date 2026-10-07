@@ -452,6 +452,392 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: null, error: null };
       }
 
+      if (data.name === "set_office_package") {
+        if (!userId) throw new Error("يجب تسجيل الدخول.");
+
+        const packageId = String(data.args?._package_id ?? "");
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          owner_id: userId,
+          is_deleted: { $ne: true },
+        });
+
+        if (!office) throw new Error("office_not_found");
+
+        const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
+        const pkg = await packages.findOne({
+          id: packageId,
+          is_active: true,
+        });
+
+        if (!pkg) throw new Error("package_not_available");
+
+        const plan =
+          String(pkg.code ?? "") === "pro" || Number(pkg.price ?? 0) > 0
+            ? "pro"
+            : "free";
+
+        const durationDays = Number(pkg.duration_days ?? 0);
+        const expiresAt =
+          durationDays > 0
+            ? new Date(Date.now() + durationDays * 86_400_000)
+            : null;
+
+        await offices.updateOne(
+          { id: office.id },
+          {
+            $set: {
+              package_id: pkg.id,
+              plan,
+              plan_started_at: new Date(),
+              plan_expires_at: expiresAt,
+              updated_at: new Date(),
+            },
+          },
+        );
+
+        await getMongoCollection("office_plan_events").insertOne({
+          id: randomUUID(),
+          office_id: office.id,
+          action: "package_changed",
+          plan,
+          expires_at: expiresAt,
+          created_at: new Date(),
+          note: pkg.name ?? null,
+        });
+
+        return { data: null, error: null };
+      }
+
+      if (data.name === "create_property_request") {
+        if (!userId) throw new Error("not_authenticated");
+
+        const args = data.args ?? {};
+        const description = String(args._description ?? "").trim();
+
+        if (description.length < 10) {
+          throw new Error("description_required");
+        }
+
+        const governorateId = args._governorate_id;
+        const governorates = await getMongoCollection<Record<string, unknown>>("governorates");
+        const governorate = await governorates.findOne({
+          id: governorateId,
+          is_active: true,
+        });
+
+        if (!governorate) throw new Error("governorate_inactive");
+
+        const budgetMin =
+          args._budget_min == null ? null : Number(args._budget_min);
+        const budgetMax =
+          args._budget_max == null ? null : Number(args._budget_max);
+
+        if (
+          budgetMin != null &&
+          budgetMax != null &&
+          budgetMin > budgetMax
+        ) {
+          throw new Error("invalid_budget_range");
+        }
+
+        const requests = await getMongoCollection<Record<string, unknown>>(
+          "property_requests",
+        );
+
+        const id = randomUUID();
+        await requests.insertOne({
+          id,
+          _id: id,
+          user_id: userId,
+          governorate_id: governorateId,
+          kind: args._kind,
+          listing: args._listing,
+          neighborhood: args._neighborhood || null,
+          budget_min: budgetMin,
+          budget_max: budgetMax,
+          area_min:
+            args._area_min == null ? null : Number(args._area_min),
+          description,
+          attachment_url: args._attachment_url || null,
+          expires_at:
+            args._expires_at
+              ? new Date(String(args._expires_at))
+              : new Date(Date.now() + 7 * 86_400_000),
+          status: "active",
+          views_count: 0,
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+
+        return { data: id, error: null };
+      }
+
+      if (data.name === "notify_matching_offices_for_request") {
+        if (!userId) throw new Error("not_authenticated");
+
+        const requestId = String(data.args?._request_id ?? "");
+        const requests = await getMongoCollection<Record<string, unknown>>(
+          "property_requests",
+        );
+        const request = await requests.findOne({
+          id: requestId,
+          user_id: userId,
+        });
+
+        if (!request) throw new Error("request_not_found");
+
+        const properties = await getMongoCollection<Record<string, unknown>>(
+          "properties",
+        );
+
+        const propertyFilter: Record<string, unknown> = {
+          governorate_id: request.governorate_id,
+          kind: request.kind,
+          is_published: true,
+          is_deleted: { $ne: true },
+        };
+
+        if (request.neighborhood) {
+          propertyFilter.neighborhood = request.neighborhood;
+        }
+
+        const matchingProperties = await properties
+          .find(propertyFilter)
+          .project({ office_id: 1 })
+          .toArray();
+
+        const officeIds = [
+          ...new Set(
+            matchingProperties
+              .map((row) => row.office_id)
+              .filter((id): id is string => typeof id === "string"),
+          ),
+        ];
+
+        if (officeIds.length) {
+          const offices = await getMongoCollection<Record<string, unknown>>("offices");
+          const notifications =
+            await getMongoCollection<Record<string, unknown>>("notifications");
+
+          const rows = await offices
+            .find({
+              id: { $in: officeIds },
+              is_deleted: false,
+              verification_status: "verified",
+            })
+            .project({ owner_id: 1 })
+            .toArray();
+
+          const recipientIds = [
+            ...new Set(
+              rows
+                .map((row) => row.owner_id)
+                .filter((id): id is string => typeof id === "string"),
+            ),
+          ];
+
+          if (recipientIds.length) {
+            await notifications.insertMany(
+              recipientIds.map((recipientId) => ({
+                id: randomUUID(),
+                _id: randomUUID(),
+                user_id: recipientId,
+                title: "طلب عقار جديد",
+                body: "يوجد طلب عقاري مطابق لنوع عقارات مكتبك ومنطقتك.",
+                type: "property_request",
+                link: "/office/requests",
+                is_read: false,
+                created_at: new Date(),
+              })),
+            );
+          }
+        }
+
+        return { data: null, error: null };
+      }
+
+      if (data.name === "notify_new_property_offer") {
+        if (!userId) throw new Error("not_authenticated");
+
+        const offerId = String(data.args?._offer_id ?? "");
+        const offers = await getMongoCollection<Record<string, unknown>>(
+          "office_offers",
+        );
+        const offer = await offers.findOne({ id: offerId });
+
+        if (!offer) throw new Error("offer_not_found");
+
+        const offices = await getMongoCollection<Record<string, unknown>>(
+          "offices",
+        );
+        const office = await offices.findOne({ id: offer.office_id });
+
+        if (!office || office.owner_id !== userId) {
+          throw new Error("not_office_member");
+        }
+
+        const requests = await getMongoCollection<Record<string, unknown>>(
+          "property_requests",
+        );
+        const request = await requests.findOne({ id: offer.request_id });
+
+        if (!request || typeof request.user_id !== "string") {
+          throw new Error("request_not_found");
+        }
+
+        await getMongoCollection<Record<string, unknown>>(
+          "notifications",
+        ).insertOne({
+          id: randomUUID(),
+          _id: randomUUID(),
+          user_id: request.user_id,
+          title: "وصل عرض جديد",
+          body: "أرسل لك " + String(office.name ?? "مكتب عقاري") + " عرضًا على طلبك العقاري.",
+          type: "property_offer",
+          link: "/request",
+          is_read: false,
+          created_at: new Date(),
+        });
+
+        return { data: null, error: null };
+      }
+
+      if (data.name === "mark_property_request_view") {
+        if (!userId) throw new Error("not_authenticated");
+
+        const requestId = String(data.args?._request_id ?? "");
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          owner_id: userId,
+          is_deleted: { $ne: true },
+        });
+
+        if (!office) throw new Error("not_office_member");
+
+        const requests = await getMongoCollection<Record<string, unknown>>(
+          "property_requests",
+        );
+
+        const request = await requests.findOne({
+          id: requestId,
+          status: "active",
+        });
+
+        if (!request) throw new Error("request_not_active");
+
+        const views = await getMongoCollection<Record<string, unknown>>(
+          "property_request_views",
+        );
+
+        const existing = await views.findOne({
+          request_id: requestId,
+          office_id: office.id,
+        });
+
+        if (!existing) {
+          await views.insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            request_id: requestId,
+            office_id: office.id,
+            created_at: new Date(),
+          });
+
+          await requests.updateOne(
+            { id: requestId },
+            {
+              $inc: { views_count: 1 },
+              $set: { updated_at: new Date() },
+            },
+          );
+        }
+
+        const fresh = await requests.findOne({ id: requestId });
+
+        return {
+          data: Number(fresh?.views_count ?? 0),
+          error: null,
+        };
+      }
+
+      if (data.name === "admin_delete_user") {
+        if (role !== "admin") throw new Error("not_admin");
+
+        const targetId = String(data.args?._user_id ?? "");
+        if (!targetId) throw new Error("user_not_found");
+        if (targetId === userId) throw new Error("cannot_delete_self");
+
+        for (const collection of [
+          "profiles",
+          "user_roles",
+          "favorites",
+          "follows",
+          "notifications",
+          "device_tokens",
+          "saved_searches",
+          "property_requests",
+          "property_request_views",
+          "office_offers",
+          "messages",
+          "conversations",
+          "viewing_bookings",
+          "property_inquiries",
+          "reports",
+          "support_tickets",
+          "support_messages",
+        ]) {
+          await getMongoCollection(collection).deleteMany({
+            $or: [{ user_id: targetId }, { owner_id: targetId }, { reporter_id: targetId }],
+          });
+        }
+
+        await getMongoCollection("offices").deleteMany({ owner_id: targetId });
+        await getMongoCollection("users").deleteOne({ _id: targetId });
+
+        return { data: null, error: null };
+      }
+
+      if (data.name === "admin_send_notifications") {
+        if (role !== "admin") throw new Error("not_admin");
+
+        const args = data.args ?? {};
+        const ids = Array.isArray(args._user_ids)
+          ? args._user_ids.filter((id): id is string => typeof id === "string")
+          : [];
+
+        if (!ids.length) throw new Error("no_recipients");
+
+        const title = String(args._title ?? "").trim();
+        const body = String(args._body ?? "").trim();
+
+        if (title.length < 2 || body.length < 2) {
+          throw new Error("invalid_notification");
+        }
+
+        const type = String(args._type ?? "admin_message").trim() || "admin_message";
+        const link =
+          String(args._link ?? "/notifications").startsWith("/")
+            ? String(args._link)
+            : "/notifications";
+
+        await getMongoCollection("notifications").insertMany(
+          ids.map((recipientId) => ({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: recipientId,
+            title,
+            body,
+            type,
+            link,
+            is_read: false,
+            created_at: new Date(),
+          })),
+        );
+
+        return { data: ids.length, error: null };
+      }
+
       if (data.name === "office_effective_plan") {
         if (!userId) throw new Error("يجب تسجيل الدخول.");
 
