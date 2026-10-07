@@ -31,7 +31,7 @@
       </a>
       {{ else }}
       <a
-        href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email"
+        href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email"
         style="display:inline-block;padding:13px 28px;background:#245749;color:#ffffff;text-decoration:none;border-radius:14px;font-size:15px;font-weight:bold;"
       >
         تفعيل الحساب
