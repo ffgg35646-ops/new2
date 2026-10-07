@@ -10,6 +10,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 import { QrDialog } from "@/components/QrDialog";
 import { useAuth } from "@/lib/auth";
+import { useMyOffice } from "@/lib/office";
 import { kindLabel, listingLabel, stateLabel } from "@/lib/constants";
 import { formatArea, formatPrice } from "@/lib/format";
 import { useMyPlan } from "@/lib/plans";
@@ -32,20 +33,23 @@ export const Route = createFileRoute("/office/properties/")({
 
 function OfficeProperties() {
   const { userId } = useAuth();
+  const { data: membership } = useMyOffice();
   const qc = useQueryClient();
   const { featuredLimit } = useMyPlan();
+  const officeId = membership?.office?.id ?? null;
   const canFeature = featuredLimit > 0;
   const [qrFor, setQrFor] = useState<{ id: string; title: string } | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["office-my-properties", userId],
-    enabled: !!userId,
+    queryKey: ["office-my-properties", userId, officeId],
+    enabled: !!userId && !!officeId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("properties")
         .select(
           "id,property_number,title,price,area,kind,listing,state,neighborhood,cover_url,is_published,is_featured,views_count",
         )
+        .eq("office_id", officeId!)
         .eq("is_deleted", false)
         .order("created_at", { ascending: false });
       if (error) throw error;
