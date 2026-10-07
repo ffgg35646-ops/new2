@@ -101,25 +101,27 @@ function RequestPage() {
     mutationFn: async () => {
       if (!userId) throw new Error("سجّل الدخول لنشر الطلب");
       if (description.trim().length < 10) throw new Error("اكتب وصفًا أوضح لطلبك");
-      const { data: createdRequest, error } = await supabase
-        .from("property_requests")
-        .insert({
-          user_id: userId,
-          governorate_id: governorateId!,
-          kind: kind as never,
-          listing: listing as never,
-          neighborhood: neighborhood || null,
-          budget_min: budgetMin ? Number(budgetMin) : null,
-          budget_max: budgetMax ? Number(budgetMax) : null,
-          area_min: areaMin ? Number(areaMin) : null,
-          description: description.trim(),
-          attachment_url: attachment[0] ?? null,
-          expires_at: new Date(
+      if (!governorateId) {
+        throw new Error("اختر المحافظة أولًا");
+      }
+
+      const { data: createdRequest, error } = await supabase.rpc(
+        "create_property_request" as never,
+        {
+          _governorate_id: governorateId,
+          _kind: kind,
+          _listing: listing,
+          _neighborhood: neighborhood || null,
+          _budget_min: budgetMin ? Number(budgetMin) : null,
+          _budget_max: budgetMax ? Number(budgetMax) : null,
+          _area_min: areaMin ? Number(areaMin) : null,
+          _description: description.trim(),
+          _attachment_url: attachment[0] ?? null,
+          _expires_at: new Date(
             Date.now() + durationDays * 24 * 60 * 60 * 1000,
           ).toISOString(),
-        })
-        .select("id")
-        .single();
+        } as never,
+      );
 
       if (error) throw error;
 
