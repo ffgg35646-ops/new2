@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/components/AppHeader";
-import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/office/payresult")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -34,30 +33,13 @@ function ResultPage() {
       return;
     }
 
-    const url = `${import.meta.env["VITE_SUPABASE_URL"]}/functions/v1/payment-status`;
-    const apikey = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string;
-
     async function checkOnce(timeoutMs: number) {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), timeoutMs);
       try {
-        const { data: sessionData } =
-          await supabase.auth.getSession();
-
-        const accessToken =
-          sessionData.session?.access_token;
-
-        if (!accessToken) {
-          throw new Error("انتهت جلسة الدخول");
-        }
-
-        const res = await fetch(url, {
+        const res = await fetch("/api/payment-status", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey,
-            Authorization: `Bearer ${accessToken}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ checkoutId }),
           signal: ctrl.signal,
         });
