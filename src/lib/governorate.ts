@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
 export type Governorate = {
   id: string;
@@ -62,13 +63,25 @@ export function useSelectedGovernorate() {
 
   const select = useCallback(
     async (next: string) => {
-      setLocal(next);
-      if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, next);
       if (userId) {
-        await supabase.from("profiles").update({ governorate_id: next }).eq("id", userId);
-        qc.invalidateQueries({ queryKey: ["session"] });
+        const { error } = await supabase
+          .from("profiles")
+          .update({ governorate_id: next })
+          .eq("id", userId);
+
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+
+        void qc.invalidateQueries({ queryKey: ["session"] });
       }
-      qc.invalidateQueries();
+
+      setLocal(next);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_KEY, next);
+      }
+      void qc.invalidateQueries();
     },
     [qc, userId],
   );
