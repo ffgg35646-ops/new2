@@ -17,7 +17,7 @@ type Props = {
 
 export function RoleGuard({ allow, guestsTo, children }: Props) {
   const navigate = useNavigate();
-  const { roles, session, data, isLoading } = useAuth();
+  const { roles, session, data, isLoading, isError, error, refetch } = useAuth();
   const [authWaitExpired, setAuthWaitExpired] = useState(false);
 
   useEffect(() => {
@@ -33,25 +33,47 @@ export function RoleGuard({ allow, guestsTo, children }: Props) {
     return () => window.clearTimeout(timer);
   }, [isLoading, data]);
 
-  // لا نخلي الصفحة محبوسة على سبينر لو خدمة الجلسة علقت.
+  // صفحات الضيوف العامة لا تتوقف إذا تعذر تحميل معلومات الحساب.
+  if (isError && !guestsTo) return <>{children}</>;
+
   const settled = !isLoading || !!data || authWaitExpired;
   const isGuest = settled && !session;
   const allowed = allow.some((r) => roles.includes(r));
-  const effectiveRoles: AppRole[] = roles.length ? roles : ["individual"];
-  const blocked = settled && !!session && roles.length > 0 && !allowed;
+  const blocked = settled && !!session && !allowed;
+  const unknownRole = settled && !!session && roles.length === 0;
 
   useEffect(() => {
     if (isGuest && guestsTo) {
       navigate({ to: guestsTo, replace: true });
       return;
     }
-    if (blocked) {
-      navigate({ to: homeForRoles(effectiveRoles), replace: true });
+    if (blocked && !unknownRole && roles.length > 0) {
+      navigate({ to: homeForRoles(roles), replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGuest, blocked, guestsTo, roles.join(",")]);
 
-  if (!settled || blocked || (isGuest && guestsTo)) {
+  if (isError && guestsTo) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background px-5">
+        <div className="max-w-md text-center">
+          <h2 className="font-display text-lg font-extrabold">تعذر التحقق من الحساب</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : "حدث خطأ أثناء تحميل صلاحيات الحساب."}
+          </p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="mt-5 rounded-2xl bg-forest px-5 py-3 text-sm font-bold text-background"
+          >
+            إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!settled || blocked || unknownRole || (isGuest && guestsTo)) {
     return (
       <div className="grid min-h-screen place-items-center bg-background">
         <Loader2 className="size-6 animate-spin text-forest" />
