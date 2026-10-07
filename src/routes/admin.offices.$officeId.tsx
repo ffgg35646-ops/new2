@@ -21,8 +21,6 @@ import {
 } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { RoleGuard } from "@/lib/role-guard";
-import { AdminShell } from "@/components/AdminShell";
 import {
   fetchOfficeActivity,
 } from "@/lib/admin";
@@ -37,13 +35,7 @@ export const Route = createFileRoute(
       { title: "بيانات المكتب | إدارة عقار البطين" },
     ],
   }),
-  component: () => (
-    <RoleGuard allow={["admin"]} guestsTo="/auth/admin">
-      <AdminShell>
-        <OfficeDetails />
-      </AdminShell>
-    </RoleGuard>
-  ),
+  component: OfficeDetails,
 });
 
 function OfficeDetails() {
