@@ -33,7 +33,13 @@ const officeItems: Item[] = [
   { to: "/office/profile", label: "الحساب", icon: User },
 ];
 
-export function BottomNav({ variant }: { variant?: "individual" | "office" }) {
+export function BottomNav({
+  variant,
+  fixed = false,
+}: {
+  variant?: "individual" | "office";
+  fixed?: boolean;
+}) {
   const { isOffice } = useAuth();
   const resolved = variant ?? (isOffice ? "office" : "individual");
   const items = resolved === "office" ? officeItems : individualItems;
@@ -43,7 +49,13 @@ export function BottomNav({ variant }: { variant?: "individual" | "office" }) {
   );
 
   return (
-    <nav className="sticky bottom-0 z-30 grid auto-cols-fr grid-flow-col gap-1 border-t border-line bg-surface/95 px-2 py-2 backdrop-blur">
+    <nav
+      className={
+        fixed
+          ? "fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-md auto-cols-fr grid-flow-col gap-1 border-t border-line bg-surface/95 px-2 py-2 backdrop-blur"
+          : "sticky bottom-0 z-30 grid auto-cols-fr grid-flow-col gap-1 border-t border-line bg-surface/95 px-2 py-2 backdrop-blur"
+      }
+    >
       {items.map((item) => {
         const Icon = item.icon;
         if (item.primary) {
