@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
   Check,
-  ChevronDown,
   Mail,
   Search,
   Send,
@@ -23,8 +22,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { AppHeader } from "@/components/AppHeader";
-import { BottomNav } from "@/components/BottomNav";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 import { RoleGuard } from "@/lib/role-guard";
 import { cn } from "@/lib/utils";
@@ -741,7 +738,6 @@ function AdminNotifications() {
 
       <AdminInbox />
 
-      <BottomNav />
     </div>
   );
 }
