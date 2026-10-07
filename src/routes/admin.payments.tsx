@@ -4,8 +4,6 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { RoleGuard } from "@/lib/role-guard";
-import { AdminShell } from "@/components/AdminShell";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/payments")({
@@ -19,13 +17,7 @@ export const Route = createFileRoute("/admin/payments")({
     ],
   }),
 
-  component: () => (
-    <RoleGuard allow={["admin"]} guestsTo="/auth/admin">
-      <AdminShell>
-        <PaymentsPage />
-      </AdminShell>
-    </RoleGuard>
-  ),
+  component: PaymentsPage,
 });
 
 type GatewaySettings = {
