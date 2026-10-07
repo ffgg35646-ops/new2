@@ -64,6 +64,8 @@ function NewProperty() {
   const [listing, setListing] = useState("sale");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [governorateName, setGovernorateName] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
   const [price, setPrice] = useState("");
   const [area, setArea] = useState("");
   const [facing, setFacing] = useState("");
@@ -82,6 +84,8 @@ function NewProperty() {
           `باقتك تسمح بـ ${propertyLimit} عقار فقط. اختر باقة أخرى لزيادة الحد.`,
         );
       if (!title.trim()) throw new Error("أدخل عنوان العرض");
+      if (!governorateName.trim()) throw new Error("أدخل اسم المحافظة");
+      if (!neighborhood.trim()) throw new Error("أدخل اسم الحي");
       if (!price || !area) throw new Error("أدخل السعر والمساحة");
 
       const { data, error } = await supabase
@@ -94,6 +98,8 @@ function NewProperty() {
           listing: listing as never,
           title: title.trim(),
           description: description.trim() || null,
+          governorate: governorateName.trim(),
+          neighborhood: neighborhood.trim(),
           price: Number(price),
           area: Number(area),
           facing: facing || null,
@@ -173,6 +179,19 @@ function NewProperty() {
             placeholder="أرض سكنية بحي الروضة"
           />
 
+          <Field
+            label="المحافظة"
+            value={governorateName}
+            onChange={setGovernorateName}
+            placeholder="المزاحمية"
+          />
+
+          <Field
+            label="الحي"
+            value={neighborhood}
+            onChange={setNeighborhood}
+            placeholder="حي الروضة"
+          />
 
           <div className="grid grid-cols-2 gap-2">
             <Field label="السعر (ر.س)" value={price} onChange={setPrice} type="number" />
