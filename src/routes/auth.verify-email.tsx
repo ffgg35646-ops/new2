@@ -176,6 +176,7 @@ function VerifyEmailPage() {
     useState<PendingEmail | null>(null);
 
   const [busy, setBusy] = useState(false);
+  const [token, setToken] = useState("");
   const [resends, setResends] = useState(0);
   const [pausedUntil, setPausedUntil] = useState(0);
   const [now, setNow] = useState(Date.now());
@@ -186,6 +187,67 @@ function VerifyEmailPage() {
       : "/auth/individual";
 
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function confirmToken() {
+    if (!pending || busy) return;
+
+    const cleanToken = token.replace(/\D/g, "").slice(0, 6);
+
+    if (cleanToken.length !== 6) {
+      toast.error("أدخل رمز التأكيد المكوّن من 6 أرقام.");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: pending.email,
+        token: cleanToken,
+        type: "email",
+      });
+
+      if (error) throw error;
+
+      if (!data.user) {
+        throw new Error("تم تأكيد الرمز لكن لم يتم العثور على المستخدم.");
+      }
+
+      const raw = localStorage.getItem("ufuq.pending-signup");
+      if (raw) {
+        const payload = JSON.parse(raw) as Record<string, unknown>;
+        const { error: signupError } = await supabase.rpc(
+          "complete_signup",
+          payload as never,
+        );
+
+        if (signupError) throw signupError;
+      }
+
+      localStorage.removeItem("ufuq.pending-signup");
+      localStorage.removeItem(PENDING_EMAIL_KEY);
+
+      toast.success(
+        pending.role === "office"
+          ? "تم تأكيد البريد، وحساب المكتب قيد مراجعة الإدارة."
+          : "تم تأكيد البريد وإنشاء الحساب بنجاح.",
+      );
+
+      navigate({
+        to: pending.role === "office" ? "/office/status" : "/home",
+        replace: true,
+      });
+    } catch (e) {
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : "رمز التأكيد غير صحيح أو منتهي.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
 
   useEffect(() => {
     const raw = localStorage.getItem(PENDING_EMAIL_KEY);
@@ -268,9 +330,6 @@ function VerifyEmailPage() {
       const { error } = await supabase.auth.resend({
         type: "signup",
         email: pending.email,
-        options: {
-          emailRedirectTo: window.location.origin + "/auth/confirm",
-        },
       });
 
       if (error) throw error;
@@ -345,7 +404,7 @@ function VerifyEmailPage() {
       </h1>
 
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        أرسلنا رابط تفعيل إلى:
+        أرسلنا رمز تأكيد إلى:
       </p>
 
       <p
@@ -356,9 +415,37 @@ function VerifyEmailPage() {
       </p>
 
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        افتح الرسالة واضغط على رابط التفعيل. الرابط
-        سينقلك تلقائيًا إلى صفحة <strong>تفعيل حسابك</strong>.
+        افتح الرسالة وخذ رمز التأكيد المكوّن من 6 أرقام، ثم اكتبه هنا.
       </p>
+
+      <div className="mt-6">
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+            رمز التأكيد
+          </span>
+          <input
+            value={token}
+            onChange={(e) =>
+              setToken(e.target.value.replace(/\D/g, "").slice(0, 6))
+            }
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            placeholder="123456"
+            dir="ltr"
+            className="w-full rounded-2xl bg-surface px-4 py-4 text-center text-2xl font-extrabold tracking-[0.45em] ring-1 ring-line outline-none focus:ring-2 focus:ring-forest"
+          />
+        </label>
+
+        <button
+          onClick={() => void confirmToken()}
+          disabled={busy || token.replace(/\D/g, "").length !== 6}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
+        >
+          {busy && <Loader2 className="size-4 animate-spin" />}
+          تأكيد البريد الإلكتروني
+        </button>
+      </div>
 
       {pending?.role === "office" && (
         <div className="mt-5 rounded-2xl bg-sand p-3.5 text-xs leading-relaxed text-muted-foreground">
