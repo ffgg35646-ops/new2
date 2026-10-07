@@ -10,9 +10,8 @@ import {
   Phone,
   User,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import {
-  fetchAdminDirectory,
+  useAdminDirectory,
   type AdminIndividual,
 } from "@/lib/admin";
 
@@ -34,12 +33,12 @@ function IndividualsRoute() {
 }
 
 function IndividualsPage() {
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["admin-directory"],
-    queryFn: fetchAdminDirectory,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useAdminDirectory();
 
   const individuals = data?.individuals ?? [];
 
@@ -98,7 +97,7 @@ function IndividualsPage() {
         />
       </div>
 
-      {isLoading ? (
+      {isLoading && !data ? (
         <Skeleton />
       ) : isError ? (
         <div className="rounded-[26px] bg-surface p-8 text-center ring-1 ring-line">
