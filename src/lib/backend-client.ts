@@ -5,6 +5,7 @@ import {
   authResetPasswordForEmail,
   authSignIn,
   authSignOut,
+  authResetPassword,
   authSignUp,
   authUpdateUser,
   authVerifyOtp,
@@ -223,6 +224,14 @@ const auth = {
       const result = await authUpdateUser({ data: attributes });
       emit("USER_UPDATED", null);
       return result;
+    } catch (error) {
+      return { data: null, error: errorOf(error) };
+    }
+  },
+
+  async resetPassword(email: string, token: string, password: string) {
+    try {
+      return await authResetPassword({ data: { email, token, password } });
     } catch (error) {
       return { data: null, error: errorOf(error) };
     }
