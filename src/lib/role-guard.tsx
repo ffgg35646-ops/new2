@@ -4,8 +4,8 @@ import { Loader2 } from "lucide-react";
 import { useAuth, type AppRole } from "@/lib/auth";
 
 export function homeForRoles(roles: AppRole[]): string {
-  if (roles.includes("office")) return "/office";
   if (roles.includes("admin")) return "/admin";
+  if (roles.includes("office")) return "/office";
   return "/home";
 }
 
