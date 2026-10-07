@@ -376,7 +376,7 @@ function VerifyEmailPage() {
 
       if (/rate limit|too many|429/i.test(message)) {
         toast.error(
-          "خدمة البريد نفسها تمنع الإرسال مؤقتًا. هذا الحد من Supabase وليس من زر إعادة الإرسال.",
+          "خدمة البريد نفسها تمنع الإرسال مؤقتًا. هذا الحد من مزود البريد، وليس من زر إعادة الإرسال.",
         );
       } else {
         toast.error(message);
