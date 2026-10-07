@@ -42,6 +42,7 @@ function FavoritesPage() {
       const { data, error } = await supabase
         .from("favorites")
         .select(`property_id, properties(${PROPERTY_SELECT})`)
+        .eq("user_id", userId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map((r) => r.properties).filter(Boolean) as unknown as PropertyCardData[];
