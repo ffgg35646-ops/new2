@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, MailCheck, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -21,45 +21,27 @@ export const Route = createFileRoute("/auth/confirm")({
 
 function ConfirmEmailPage() {
   const navigate = useNavigate();
+  const startedRef = useRef(false);
 
-  const [state, setState] = useState<
-    "loading" | "waiting" | "success" | "error"
-  >("loading");
-
-  const [message, setMessage] = useState(
-    "جاري تجهيز تأكيد البريد الإلكتروني...",
+  const [state, setState] = useState<"loading" | "success" | "error">(
+    "loading",
   );
 
-  const [tokenHash, setTokenHash] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(
+    "جاري تفعيل حسابك تلقائيًا...",
+  );
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token_hash");
-    const type = params.get("type");
+    if (startedRef.current) return;
+    startedRef.current = true;
 
-    if (token) {
-      if (type !== "email") {
-        setState("error");
-        setMessage("رابط تفعيل البريد غير صالح.");
-        return;
-      }
-
-      setTokenHash(token);
-      setState("waiting");
-      setMessage(
-        "اضغط الزر أدناه لتأكيد بريدك الإلكتروني وتفعيل الحساب.",
-      );
-      return;
-    }
-
-    setState("error");
-    setMessage(
-      "رابط التفعيل غير مكتمل. اطلب رسالة تفعيل جديدة من صفحة تسجيل الدخول.",
-    );
+    void confirmAccount();
   }, []);
 
-  async function finishAccount(userId: string, userMetadata: Record<string, unknown>) {
+  async function finishAccount(
+    userId: string,
+    userMetadata: Record<string, unknown>,
+  ) {
     const raw = localStorage.getItem(PENDING_KEY);
     let payload: Record<string, unknown> | null = null;
 
@@ -73,7 +55,12 @@ function ConfirmEmailPage() {
 
     if (!payload) {
       const fromMetadata = userMetadata.signup_payload;
-      if (fromMetadata && typeof fromMetadata === "object" && !Array.isArray(fromMetadata)) {
+
+      if (
+        fromMetadata &&
+        typeof fromMetadata === "object" &&
+        !Array.isArray(fromMetadata)
+      ) {
         payload = fromMetadata as Record<string, unknown>;
       }
     }
@@ -84,7 +71,11 @@ function ConfirmEmailPage() {
       );
     }
 
-    const { error } = await supabase.rpc("complete_signup", payload as never);
+    const { error } = await supabase.rpc(
+      "complete_signup",
+      payload as never,
+    );
+
     if (error) {
       throw new Error(
         `تم تأكيد البريد لكن تعذر إكمال إنشاء الحساب: ${error.message}`,
@@ -94,7 +85,7 @@ function ConfirmEmailPage() {
     localStorage.removeItem(PENDING_KEY);
     localStorage.removeItem(PENDING_EMAIL_KEY);
 
-    const [{ data: roles }, { data: office }] = await Promise.all([
+    const [rolesRes, officeRes] = await Promise.all([
       supabase
         .from("user_roles")
         .select("role")
@@ -107,8 +98,12 @@ function ConfirmEmailPage() {
         .maybeSingle(),
     ]);
 
+    if (rolesRes.error) throw rolesRes.error;
+    if (officeRes.error) throw officeRes.error;
+
     const role =
-      office?.id || roles?.some((x) => x.role === "office")
+      officeRes.data?.id ||
+      rolesRes.data?.some((x) => x.role === "office")
         ? "office"
         : "individual";
 
@@ -116,7 +111,7 @@ function ConfirmEmailPage() {
 
     if (role === "office") {
       setMessage(
-        "تم تأكيد البريد الإلكتروني بنجاح. حساب المكتب الآن قيد مراجعة الإدارة.",
+        "تم تفعيل حسابك بنجاح. حساب المكتب الآن قيد مراجعة الإدارة.",
       );
 
       setTimeout(() => {
@@ -126,9 +121,7 @@ function ConfirmEmailPage() {
         });
       }, 1200);
     } else {
-      setMessage(
-        "تم تأكيد البريد الإلكتروني وإنشاء حسابك بنجاح.",
-      );
+      setMessage("تم تفعيل حسابك بنجاح.");
 
       setTimeout(() => {
         navigate({
@@ -139,53 +132,57 @@ function ConfirmEmailPage() {
     }
   }
 
-  async function confirmEmail() {
-    if (!tokenHash || busy) return;
-
-    setBusy(true);
-    setState("loading");
-    setMessage("جاري تأكيد البريد الإلكتروني...");
-
+  async function confirmAccount() {
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: "email",
-      });
+      setState("loading");
+      setMessage("جاري تفعيل حسابك تلقائيًا...");
 
-      if (error) {
-        throw new Error(
-          `Supabase: ${error.message} (${error.code ?? "no-code"})`,
-        );
-      }
+      // Supabase processes the #access_token/#refresh_token
+      // from the email link and restores the session.
+      let { data, error } = await supabase.auth.getSession();
 
-      const user = data.user;
-      const session = data.session;
+      if (error) throw error;
 
-      if (!user) {
-        throw new Error(
-          "Supabase أكد العملية لكن لم يُرجع بيانات المستخدم.",
-        );
-      }
+      let session = data.session;
 
-      if (!user.email_confirmed_at) {
-        throw new Error(
-          "تمت العملية لكن البريد ما زال غير مؤكد في بيانات المستخدم.",
-        );
+      // Backward-compatible fallback for token_hash links.
+      if (!session) {
+        const params = new URLSearchParams(window.location.search);
+        const tokenHash = params.get("token_hash");
+        const type = params.get("type");
+
+        if (tokenHash && type === "email") {
+          const otpResult = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "email",
+          });
+
+          if (otpResult.error) throw otpResult.error;
+
+          session = otpResult.data.session;
+        }
       }
 
       if (!session) {
         throw new Error(
-          "Supabase أكد البريد لكنه لم يُرجع جلسة تسجيل دخول.",
+          "رابط التفعيل غير صالح أو منتهي. اطلب رسالة تفعيل جديدة.",
         );
       }
 
-      setTokenHash(null);
+      const user = session.user;
 
-      const metadata =
-        (user.user_metadata as Record<string, unknown>) ?? {};
-      await finishAccount(user.id, metadata);
+      if (!user.email_confirmed_at) {
+        throw new Error(
+          "تم فتح الرابط، لكن البريد لم يظهر كمؤكد. اطلب رسالة تفعيل جديدة.",
+        );
+      }
+
+      await finishAccount(
+        user.id,
+        (user.user_metadata as Record<string, unknown>) ?? {},
+      );
     } catch (error) {
-      console.error("[CONFIRM EMAIL ERROR]", error);
+      console.error("[AUTO CONFIRM EMAIL ERROR]", error);
 
       setState("error");
       setMessage(
@@ -193,8 +190,6 @@ function ConfirmEmailPage() {
           ? error.message
           : "تعذر تفعيل الحساب.",
       );
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -205,10 +200,6 @@ function ConfirmEmailPage() {
     >
       {state === "loading" && (
         <Loader2 className="size-12 animate-spin text-forest" />
-      )}
-
-      {state === "waiting" && (
-        <MailCheck className="size-14 text-forest" />
       )}
 
       {state === "success" && (
@@ -224,27 +215,12 @@ function ConfirmEmailPage() {
           ? "تعذر تفعيل حسابك"
           : state === "success"
             ? "تم تفعيل حسابك"
-            : state === "waiting"
-              ? "تأكيد البريد الإلكتروني"
-              : "تفعيل حسابك"}
+            : "تفعيل حسابك"}
       </h1>
 
       <p className="mt-2 max-w-sm text-center text-sm leading-relaxed text-muted-foreground">
         {message}
       </p>
-
-      {state === "waiting" && tokenHash && (
-        <button
-          type="button"
-          onClick={() => void confirmEmail()}
-          disabled={busy}
-          className="mt-6 rounded-2xl bg-forest px-7 py-3.5 text-sm font-bold text-background disabled:opacity-60"
-        >
-          {busy
-            ? "جاري التفعيل..."
-            : "تأكيد البريد الإلكتروني"}
-        </button>
-      )}
 
       {state === "error" && (
         <Link
