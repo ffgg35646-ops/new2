@@ -334,6 +334,11 @@ function AdminNotifications() {
     });
   }, [recipients, audience, search]);
 
+  const searchResults = useMemo(
+    () => visible.slice(0, 8),
+    [visible],
+  );
+
   const toggle = (userId: string) => {
     setSelected((current) => {
       const next = new Set(current);
@@ -522,7 +527,13 @@ function AdminNotifications() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="ابحث باسم المستخدم أو البريد..."
+              placeholder={
+                audience === "office"
+                  ? "ابحث باسم المكتب أو البريد..."
+                  : audience === "individual"
+                    ? "ابحث باسم الفرد أو البريد..."
+                    : "ابحث باسم الشخص أو المكتب أو البريد..."
+              }
               className="w-full rounded-2xl bg-background px-11 py-3.5 text-sm outline-none ring-1 ring-line transition focus:ring-2 focus:ring-forest"
             />
             {!!search && (
@@ -535,7 +546,105 @@ function AdminNotifications() {
                 <X className="size-3.5" />
               </button>
             )}
+
+            {!!search.trim() && (
+              <div className="absolute inset-x-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl bg-surface shadow-xl ring-1 ring-line">
+                <div className="border-b border-line px-4 py-3 text-[10px] font-bold text-muted-foreground">
+                  النتائج المطابقة
+                  {visible.length > searchResults.length
+                    ? ` · أول ${searchResults.length} نتائج`
+                    : ""}
+                </div>
+
+                {searchResults.length ? (
+                  <div className="max-h-80 overflow-y-auto p-2">
+                    {searchResults.map((recipient) => {
+                      const checked = selected.has(recipient.userId);
+
+                      return (
+                        <button
+                          key={`search-${recipient.kind}-${recipient.userId}`}
+                          type="button"
+                          onClick={() => {
+                            toggle(recipient.userId);
+                            setSearch("");
+                          }}
+                          className={cn(
+                            "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right transition",
+                            checked
+                              ? "bg-forest-soft"
+                              : "hover:bg-background",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "grid size-9 shrink-0 place-items-center rounded-xl",
+                              recipient.kind === "office"
+                                ? "bg-terracotta-soft text-terracotta"
+                                : "bg-sand text-muted-foreground",
+                            )}
+                          >
+                            {recipient.kind === "office" ? (
+                              <Building className="size-4" />
+                            ) : (
+                              <UserRound className="size-4" />
+                            )}
+                          </span>
+
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-extrabold">
+                              {recipient.name}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                              {recipient.email}
+                            </span>
+                          </span>
+
+                          <span className="shrink-0 rounded-full bg-sand px-2 py-1 text-[9px] font-bold text-muted-foreground">
+                            {recipient.kind === "office" ? "مكتب" : "فرد"}
+                          </span>
+
+                          {checked ? (
+                            <Check className="size-4 shrink-0 text-forest" />
+                          ) : (
+                            <ChevronLeft className="size-4 shrink-0 text-muted-foreground" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="px-4 py-7 text-center text-xs text-muted-foreground">
+                    لا توجد نتيجة بهذا الاسم أو البريد.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+
+          {!!selected.size && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {recipients
+                .filter((recipient) => selected.has(recipient.userId))
+                .map((recipient) => (
+                  <button
+                    key={`selected-${recipient.kind}-${recipient.userId}`}
+                    type="button"
+                    onClick={() => toggle(recipient.userId)}
+                    className="inline-flex max-w-full items-center gap-2 rounded-xl bg-forest-soft px-3 py-2 text-right text-[10px] font-bold text-forest"
+                    title={`إزالة ${recipient.name}`}
+                  >
+                    {recipient.kind === "office" ? (
+                      <Building className="size-3.5 shrink-0" />
+                    ) : (
+                      <UserRound className="size-3.5 shrink-0" />
+                    )}
+                    <span className="max-w-40 truncate">{recipient.name}</span>
+                    <X className="size-3 shrink-0" />
+                  </button>
+                ))}
+            </div>
+          )}
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
             <span className="text-[11px] text-muted-foreground">
@@ -564,19 +673,20 @@ function AdminNotifications() {
             </div>
           </div>
 
-          <div className="mt-4 max-h-[560px] space-y-2 overflow-y-auto pe-1">
-            {recipientsQuery.isLoading && !recipientsQuery.data ? (
-              <div className="grid min-h-56 place-items-center rounded-3xl bg-background ring-1 ring-line">
-                <Loader2 className="size-5 animate-spin text-forest" />
-              </div>
-            ) : !visible.length ? (
-              <EmptyState
-                icon={UsersRound}
-                title="لا يوجد مستلمون مطابقون"
-                description="غيّر نوع الجمهور أو كلمة البحث."
-              />
-            ) : (
-              visible.map((recipient) => {
+          {!search.trim() && (
+            <div className="mt-4 max-h-[560px] space-y-2 overflow-y-auto pe-1">
+              {recipientsQuery.isLoading && !recipientsQuery.data ? (
+                <div className="grid min-h-56 place-items-center rounded-3xl bg-background ring-1 ring-line">
+                  <Loader2 className="size-5 animate-spin text-forest" />
+                </div>
+              ) : !visible.length ? (
+                <EmptyState
+                  icon={UsersRound}
+                  title="لا يوجد مستلمون"
+                  description="لا توجد حسابات متاحة ضمن نوع الجمهور المحدد."
+                />
+              ) : (
+                visible.map((recipient) => {
                 const checked = selected.has(recipient.userId);
 
                 return (
@@ -626,9 +736,10 @@ function AdminNotifications() {
                     <ChevronLeft className="size-4 shrink-0 text-muted-foreground transition group-hover:-translate-x-0.5" />
                   </button>
                 );
-              })
-            )}
-          </div>
+                })
+              )}
+            </div>
+          )}
         </section>
 
         <div className="space-y-6">
