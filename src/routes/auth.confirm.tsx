@@ -131,6 +131,28 @@ function ConfirmEmailPage() {
 
         localStorage.removeItem(PENDING_EMAIL_KEY);
 
+        if (!raw) {
+          const [{ data: roles }, { data: office }] = await Promise.all([
+            supabase
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", user.id),
+            supabase
+              .from("offices")
+              .select("id")
+              .eq("owner_id", user.id)
+              .maybeSingle(),
+          ]);
+
+          if (office?.id || roles?.some((item) => item.role === "office")) {
+            role = "office";
+          } else if (roles?.some((item) => item.role === "admin")) {
+            role = "individual";
+          } else {
+            role = "individual";
+          }
+        }
+
         if (!active) return;
 
         setState("success");
