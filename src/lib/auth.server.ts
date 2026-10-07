@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID, scrypt, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomInt, randomUUID, scrypt, timingSafeEqual } from "node:crypto";
 import { getMongoCollection } from "./mongo.server";
 import { clearSession, getSessionUserId, setSession } from "./session.server";
 import { sendPasswordReset, sendVerificationCode } from "./mail.server";
@@ -38,7 +38,7 @@ export type BackendSession = {
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 const hashCode = (value: string) => createHash("sha256").update(value).digest("hex");
-const generateCode = () => String(Math.floor(100000 + Math.random() * 900000));
+const generateCode = () => String(randomInt(100000, 1000000));
 
 function hashPassword(password: string) {
   return new Promise<string>((resolve, reject) => {
