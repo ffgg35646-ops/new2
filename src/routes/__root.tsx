@@ -17,6 +17,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { useAuth } from "@/lib/auth";
 import { registerPush } from "@/lib/push";
 import { ensureDeviceCookie } from "@/lib/device";
+import { clearPersistedQueryCache } from "@/lib/query-cache";
 
 function NotFoundComponent() {
   return (
@@ -198,6 +199,25 @@ function RootComponent() {
   useEffect(() => {
     ensureDeviceCookie();
   }, []);
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT" || event === "SIGNED_IN") {
+        queryClient.clear();
+        void clearPersistedQueryCache();
+      }
+
+      if (
+        event === "SIGNED_IN" ||
+        event === "SIGNED_OUT" ||
+        event === "USER_UPDATED"
+      ) {
+        void queryClient.invalidateQueries({ queryKey: ["session"] });
+      }
+    });
+
+    return () => sub.subscription.unsubscribe();
+  }, [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
