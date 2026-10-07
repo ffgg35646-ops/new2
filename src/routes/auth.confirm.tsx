@@ -56,9 +56,13 @@ function ConfirmEmailPage() {
         const type = params.get("type");
 
         if (tokenHash) {
+          if (type !== "email") {
+            throw new Error("رابط تفعيل البريد غير صالح.");
+          }
+
           const { error } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
-            type: type === "email" ? "email" : "email",
+            type: "email",
           });
 
           if (error) throw error;
