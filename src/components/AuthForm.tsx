@@ -138,7 +138,6 @@ export function AuthForm({
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
 
-  const destination = role === "office" ? "/office" : "/home";
   const selectedGov = govId || governorates[0]?.id || "";
 
   function validateRegisterFields() {
@@ -200,16 +199,34 @@ export function AuthForm({
   }
 
   async function afterAuth(register: boolean) {
+    const { data: currentUser } = await supabase.auth.getUser();
+    if (!currentUser.user) throw new Error("تعذر قراءة جلسة المستخدم بعد تسجيل الدخول.");
+
     if (register) {
       await finishSignup();
       localStorage.removeItem(PENDING_KEY);
     } else {
-      const { data } = await supabase.auth.getUser();
-      if (data.user) await applyPendingSignup(data.user.id);
+      await applyPendingSignup(currentUser.user.id);
     }
+
+    const { data: roleRows, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", currentUser.user.id);
+
+    if (roleError) throw roleError;
+
+    const roles = (roleRows ?? []).map((row) => String(row.role));
+    const destinationForRole =
+      roles.includes("admin")
+        ? "/admin"
+        : roles.includes("office")
+          ? "/office"
+          : "/home";
+
     void qc.invalidateQueries({ queryKey: ["session"] });
     toast.success(register ? "تم إنشاء الحساب" : "تم تسجيل الدخول");
-    navigate({ to: destination });
+    navigate({ to: destinationForRole });
   }
 
   async function emailSubmit() {
