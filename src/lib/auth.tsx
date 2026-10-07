@@ -70,7 +70,6 @@ async function loadSession(): Promise<SessionInfo> {
         .from("user_roles")
         .select("role")
         .eq("user_id", session.user.id),
-      null,
     ),
 
     withTimeout(
@@ -79,7 +78,6 @@ async function loadSession(): Promise<SessionInfo> {
         .select("*")
         .eq("id", session.user.id)
         .maybeSingle(),
-      null,
     ),
 
     withTimeout(
@@ -88,7 +86,6 @@ async function loadSession(): Promise<SessionInfo> {
         .select("id,verification_status,rejection_reason")
         .eq("owner_id", session.user.id)
         .maybeSingle(),
-      null,
     ),
   ]);
 
@@ -154,19 +151,7 @@ async function loadSession(): Promise<SessionInfo> {
 export function useAuth() {
   const qc = useQueryClient();
 
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (
-        event === "SIGNED_IN" ||
-        event === "SIGNED_OUT" ||
-        event === "USER_UPDATED"
-      ) {
-        qc.invalidateQueries({ queryKey: ["session"] });
-      }
-    });
 
-    return () => sub.subscription.unsubscribe();
-  }, [qc]);
 
   const query = useQuery({
     queryKey: ["session"],
