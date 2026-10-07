@@ -13,6 +13,18 @@ const EMAIL_SEND_STATE_KEY = "ufuq.email-send-state";
 const MAX_EMAIL_SENDS = 15;
 const EMAIL_SEND_PAUSE_MS = 5 * 60 * 1000;
 
+function normalizePhone(raw: string) {
+  const digits = raw.replace(/[^\d]/g, "");
+  if (digits.startsWith("966")) return `+${digits}`;
+  if (digits.startsWith("0")) return `+966${digits.slice(1)}`;
+  if (digits.startsWith("5")) return `+966${digits}`;
+  return `+${digits}`;
+}
+
+function isValidSaudiPhone(raw: string) {
+  return /^\\+9665\\d{8}$/.test(normalizePhone(raw));
+}
+
 function authErrorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e ?? "");
   const m = raw.toLowerCase();
