@@ -125,10 +125,10 @@ function RequestPage() {
 
       if (error) throw error;
 
-      if (createdRequest?.id) {
+      if (createdRequest) {
         const { error: notifyError } = await supabase.rpc(
           "notify_matching_offices_for_request" as never,
-          { _request_id: createdRequest.id } as never,
+          { _request_id: createdRequest } as never,
         );
 
         if (notifyError) {
