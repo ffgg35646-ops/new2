@@ -458,22 +458,30 @@ function LegalAdminTab({ title }: { title: string }) {
         throw new Error("لا يمكن حفظ محتوى فارغ.");
       }
 
-      const { data, error } = await (supabase as any)
+      const payload = {
+        content: clean,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { count, error: updateError } = await (supabase as any)
         .from("app_content")
-        .upsert(
-          {
+        .update(payload)
+        .eq("key", policyKey);
+
+      if (updateError) throw updateError;
+
+      if ((count ?? 0) === 0) {
+        const { error: insertError } = await (supabase as any)
+          .from("app_content")
+          .insert({
             key: policyKey,
-            content: clean,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "key" },
-        )
-        .select("content")
-        .maybeSingle();
+            ...payload,
+          });
 
-      if (error) throw error;
+        if (insertError) throw insertError;
+      }
 
-      return String(data?.content ?? clean);
+      return clean;
     },
     onSuccess: (saved) => {
       setContent(saved);
