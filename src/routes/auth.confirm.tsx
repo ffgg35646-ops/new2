@@ -200,11 +200,46 @@ function ConfirmEmailPage() {
 
           if (!active) return;
 
-          setTokenHash(incomingTokenHash);
-          setState("waiting");
-          setMessage(
-            "رابط تفعيل بريدك الإلكتروني جاهز. اضغط الزر أدناه لإتمام التفعيل.",
-          );
+          setState("loading");
+          setMessage("جاري تأكيد البريد الإلكتروني...");
+
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: incomingTokenHash,
+            type: "email",
+          });
+
+          if (error) throw error;
+
+          if (!data.user) {
+            throw new Error(
+              "Supabase أكد العملية لكن لم يُرجع بيانات المستخدم.",
+            );
+          }
+
+          if (!data.user.email_confirmed_at) {
+            throw new Error(
+              "تمت العملية لكن البريد ما زال غير مؤكد في بيانات المستخدم.",
+            );
+          }
+
+          if (data.session) {
+            const { error: sessionError } =
+              await supabase.auth.setSession(data.session);
+
+            if (sessionError) throw sessionError;
+          }
+
+          const { data: currentSession } =
+            await supabase.auth.getSession();
+
+          if (!currentSession.session?.user) {
+            throw new Error(
+              "تم تأكيد البريد لكن الجلسة لم تُحفظ في المتصفح.",
+            );
+          }
+
+          cleanConfirmUrl();
+          await finishAccount(data.user.id);
           return;
         }
 
