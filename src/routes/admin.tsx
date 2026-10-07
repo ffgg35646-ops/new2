@@ -463,14 +463,22 @@ function LegalAdminTab({ title }: { title: string }) {
         updated_at: new Date().toISOString(),
       };
 
-      const { count, error: updateError } = await (supabase as any)
+      const { data: existing, error: lookupError } = await (supabase as any)
         .from("app_content")
-        .update(payload)
-        .eq("key", policyKey);
+        .select("id,key")
+        .eq("key", policyKey)
+        .maybeSingle();
 
-      if (updateError) throw updateError;
+      if (lookupError) throw lookupError;
 
-      if ((count ?? 0) === 0) {
+      if (existing) {
+        const { error: updateError } = await (supabase as any)
+          .from("app_content")
+          .update(payload)
+          .eq("key", policyKey);
+
+        if (updateError) throw updateError;
+      } else {
         const { error: insertError } = await (supabase as any)
           .from("app_content")
           .insert({
