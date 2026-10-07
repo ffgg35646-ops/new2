@@ -55,11 +55,6 @@ function ConfirmEmailPage() {
   }
 
   function cleanConfirmUrl() {
-    const cleanUrl =
-      window.location.origin +
-      window.location.pathname +
-      window.location.search;
-
     const params = new URLSearchParams(window.location.search);
     params.delete("token_hash");
     params.delete("type");
