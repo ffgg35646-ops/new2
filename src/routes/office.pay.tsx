@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
-import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { usePackages } from "@/lib/plans";
 
@@ -60,13 +59,6 @@ function PayPage() {
 
     (async () => {
       try {
-        const { data: sess } = await supabase.auth.getSession();
-        const accessToken = sess.session?.access_token;
-        if (!accessToken) throw new Error("سجّل الدخول أولًا");
-
-        const fnUrl = `${import.meta.env["VITE_SUPABASE_URL"]}/functions/v1/payment-checkout`;
-        const apikey = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string;
-
         const ctrl = new AbortController();
         const to = setTimeout(() => ctrl.abort(), 15000);
 
@@ -78,16 +70,10 @@ function PayPage() {
         };
 
         try {
-          const res = await fetch(fnUrl, {
+          const res = await fetch("/api/payment-checkout", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey,
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              packageId: selected.id,
-            }),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ packageId: selected.id }),
             signal: ctrl.signal,
           });
 
