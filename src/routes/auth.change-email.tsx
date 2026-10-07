@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Mail, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,7 @@ export const Route = createFileRoute("/auth/change-email")({
 
 function ChangeEmailPage() {
   const navigate = useNavigate();
+  const started = useRef(false);
   const [ready, setReady] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,6 +32,9 @@ function ChangeEmailPage() {
     let active = true;
 
     async function verifyCurrentEmailLink() {
+      if (started.current) return;
+      started.current = true;
+
       try {
         const code = new URLSearchParams(window.location.search).get("code");
 
