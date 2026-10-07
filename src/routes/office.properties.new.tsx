@@ -17,6 +17,7 @@ import {
   useMyPlan,
   useOfficePropertiesCount,
 } from "@/lib/plans";
+import { useMyOffice } from "@/lib/office";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/office/properties/new")({
@@ -39,21 +40,10 @@ function NewProperty() {
   const navigate = useNavigate();
   const { userId } = useAuth();
   const { governorateId } = useSelectedGovernorate();
-  const { data: neighborhoods = [] } = useNeighborhoods(governorateId);
+  const { data: neighborhoods = [] } = useNeighborhoods(office?.governorate_id ?? governorateId);
 
-  const { data: office } = useQuery({
-    queryKey: ["my-office-id", userId],
-    enabled: !!userId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("offices")
-        .select("id,governorate_id")
-        .eq("owner_id", userId!)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { data: membership } = useMyOffice();
+  const office = membership?.office ?? null;
 
   const { propertyLimit } = useMyPlan();
   const { data: propertiesCount = 0 } = useOfficePropertiesCount(office?.id);
