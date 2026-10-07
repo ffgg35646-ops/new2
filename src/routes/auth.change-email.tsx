@@ -1,228 +1,171 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { Loader2, Mail, XCircle } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, Loader2, Mail, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/auth/change-email")({
   head: () => ({
-    meta: [
-      { title: "تغيير البريد الإلكتروني | عقار البطين" },
-      {
-        name: "description",
-        content: "تأكيد طلب تغيير البريد الإلكتروني ثم إرسال رابط إلى البريد الجديد.",
-      },
-    ],
+    meta: [{ title: "تغيير البريد الإلكتروني | عقار البطين" }],
   }),
   component: ChangeEmailPage,
 });
 
 function ChangeEmailPage() {
   const navigate = useNavigate();
-  const started = useRef(false);
-  const [ready, setReady] = useState(false);
   const [newEmail, setNewEmail] = useState("");
+  const [token, setToken] = useState("");
+  const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState(
-    "جاري التحقق من رابط الأمان...",
-  );
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    async function verifyCurrentEmailLink() {
-      if (started.current) return;
-      started.current = true;
-
-      try {
-        const code = new URLSearchParams(window.location.search).get("code");
-
-        if (code) {
-          const { error: exchangeError } =
-            await supabase.auth.exchangeCodeForSession(code);
-
-          if (exchangeError) throw exchangeError;
-        }
-
-        let user = null;
-
-        for (let i = 0; i < 10; i++) {
-          const { data } = await supabase.auth.getUser();
-
-          if (data.user) {
-            user = data.user;
-            break;
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 300));
-        }
-
-        if (!user) {
-          throw new Error("الرابط غير صالح أو انتهت صلاحيته.");
-        }
-
-        if (!user.email_confirmed_at) {
-          throw new Error("لم يتم تأكيد البريد الإلكتروني الحالي.");
-        }
-
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname,
-        );
-
-        if (!active) return;
-
-        setReady(true);
-        setMessage(
-          "تم تأكيد طلب تغيير البريد. من فضلك ضع البريد الإلكتروني الجديد.",
-        );
-      } catch (e) {
-        if (!active) return;
-
-        setError(
-          e instanceof Error
-            ? e.message
-            : "تعذر التحقق من رابط الأمان.",
-        );
-      }
-    }
-
-    const { data: subscription } =
-      supabase.auth.onAuthStateChange((event) => {
-        if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-          void verifyCurrentEmailLink();
-        }
-      });
-
-    void verifyCurrentEmailLink();
-
-    return () => {
-      active = false;
-      subscription.subscription.unsubscribe();
-    };
-  }, []);
-
-  async function sendNewEmail() {
+  async function sendCode() {
     const email = newEmail.trim().toLowerCase();
 
-    if (!email) {
-      toast.error("اكتب البريد الإلكتروني الجديد.");
+    if (!email.includes("@")) {
+      toast.error("البريد الإلكتروني يجب أن يحتوي على @.");
       return;
     }
 
     setBusy(true);
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser(
-        { email },
-        {
-          emailRedirectTo:
-            window.location.origin + "/auth/confirm",
-        },
-      );
+      const { error } = await supabase.auth.updateUser({ email });
+      if (error) throw error;
 
-      if (updateError) throw updateError;
-
-      toast.success("تم إرسال رابط التفعيل إلى البريد الجديد.");
-      setNewEmail("");
-      setMessage(
-        "افتح البريد الجديد واضغط على رابط التفعيل لإكمال تغيير البريد.",
-      );
+      setSent(true);
+      toast.success("أرسلنا رمز تأكيد إلى البريد الجديد.");
     } catch (e) {
-      const raw = e instanceof Error ? e.message : "";
-      if (/rate limit|too many|429/i.test(raw)) {
-        toast.error("تعذر إرسال رابط التفعيل الآن. حاول مرة أخرى بعد قليل.");
-      } else {
-        toast.error(raw || "تعذر إرسال رابط التفعيل.");
-      }
+      toast.error(e instanceof Error ? e.message : "تعذر تغيير البريد.");
     } finally {
       setBusy(false);
     }
   }
 
-  if (error) {
-    return (
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-5 text-center">
-        <XCircle className="size-12 text-destructive" />
-        <h1 className="mt-4 font-display text-2xl font-extrabold">
-          تعذر تغيير البريد
-        </h1>
-        <p className="mt-2 text-sm leading-7 text-muted-foreground">
-          {error}
-        </p>
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/account", replace: true })}
-          className="mt-6 rounded-2xl bg-forest px-6 py-3 text-sm font-bold text-background"
-        >
-          العودة إلى حسابي
-        </button>
-      </div>
-    );
+  async function confirmCode() {
+    const email = newEmail.trim().toLowerCase();
+    const code = token.replace(/\D/g, "");
+
+    if (code.length !== 6) {
+      toast.error("أدخل رمز التأكيد المكوّن من 6 أرقام.");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: "email",
+      });
+
+      if (error) throw error;
+
+      toast.success("تم تغيير البريد الإلكتروني بنجاح.");
+      navigate({ to: "/account", replace: true });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "رمز التأكيد غير صحيح.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md items-center justify-center px-5">
       <div className="w-full rounded-3xl bg-background p-5 shadow-2xl ring-1 ring-line">
-        {!ready ? (
-          <div className="flex flex-col items-center py-10 text-center">
-            <Loader2 className="size-10 animate-spin text-forest" />
-            <p className="mt-4 text-sm text-muted-foreground">{message}</p>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-2xl bg-forest-soft text-forest">
-                <Mail className="size-5" />
-              </div>
-              <div className="flex-1">
-                <h1 className="font-display text-lg font-extrabold">
-                  تغيير البريد الإلكتروني
-                </h1>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {message}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate({ to: "/account", replace: true })}
-                aria-label="إغلاق"
-                className="grid size-9 place-items-center rounded-full bg-surface ring-1 ring-line"
-              >
-                <XCircle className="size-5" />
-              </button>
-            </div>
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/account", replace: true })}
+          aria-label="العودة"
+          className="grid size-9 place-items-center rounded-full bg-surface ring-1 ring-line"
+        >
+          <ArrowRight className="size-5" />
+        </button>
 
-            <div className="mt-5 space-y-2">
+        <div className="mt-6 flex items-center gap-3">
+          <div className="grid size-10 place-items-center rounded-2xl bg-forest-soft text-forest">
+            <Mail className="size-5" />
+          </div>
+          <div>
+            <h1 className="font-display text-lg font-extrabold">
+              تغيير البريد الإلكتروني
+            </h1>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {sent ? "أدخل رمز التأكيد المرسل إلى البريد الجديد." : "أدخل البريد الجديد."}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-3">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+              البريد الإلكتروني الجديد
+            </span>
+            <input
+              value={newEmail}
+              onChange={(event) => setNewEmail(event.target.value)}
+              type="text"
+              dir="ltr"
+              autoComplete="email"
+              placeholder="new@example.com"
+              disabled={sent}
+              className="w-full rounded-2xl bg-surface px-4 py-3.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-forest disabled:opacity-60"
+            />
+          </label>
+
+          {!sent ? (
+            <button
+              type="button"
+              onClick={() => void sendCode()}
+              disabled={busy}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-sm font-bold text-background disabled:opacity-50"
+            >
+              {busy && <Loader2 className="size-4 animate-spin" />}
+              إرسال رمز التأكيد
+            </button>
+          ) : (
+            <>
               <label className="block">
                 <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                  البريد الإلكتروني الجديد
+                  رمز التأكيد
                 </span>
                 <input
-                  value={newEmail}
-                  onChange={(event) => setNewEmail(event.target.value)}
-                  type="email"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="123456"
                   dir="ltr"
-                  autoComplete="email"
-                  placeholder="new@example.com"
-                  className="w-full rounded-2xl bg-surface px-4 py-3.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-forest"
+                  className="w-full rounded-2xl bg-surface px-4 py-4 text-center text-2xl font-extrabold tracking-[0.45em] ring-1 ring-line outline-none focus:ring-2 focus:ring-forest"
                 />
               </label>
 
               <button
                 type="button"
-                onClick={() => void sendNewEmail()}
-                disabled={busy}
+                onClick={() => void confirmCode()}
+                disabled={busy || token.replace(/\D/g, "").length !== 6}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-sm font-bold text-background disabled:opacity-50"
               >
                 {busy && <Loader2 className="size-4 animate-spin" />}
-                إرسال
+                تأكيد البريد
               </button>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
+
+        <p className="mt-6 text-center text-[11px] leading-6 text-muted-foreground">
+          إذا لم تصل الرسالة، جرّب إعادة الإرسال من صفحة التحقق.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/account", replace: true })}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-surface py-3 text-sm font-bold ring-1 ring-line"
+        >
+          <XCircle className="size-4" />
+          إلغاء
+        </button>
       </div>
     </div>
   );
