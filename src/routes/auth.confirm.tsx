@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, MailCheck, XCircle } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 const PENDING_KEY = "ufuq.pending-signup";
@@ -26,197 +25,113 @@ function ConfirmEmailPage() {
   const [state, setState] = useState<
     "loading" | "waiting" | "success" | "error"
   >("loading");
+
   const [message, setMessage] = useState(
     "جاري تجهيز تأكيد البريد الإلكتروني...",
   );
+
   const [tokenHash, setTokenHash] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const tokenFlowRef = useRef(false);
-  const finishingRef = useRef(false);
-  const mountedRef = useRef(true);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token_hash");
+    const type = params.get("type");
 
-  async function finishConfirmation(userOverride?: User) {
-    if (finishingRef.current) return;
-    finishingRef.current = true;
-
-    try {
-      const user =
-        userOverride ?? (await supabase.auth.getUser()).data.user;
-
-      if (!user) {
-        throw new Error(
-          "تعذر إنشاء جلسة بعد تفعيل البريد. حاول تسجيل الدخول بعد التفعيل.",
-        );
+    if (token) {
+      if (type !== "email") {
+        setState("error");
+        setMessage("رابط تفعيل البريد غير صالح.");
+        return;
       }
 
-      if (!user.email_confirmed_at) {
-        throw new Error("لم يتم تأكيد البريد الإلكتروني بعد.");
-      }
-
-      const raw = localStorage.getItem(PENDING_KEY);
-      const pendingEmail = localStorage.getItem(PENDING_EMAIL_KEY);
-
-      let role: "individual" | "office" = "individual";
-
-      if (raw) {
-        const payload = JSON.parse(raw) as {
-          _role?: "individual" | "office";
-          _full_name?: string;
-          _governorate_id?: string;
-          _phone?: string;
-          _office?: unknown;
-        };
-
-        role = payload._role === "office" ? "office" : "individual";
-
-        const { error } = await supabase.rpc(
-          "complete_signup",
-          payload as never,
-        );
-
-        if (error) throw error;
-
-        localStorage.removeItem(PENDING_KEY);
-      } else if (pendingEmail) {
-        const pending = JSON.parse(pendingEmail) as {
-          role?: "individual" | "office";
-        };
-
-        role = pending.role === "office" ? "office" : "individual";
-      }
-
-      localStorage.removeItem(PENDING_EMAIL_KEY);
-
-      if (!raw) {
-        const [{ data: roles }, { data: office }] = await Promise.all([
-          supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", user.id),
-          supabase
-            .from("offices")
-            .select("id")
-            .eq("owner_id", user.id)
-            .maybeSingle(),
-        ]);
-
-        role =
-          office?.id || roles?.some((item) => item.role === "office")
-            ? "office"
-            : "individual";
-      }
-
-      if (!mountedRef.current) return;
-
-      setState("success");
-
-      if (role === "office") {
-        setMessage(
-          "تم تأكيد بريدك الإلكتروني. طلب المكتب الآن قيد مراجعة الإدارة.",
-        );
-        window.setTimeout(() => {
-          navigate({ to: "/office/status", replace: true });
-        }, 1200);
-      } else {
-        setMessage(
-          "تم تأكيد بريدك الإلكتروني وإنشاء حسابك بنجاح.",
-        );
-        window.setTimeout(() => {
-          navigate({ to: "/home", replace: true });
-        }, 1200);
-      }
-    } catch (e) {
-      if (!mountedRef.current) return;
-
-      setState("error");
+      setTokenHash(token);
+      setState("waiting");
       setMessage(
-        e instanceof Error ? e.message : "تعذر تفعيل الحساب.",
+        "اضغط الزر أدناه لتأكيد بريدك الإلكتروني وتفعيل الحساب.",
       );
-    } finally {
-      finishingRef.current = false;
+      return;
+    }
+
+    setState("error");
+    setMessage(
+      "رابط التفعيل غير مكتمل. اطلب رسالة تفعيل جديدة من صفحة تسجيل الدخول.",
+    );
+  }, []);
+
+  async function finishAccount(userId: string) {
+    const raw = localStorage.getItem(PENDING_KEY);
+
+    if (raw) {
+      const payload = JSON.parse(raw);
+
+      const { error } = await supabase.rpc(
+        "complete_signup",
+        payload as never,
+      );
+
+      if (error) {
+        throw new Error(
+          `تم تأكيد البريد لكن تعذر إكمال إنشاء الحساب: ${error.message}`,
+        );
+      }
+
+      localStorage.removeItem(PENDING_KEY);
+    }
+
+    localStorage.removeItem(PENDING_EMAIL_KEY);
+
+    const [{ data: roles }, { data: office }] = await Promise.all([
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId),
+
+      supabase
+        .from("offices")
+        .select("id")
+        .eq("owner_id", userId)
+        .maybeSingle(),
+    ]);
+
+    const role =
+      office?.id || roles?.some((x) => x.role === "office")
+        ? "office"
+        : "individual";
+
+    setState("success");
+
+    if (role === "office") {
+      setMessage(
+        "تم تأكيد البريد الإلكتروني بنجاح. حساب المكتب الآن قيد مراجعة الإدارة.",
+      );
+
+      setTimeout(() => {
+        navigate({
+          to: "/office/status",
+          replace: true,
+        });
+      }, 1200);
+    } else {
+      setMessage(
+        "تم تأكيد البريد الإلكتروني وإنشاء حسابك بنجاح.",
+      );
+
+      setTimeout(() => {
+        navigate({
+          to: "/home",
+          replace: true,
+        });
+      }, 1200);
     }
   }
 
-  useEffect(() => {
-    mountedRef.current = true;
+  async function confirmEmail() {
+    if (!tokenHash || busy) return;
 
-    async function setup() {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const incomingTokenHash = params.get("token_hash");
-        const incomingType = params.get("type");
-
-        if (incomingTokenHash) {
-          tokenFlowRef.current = true;
-
-          if (incomingType !== "email") {
-            throw new Error("رابط تفعيل البريد غير صالح.");
-          }
-
-          setTokenHash(incomingTokenHash);
-          setState("waiting");
-          setMessage(
-            "رابط تفعيل بريدك الإلكتروني جاهز. اضغط الزر أدناه لإتمام التفعيل.",
-          );
-          return;
-        }
-
-        const hash = new URLSearchParams(
-          window.location.hash.replace(/^#/, ""),
-        );
-        const hashError =
-          hash.get("error_description") || hash.get("error");
-
-        if (hashError) {
-          throw new Error(hashError);
-        }
-
-        const { data } = await supabase.auth.getSession();
-
-        if (!mountedRef.current) return;
-
-        if (data.session) {
-          await finishConfirmation();
-          return;
-        }
-
-        setState("error");
-        setMessage("تعذر العثور على جلسة تأكيد صالحة.");
-      } catch (e) {
-        if (!mountedRef.current) return;
-
-        setState("error");
-        setMessage(
-          e instanceof Error ? e.message : "تعذر تفعيل الحساب.",
-        );
-      }
-    }
-
-    const { data: subscription } =
-      supabase.auth.onAuthStateChange((event) => {
-        if (
-          !tokenFlowRef.current &&
-          (event === "SIGNED_IN" || event === "USER_UPDATED")
-        ) {
-          void finishConfirmation();
-        }
-      });
-
-    void setup();
-
-    return () => {
-      mountedRef.current = false;
-      subscription.subscription.unsubscribe();
-    };
-  }, [navigate]);
-
-  async function confirmToken() {
-    if (!tokenHash || confirming) return;
-
-    setConfirming(true);
+    setBusy(true);
     setState("loading");
-    setMessage("جاري تأكيد بريدك الإلكتروني...");
+    setMessage("جاري تأكيد البريد الإلكتروني...");
 
     try {
       const { data, error } = await supabase.auth.verifyOtp({
@@ -224,43 +139,85 @@ function ConfirmEmailPage() {
         type: "email",
       });
 
-      if (error) throw error;
-
-      if (!data.user) {
-        throw new Error("تم تأكيد البريد لكن تعذر استعادة الحساب.");
+      if (error) {
+        throw new Error(
+          `Supabase: ${error.message} (${error.code ?? "no-code"})`,
+        );
       }
 
-      if (!data.user.email_confirmed_at) {
-        throw new Error("لم يتم تأكيد البريد الإلكتروني بعد.");
+      const user = data.user;
+      const session = data.session;
+
+      if (!user) {
+        throw new Error(
+          "Supabase أكد العملية لكن لم يُرجع بيانات المستخدم.",
+        );
       }
 
-      if (data.session) {
-        await supabase.auth.setSession(data.session);
+      if (!user.email_confirmed_at) {
+        throw new Error(
+          "تمت العملية لكن البريد ما زال غير مؤكد في بيانات المستخدم.",
+        );
+      }
+
+      if (!session) {
+        throw new Error(
+          "Supabase أكد البريد لكنه لم يُرجع جلسة تسجيل دخول.",
+        );
+      }
+
+      const { error: sessionError } =
+        await supabase.auth.setSession(session);
+
+      if (sessionError) {
+        throw new Error(
+          `تم تأكيد البريد لكن فشل حفظ الجلسة: ${sessionError.message}`,
+        );
+      }
+
+      const { data: currentSession } =
+        await supabase.auth.getSession();
+
+      if (!currentSession.session?.user) {
+        throw new Error(
+          "تم تأكيد البريد لكن الجلسة لم تُحفظ في المتصفح.",
+        );
       }
 
       setTokenHash(null);
-      await finishConfirmation(data.user);
-    } catch (e) {
+
+      await finishAccount(user.id);
+    } catch (error) {
+      console.error("[CONFIRM EMAIL ERROR]", error);
+
       setState("error");
       setMessage(
-        e instanceof Error ? e.message : "تعذر تفعيل الحساب.",
+        error instanceof Error
+          ? error.message
+          : "تعذر تفعيل الحساب.",
       );
     } finally {
-      setConfirming(false);
+      setBusy(false);
     }
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-5">
+    <div
+      dir="rtl"
+      className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-5"
+    >
       {state === "loading" && (
         <Loader2 className="size-12 animate-spin text-forest" />
       )}
+
       {state === "waiting" && (
         <MailCheck className="size-14 text-forest" />
       )}
+
       {state === "success" && (
         <CheckCircle2 className="size-14 text-forest" />
       )}
+
       {state === "error" && (
         <XCircle className="size-14 text-destructive" />
       )}
@@ -282,11 +239,13 @@ function ConfirmEmailPage() {
       {state === "waiting" && tokenHash && (
         <button
           type="button"
-          onClick={() => void confirmToken()}
-          disabled={confirming}
+          onClick={() => void confirmEmail()}
+          disabled={busy}
           className="mt-6 rounded-2xl bg-forest px-7 py-3.5 text-sm font-bold text-background disabled:opacity-60"
         >
-          {confirming ? "جاري التفعيل..." : "تأكيد البريد الإلكتروني"}
+          {busy
+            ? "جاري التفعيل..."
+            : "تأكيد البريد الإلكتروني"}
         </button>
       )}
 
