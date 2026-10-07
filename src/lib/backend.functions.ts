@@ -419,7 +419,164 @@ async function runDb(input: DbInput) {
       }
     }
 
+    if (input.collection === "support_tickets") {
+      const latest = await collection
+        .find({ ticket_number: { $exists: true } })
+        .sort({ ticket_number: -1 })
+        .limit(1)
+        .toArray();
+
+      let nextTicketNumber =
+        Number(latest[0]?.ticket_number ?? 0) + 1;
+
+      for (const doc of docs) {
+        doc.ticket_number = nextTicketNumber++;
+        doc.status ??= "open";
+      }
+    }
+
     await collection.insertMany(docs);
+
+    if (input.collection === "reports") {
+      const users = await getMongoCollection<Record<string, unknown>>("users");
+      const roles = await getMongoCollection<Record<string, unknown>>("user_roles");
+      const [adminsFromUsers, adminsFromRoles] = await Promise.all([
+        users.find({ role: "admin" }).project({ _id: 1 }).toArray(),
+        roles.find({ role: "admin" }).project({ user_id: 1 }).toArray(),
+      ]);
+
+      const adminIds = [
+        ...new Set(
+          [
+            ...adminsFromUsers.map((row) => String(row._id ?? "")),
+            ...adminsFromRoles.map((row) => String(row.user_id ?? "")),
+          ].filter(Boolean),
+        ),
+      ].filter((id) => id !== userId);
+
+      if (adminIds.length) {
+        const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
+        await notifications.insertMany(
+          adminIds.map((adminId) => ({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: adminId,
+            title: "بلاغ جديد",
+            body: "تم استلام بلاغ جديد ويحتاج إلى المراجعة.",
+            type: "report",
+            link: "/admin?tab=reports",
+            is_read: false,
+            created_at: new Date(),
+          })),
+        );
+      }
+    }
+
+    if (input.collection === "support_tickets") {
+      const users = await getMongoCollection<Record<string, unknown>>("users");
+      const roles = await getMongoCollection<Record<string, unknown>>("user_roles");
+      const [adminsFromUsers, adminsFromRoles] = await Promise.all([
+        users.find({ role: "admin" }).project({ _id: 1 }).toArray(),
+        roles.find({ role: "admin" }).project({ user_id: 1 }).toArray(),
+      ]);
+
+      const adminIds = [
+        ...new Set(
+          [
+            ...adminsFromUsers.map((row) => String(row._id ?? "")),
+            ...adminsFromRoles.map((row) => String(row.user_id ?? "")),
+          ].filter(Boolean),
+        ),
+      ].filter((id) => id !== userId);
+
+      if (adminIds.length) {
+        const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
+        await notifications.insertMany(
+          docs.map((ticket) =>
+            adminIds.map((adminId) => ({
+              id: randomUUID(),
+              _id: randomUUID(),
+              user_id: adminId,
+              title: "تذكرة دعم جديدة",
+              body: "تم فتح تذكرة دعم جديدة وتحتاج إلى الرد.",
+              type: "support_ticket",
+              link: "/admin?tab=support",
+              is_read: false,
+              created_at: new Date(),
+              ticket_id: ticket.id,
+              ticket_number: ticket.ticket_number,
+            })),
+          ).flat(),
+        );
+      }
+    }
+
+    if (input.collection === "support_messages") {
+      const tickets = await getMongoCollection<Record<string, unknown>>("support_tickets");
+      const users = await getMongoCollection<Record<string, unknown>>("users");
+      const roles = await getMongoCollection<Record<string, unknown>>("user_roles");
+      const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
+
+      const [adminsFromUsers, adminsFromRoles] = await Promise.all([
+        users.find({ role: "admin" }).project({ _id: 1 }).toArray(),
+        roles.find({ role: "admin" }).project({ user_id: 1 }).toArray(),
+      ]);
+
+      const adminIds = [
+        ...new Set(
+          [
+            ...adminsFromUsers.map((row) => String(row._id ?? "")),
+            ...adminsFromRoles.map((row) => String(row.user_id ?? "")),
+          ].filter(Boolean),
+        ),
+      ];
+
+      for (const message of docs) {
+        const ticket = await tickets.findOne({ id: message.ticket_id });
+        if (!ticket) continue;
+
+        const ticketUserId = String(ticket.user_id ?? "");
+        const senderId = String(message.sender_id ?? userId ?? "");
+
+        if (!ticketUserId || !senderId) continue;
+
+        if (senderId === ticketUserId) {
+          const recipientIds = adminIds.filter((id) => id !== senderId);
+
+          if (recipientIds.length) {
+            await notifications.insertMany(
+              recipientIds.map((adminId) => ({
+                id: randomUUID(),
+                _id: randomUUID(),
+                user_id: adminId,
+                title: `رد جديد على تذكرة #${ticket.ticket_number ?? "—"}`,
+                body: "وصلت رسالة جديدة من صاحب التذكرة.",
+                type: "support_ticket",
+                link: "/admin?tab=support",
+                is_read: false,
+                created_at: new Date(),
+                ticket_id: ticket.id,
+                ticket_number: ticket.ticket_number,
+              })),
+            );
+          }
+        } else {
+          await notifications.insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: ticketUserId,
+            title: `رد جديد على تذكرة #${ticket.ticket_number ?? "—"}`,
+            body: "وصل رد جديد من فريق الدعم.",
+            type: "support_ticket",
+            link: `/account?support=${encodeURIComponent(String(ticket.id))}`,
+            is_read: false,
+            created_at: new Date(),
+            ticket_id: ticket.id,
+            ticket_number: ticket.ticket_number,
+          });
+        }
+      }
+    }
 
     const rows = docs.map((row) => project(row, input.select ?? null));
 
