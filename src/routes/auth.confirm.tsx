@@ -51,15 +51,26 @@ function ConfirmEmailPage() {
           throw new Error(hashError);
         }
 
-        const code = new URLSearchParams(
-          window.location.search,
-        ).get("code");
+        const params = new URLSearchParams(window.location.search);
+        const tokenHash = params.get("token_hash");
+        const type = params.get("type");
 
-        if (code) {
-          const { error } =
-            await supabase.auth.exchangeCodeForSession(code);
+        if (tokenHash) {
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type === "email" ? "email" : "email",
+          });
 
           if (error) throw error;
+        } else {
+          const code = params.get("code");
+
+          if (code) {
+            const { error } =
+              await supabase.auth.exchangeCodeForSession(code);
+
+            if (error) throw error;
+          }
         }
 
         let user = null;
