@@ -130,6 +130,9 @@ export function AuthForm({
       }
 
       if (!email.trim() || !password) throw new Error("الرجاء إدخال البريد وكلمة المرور.");
+      if (!email.includes("@")) {
+        throw new Error("البريد الإلكتروني يجب أن يحتوي على @.");
+      }
       if (isRegister) {
         if (password.length < 8) throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف.");
         validateRegisterFields();
@@ -272,7 +275,7 @@ export function AuthForm({
             value={email}
             onChange={setEmail}
             placeholder="you@example.com"
-            type="email"
+            type="text"
             dir="ltr"
           />
           <Field
