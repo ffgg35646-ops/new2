@@ -13,6 +13,7 @@ import { FACINGS, LISTING_TYPES, PROPERTY_KINDS } from "@/lib/constants";
 import { useAuth } from "@/lib/auth";
 import { useNeighborhoods, useSelectedGovernorate } from "@/lib/governorate";
 import { cn } from "@/lib/utils";
+import { useMyOffice } from "@/lib/office";
 
 export const Route = createFileRoute("/office/properties/$propertyId/edit")({
   head: () => ({
@@ -35,16 +36,20 @@ function EditProperty() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { userId } = useAuth();
+  const { data: membership } = useMyOffice();
+  const officeId = membership?.office?.id ?? null;
   const { governorateId } = useSelectedGovernorate();
   const { data: neighborhoods = [] } = useNeighborhoods(governorateId);
 
   const { data: property, isLoading } = useQuery({
-    queryKey: ["edit-property", propertyId],
+    queryKey: ["edit-property", propertyId, officeId],
+    enabled: !!officeId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("properties")
         .select("*, property_images(id,url,sort_order)")
         .eq("id", propertyId)
+        .eq("office_id", officeId!)
         .single();
       if (error) throw error;
       return data;
@@ -120,7 +125,8 @@ function EditProperty() {
           longitude: location?.lng ?? null,
           cover_url: images[0] ?? null,
         })
-        .eq("id", propertyId);
+        .eq("id", propertyId)
+        .eq("office_id", officeId!);
       if (error) throw error;
 
       await supabase.from("property_images").delete().eq("property_id", propertyId);
