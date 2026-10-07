@@ -22,12 +22,21 @@
         يرجى تفعيل حسابك من خلال الرابط التالي:
       </p>
 
+      {{ if .RedirectTo }}
+      <a
+        href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email"
+        style="display:inline-block;padding:13px 28px;background:#245749;color:#ffffff;text-decoration:none;border-radius:14px;font-size:15px;font-weight:bold;"
+      >
+        تفعيل الحساب
+      </a>
+      {{ else }}
       <a
         href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email"
         style="display:inline-block;padding:13px 28px;background:#245749;color:#ffffff;text-decoration:none;border-radius:14px;font-size:15px;font-weight:bold;"
       >
         تفعيل الحساب
       </a>
+      {{ end }}
 
       <p style="margin:28px 0 0;font-size:13px;color:#777168;">
         عقار البطين
