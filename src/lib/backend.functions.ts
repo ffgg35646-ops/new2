@@ -291,6 +291,10 @@ async function authorize(input: DbInput) {
 
   if (!userId) throw new Error("يجب تسجيل الدخول.");
 
+  if (input.collection === "app_content" && input.operation !== "select" && role !== "admin") {
+    throw new Error("غير مصرح بتعديل المحتوى القانوني.");
+  }
+
   if (input.collection === "notifications" || input.collection === "profiles" || input.collection === "user_roles") {
     if (role !== "admin" && input.operation === "select") {
       input.filters = [
