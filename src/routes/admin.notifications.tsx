@@ -32,7 +32,7 @@ export const Route = createFileRoute("/admin/notifications")({
     ],
   }),
   component: () => (
-    <RoleGuard allow={["admin"]} guestsTo="/home">
+    <RoleGuard allow={["admin"]} guestsTo="/auth/admin">
       <AdminNotifications />
     </RoleGuard>
   ),
