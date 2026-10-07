@@ -2,10 +2,11 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
+import { BottomNav } from "@/components/BottomNav";
 import { MediaUploader } from "@/components/MediaUploader";
 import { LocationPicker } from "@/components/LocationPicker";
 import type { LatLng } from "@/lib/location";
@@ -134,8 +135,18 @@ function NewProperty() {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
       <AppHeader showSearch={false} />
-      <main className="flex-1 space-y-4 px-4 py-4 pb-24">
-        <h1 className="font-display text-xl font-extrabold">إضافة عرض عقاري</h1>
+      <main className="flex-1 space-y-4 px-4 py-4 pb-28">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/office" })}
+            aria-label="العودة لرئيسية المكتب"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-surface ring-1 ring-line"
+          >
+            <ArrowRight className="size-4" />
+          </button>
+          <h1 className="font-display text-xl font-extrabold">إضافة عرض عقاري</h1>
+        </div>
 
         {propertyLimit != null && (
           <div className="rounded-2xl bg-sand p-3 text-[12px] leading-relaxed">
@@ -251,6 +262,8 @@ function NewProperty() {
           </button>
         </section>
       </main>
+
+      <BottomNav variant="office" />
     </div>
   );
 }
