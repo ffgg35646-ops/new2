@@ -51,6 +51,21 @@ function AccountPage() {
   const [supportOpen, setSupportOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
+  const profileName =
+    profile?.full_name ||
+    (typeof session?.user?.user_metadata?.full_name === "string"
+      ? session.user.user_metadata.full_name
+      : "") ||
+    "بدون اسم";
+
+  const profilePhone =
+    profile?.phone ||
+    session?.user?.phone ||
+    (typeof session?.user?.user_metadata?.phone === "string"
+      ? session.user.user_metadata.phone
+      : "") ||
+    "—";
+
   const supportTicketId =
     typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("support")
@@ -125,12 +140,12 @@ function AccountPage() {
               className="flex w-full items-center gap-3 rounded-3xl bg-surface p-4 text-right ring-1 ring-line"
             >
               <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-forest-soft font-display text-xl font-extrabold text-forest">
-                {(profile?.full_name || session?.user?.email || "؟").charAt(0)}
+                {(profileName || session?.user?.email || "؟").charAt(0)}
               </div>
 
               <div className="min-w-0 flex-1">
                 <div className="font-display text-base font-bold">
-                  {profile?.full_name || "بدون اسم"}
+                  {profileName}
                 </div>
                 <div className="mt-1 text-xs font-semibold text-forest">
                   الملف الشخصي
@@ -146,8 +161,8 @@ function AccountPage() {
               email={session?.user?.email ?? profile?.email ?? ""}
               emailVerified={!!session?.user?.email_confirmed_at}
               rows={[
-                ["الاسم الكامل", profile?.full_name ?? "—"],
-                ["رقم الجوال", profile?.phone ?? "—"],
+                ["الاسم الكامل", profileName],
+                ["رقم الجوال", profilePhone],
                 ["المحافظة", governorate?.name_ar ?? "—"],
               ].map(([label, value]) => ({ label, value }))}
             />
