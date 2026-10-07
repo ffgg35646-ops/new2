@@ -32,6 +32,7 @@ type DbInput = {
   maybeSingle?: boolean;
   count?: boolean;
   head?: boolean;
+  onConflict?: string | null;
 };
 
 const publicReads = new Set([
@@ -458,7 +459,29 @@ async function runDb(input: DbInput) {
       item.updated_at = new Date();
       item.created_at ??= new Date();
 
-      await collection.updateOne({ _id: id }, { $set: item }, { upsert: true });
+      const conflictFields = String(input.onConflict ?? "")
+        .split(",")
+        .map((field) => field.trim())
+        .filter(Boolean);
+
+      if (conflictFields.length) {
+        const conflictQuery = Object.fromEntries(
+          conflictFields.map((field) => [field, item[field]]),
+        );
+
+        await collection.updateOne(
+          conflictQuery,
+          { $set: item },
+          { upsert: true },
+        );
+      } else {
+        await collection.updateOne(
+          { _id: id },
+          { $set: item },
+          { upsert: true },
+        );
+      }
+
       rows.push(project(item, input.select ?? null));
     }
 
