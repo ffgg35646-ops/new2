@@ -13,79 +13,6 @@ const EMAIL_SEND_STATE_KEY = "ufuq.email-send-state";
 const MAX_EMAIL_SENDS = 15;
 const EMAIL_SEND_PAUSE_MS = 5 * 60 * 1000;
 
-type EmailSendState = { count: number; pausedUntil: number };
-type EmailSendStateMap = Record<string, EmailSendState>;
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
-function normalizePhone(raw: string) {
-  const digits = raw.replace(/[^\d]/g, "");
-  if (digits.startsWith("966")) return `+${digits}`;
-  if (digits.startsWith("0")) return `+966${digits.slice(1)}`;
-  if (digits.startsWith("5")) return `+966${digits}`;
-  return `+${digits}`;
-}
-
-function isValidSaudiPhone(raw: string) {
-  return /^\+9665\d{8}$/.test(normalizePhone(raw));
-}
-
-function readEmailSendStates(): EmailSendStateMap {
-  try {
-    const raw = localStorage.getItem(EMAIL_SEND_STATE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object"
-      ? (parsed as EmailSendStateMap)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-function ensureEmailSendAllowed(email: string) {
-  const key = normalizeEmail(email);
-  const states = readEmailSendStates();
-  const state = states[key] ?? { count: 0, pausedUntil: 0 };
-  const now = Date.now();
-
-  if (state.pausedUntil > 0 && state.pausedUntil <= now) {
-    states[key] = { count: 0, pausedUntil: 0 };
-    localStorage.setItem(EMAIL_SEND_STATE_KEY, JSON.stringify(states));
-    return;
-  }
-
-  if (state.pausedUntil > now || state.count >= MAX_EMAIL_SENDS) {
-    if (state.count >= MAX_EMAIL_SENDS && state.pausedUntil <= now) {
-      states[key] = {
-        count: MAX_EMAIL_SENDS,
-        pausedUntil: now + EMAIL_SEND_PAUSE_MS,
-      };
-      localStorage.setItem(EMAIL_SEND_STATE_KEY, JSON.stringify(states));
-    }
-    throw new Error("EMAIL_SEND_PAUSED");
-  }
-}
-
-function recordEmailSendSuccess(email: string) {
-  const key = normalizeEmail(email);
-  const states = readEmailSendStates();
-  const previous = states[key] ?? { count: 0, pausedUntil: 0 };
-  const nextCount = previous.count + 1;
-
-  states[key] = {
-    count: Math.min(nextCount, MAX_EMAIL_SENDS),
-    pausedUntil:
-      nextCount >= MAX_EMAIL_SENDS
-        ? Date.now() + EMAIL_SEND_PAUSE_MS
-        : 0,
-  };
-
-  localStorage.setItem(EMAIL_SEND_STATE_KEY, JSON.stringify(states));
-}
-
 function authErrorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e ?? "");
   const m = raw.toLowerCase();
@@ -216,7 +143,7 @@ export function AuthForm({
         if (password.length < 8) throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف.");
         validateRegisterFields();
         const signupEmail = normalizeEmail(email);
-        ensureEmailSendAllowed(signupEmail);
+        const payload = signupPayload();
 
         const { data, error } = await supabase.auth.signUp({
           email: signupEmail,
@@ -227,22 +154,38 @@ export function AuthForm({
               phone: normalizePhone(phone),
               role,
             },
-            emailRedirectTo: `${window.location.origin}/auth/confirm`,
           },
         });
+
         if (error) throw error;
+
         if (data.user && data.user.identities && data.user.identities.length === 0) {
           throw new Error("البريد الإلكتروني مسجل مسبقًا");
         }
-        recordEmailSendSuccess(signupEmail);
-        localStorage.setItem(PENDING_KEY, JSON.stringify(signupPayload()));
+
+        localStorage.setItem(PENDING_KEY, JSON.stringify(payload));
         localStorage.setItem(
           PENDING_EMAIL_KEY,
           JSON.stringify({ email: signupEmail, role, sentAt: Date.now() }),
         );
-        if (data.session) await supabase.auth.signOut();
-        toast.success("أرسلنا رسالة التحقق إلى بريدك الإلكتروني");
-        navigate({ to: "/auth/verify-email" });
+
+        if (!data.session) {
+          throw new Error(
+            "التسجيل يحتاج جلسة مباشرة. عطّل Confirm Email في Supabase ثم جرّب مرة أخرى.",
+          );
+        }
+
+        await finishSignup(payload);
+        localStorage.removeItem(PENDING_KEY);
+        localStorage.removeItem(PENDING_EMAIL_KEY);
+
+        void qc.invalidateQueries({ queryKey: ["session"] });
+        toast.success(
+          role === "office"
+            ? "تم إنشاء الحساب، وحساب المكتب قيد مراجعة الإدارة."
+            : "تم إنشاء الحساب وتسجيل الدخول بنجاح.",
+        );
+        navigate({ to: destination });
         return;
       }
 
