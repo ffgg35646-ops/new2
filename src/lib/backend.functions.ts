@@ -154,6 +154,120 @@ function project(doc: Record<string, unknown>, select: string | null) {
   return result;
 }
 
+
+type RelationSpec = {
+  output: string;
+  collection: string;
+  fields: string[];
+};
+
+function parseRelations(select: string | null): RelationSpec[] {
+  if (!select) return [];
+
+  const relations: RelationSpec[] = [];
+  const pattern = /(?:(\w+):)?(\w+)\(([^()]*)\)/g;
+
+  for (const match of select.matchAll(pattern)) {
+    const output = match[1] ?? match[2];
+    const collection = match[2];
+    const fields = match[3]
+      .split(",")
+      .map((field) => field.trim())
+      .filter(Boolean);
+
+    if (output && collection) {
+      relations.push({ output, collection, fields });
+    }
+  }
+
+  return relations;
+}
+
+function pickFields(
+  value: Record<string, unknown>,
+  fields: string[],
+) {
+  if (!fields.length || fields.includes("*")) return clean(value);
+
+  const row = clean(value);
+  const output: Record<string, unknown> = {};
+
+  for (const field of fields) {
+    if (field in row) output[field] = row[field];
+  }
+
+  if ("id" in row && !("id" in output)) output.id = row.id;
+
+  return output;
+}
+
+const relationRules: Record<
+  string,
+  { localField: string; foreignField: string; many?: boolean }
+> = {
+  governorates: { localField: "governorate_id", foreignField: "id" },
+  offices: { localField: "office_id", foreignField: "id" },
+  profiles: { localField: "user_id", foreignField: "id" },
+  package_catalog: { localField: "package_id", foreignField: "id" },
+  properties: { localField: "property_id", foreignField: "id" },
+  office_offers: { localField: "id", foreignField: "request_id", many: true },
+  property_images: { localField: "id", foreignField: "property_id", many: true },
+  messages: { localField: "id", foreignField: "conversation_id", many: true },
+  office_staff: { localField: "id", foreignField: "office_id", many: true },
+  user_roles: { localField: "id", foreignField: "user_id", many: true },
+};
+
+async function enrichRows(
+  collection: string,
+  rows: Record<string, unknown>[],
+  select: string | null,
+) {
+  const relations = parseRelations(select);
+  if (!relations.length) return rows;
+
+  const output = [];
+
+  for (const raw of rows) {
+    const row = clean(raw);
+
+    for (const relation of relations) {
+      const rule = relationRules[relation.collection];
+      if (!rule) continue;
+
+      const localValue = row[rule.localField];
+      if (localValue == null) continue;
+
+      const relatedCollection =
+        await getMongoCollection<Record<string, unknown>>(
+          relation.collection,
+        );
+
+      if (rule.many) {
+        const related = await relatedCollection
+          .find({ [rule.foreignField]: localValue })
+          .toArray();
+
+        row[relation.output] = related.map((item) =>
+          pickFields(item, relation.fields),
+        );
+      } else {
+        const related = await relatedCollection.findOne({
+          [rule.foreignField]: localValue,
+        });
+
+        row[relation.output] = related
+          ? pickFields(related, relation.fields)
+          : null;
+      }
+    }
+
+    output.push(row);
+  }
+
+  void collection;
+  return output;
+}
+
 async function roleFor(userId: string) {
   const users = await getMongoCollection<Record<string, unknown>>("users");
   const user = await users.findOne({ _id: userId });
@@ -247,7 +361,15 @@ async function runDb(input: DbInput) {
 
     if (input.head) return { data: null, count, error: null };
 
-    const output = rows.map((row) => project(row, input.select ?? null));
+    const relatedRows = await enrichRows(
+      input.collection,
+      rows,
+      input.select ?? null,
+    );
+
+    const output = relatedRows.map((row) =>
+      project(row, input.select ?? null),
+    );
 
     if (input.single || input.maybeSingle) {
       if (!output[0]) {
