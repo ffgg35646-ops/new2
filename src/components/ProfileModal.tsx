@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { KeyRound, Loader2, Mail, Pencil, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,7 +23,6 @@ export function ProfileModal({
   emailVerified,
   rows,
 }: ProfileModalProps) {
-  const navigate = useNavigate();
   const [emailBusy, setEmailBusy] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
 
@@ -70,7 +68,7 @@ export function ProfileModal({
     }
   }
 
-  async function openPasswordChange() {
+  function openPasswordChange() {
     setPasswordOpen(true);
   }
 
@@ -193,7 +191,6 @@ function PasswordChangeModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const { } = useState(0);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
