@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "deliver": "node scripts/deliver.mjs"
+    "deliver": "node scripts/deliver.mjs",
+    "seed:mongo": "node scripts/seed-mongo.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
