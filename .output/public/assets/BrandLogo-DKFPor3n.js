@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-BkSabwWG.js";var t=`/assets/logo-Co891RHR.jpeg`,n=e();function r({size:e=36}){return(0,n.jsx)(`img`,{src:t,alt:`عقار البطين`,width:e,height:e,className:`shrink-0 rounded-xl object-contain`,style:{width:e,height:e}})}export{r as t};

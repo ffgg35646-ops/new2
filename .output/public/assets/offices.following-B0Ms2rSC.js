@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-BkSabwWG.js";var t=e(),n=({error:e})=>(0,t.jsx)(`div`,{className:`p-6 text-center text-sm text-destructive`,children:e.message});export{n as errorComponent};

@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-BkSabwWG.js";import{t}from"./AuthForm-b4xdmwVy.js";var n=e();function r(){return(0,n.jsx)(t,{role:`office`,plan:`free`,startAsRegister:!0})}export{r as component};
