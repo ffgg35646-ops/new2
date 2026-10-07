@@ -98,7 +98,12 @@ class QueryBuilder<T = unknown> {
   maybeSingle() { this.input.maybeSingle = true; this.input.limit = 2; return this; }
   insert(payload: unknown) { this.input.operation = "insert"; this.input.payload = payload; return this; }
   update(payload: unknown) { this.input.operation = "update"; this.input.payload = payload; return this; }
-  upsert(payload: unknown) { this.input.operation = "upsert"; this.input.payload = payload; return this; }
+  upsert(payload: unknown, options?: { onConflict?: string }) {
+    this.input.operation = "upsert";
+    this.input.payload = payload;
+    this.input.onConflict = options?.onConflict ?? null;
+    return this;
+  }
   delete() { this.input.operation = "delete"; return this; }
 
   then<TResult1 = Result<T>, TResult2 = never>(
