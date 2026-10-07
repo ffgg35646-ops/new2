@@ -106,7 +106,7 @@ function EditProperty() {
       if (!neighborhood) throw new Error("اختر الحي");
       if (!price || !area) throw new Error("أدخل السعر والمساحة");
 
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("properties")
         .update({
           kind: kind as never,
@@ -126,8 +126,11 @@ function EditProperty() {
           cover_url: images[0] ?? null,
         })
         .eq("id", propertyId)
-        .eq("office_id", officeId!);
+        .eq("office_id", officeId!)
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
+      if (!updated) throw new Error("العقار غير موجود ضمن عروض مكتبك.");
 
       await supabase.from("property_images").delete().eq("property_id", propertyId);
       if (images.length) {
