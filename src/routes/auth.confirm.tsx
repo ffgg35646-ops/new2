@@ -21,24 +21,51 @@ export const Route = createFileRoute("/auth/confirm")({
 
 function ConfirmEmailPage() {
   const navigate = useNavigate();
-  const started = useRef(false);
 
   const [state, setState] = useState<
-    "loading" | "success" | "error"
+    "loading" | "waiting" | "success" | "error"
   >("loading");
 
   const [message, setMessage] = useState(
-    "جاري تأكيد بريدك الإلكتروني..."
+    "جاري تجهيز تأكيد البريد الإلكتروني..."
   );
+
+  const [tokenHash, setTokenHash] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     let active = true;
 
-    async function finish() {
-      if (started.current) return;
-      started.current = true;
-
+    async function setup() {
       try {
+        const params = new URLSearchParams(window.location.search);
+
+        const hashToken = params.get("token_hash");
+        const hashType = params.get("type");
+
+        if (hashToken) {
+          if (hashType !== "email") {
+            throw new Error("رابط تفعيل البريد غير صالح.");
+          }
+
+          if (!active) return;
+
+          /*
+           * لا نتحقق من token_hash هنا.
+           * مجرد فتح الصفحة يجب ألا يستهلك الرابط.
+           */
+          setTokenHash(hashToken);
+          setState("waiting");
+          setMessage(
+            "رابط تفعيل بريدك الإلكتروني جاهز. اضغط الزر أدناه لإتمام التفعيل."
+          );
+          return;
+        }
+
+        /*
+         * الرابط القديم الذي يعيد access_token في الـhash
+         * يترك لـSupabase التعامل معه بشكل طبيعي.
+         */
         const hash = new URLSearchParams(
           window.location.hash.replace(/^#/, ""),
         );
@@ -51,50 +78,47 @@ function ConfirmEmailPage() {
           throw new Error(hashError);
         }
 
-        const params = new URLSearchParams(window.location.search);
-        const tokenHash = params.get("token_hash");
-        const type = params.get("type");
+        const { data } = await supabase.auth.getSession();
 
-        if (tokenHash) {
-          if (type !== "email") {
-            throw new Error("رابط تفعيل البريد غير صالح.");
-          }
+        if (!active) return;
 
-          const { error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: "email",
-          });
-
-          if (error) throw error;
-        } else {
-          const code = params.get("code");
-
-          if (code) {
-            const { error } =
-              await supabase.auth.exchangeCodeForSession(code);
-
-            if (error) throw error;
-          }
+        if (data.session) {
+          await finishConfirmation();
+          return;
         }
 
-        let user = null;
+        setState("error");
+        setMessage("تعذر العثور على جلسة تأكيد صالحة.");
+      } catch (e) {
+        if (!active) return;
 
-        for (let i = 0; i < 10; i++) {
-          const { data } = await supabase.auth.getUser();
+        setState("error");
+        setMessage(
+          e instanceof Error
+            ? e.message
+            : "تعذر تفعيل الحساب.",
+        );
+      }
+    }
 
-          if (data.user) {
-            user = data.user;
-            break;
-          }
-
-          await new Promise((resolve) =>
-            setTimeout(resolve, 300),
-          );
+    const { data: subscription } =
+      supabase.auth.onAuthStateChange((event) => {
+        if (
+          event === "SIGNED_IN" ||
+          event === "USER_UPDATED"
+        ) {
+          void finishConfirmation();
         }
+      });
+
+    async function finishConfirmation() {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
 
         if (!user) {
           throw new Error(
-            "تعذر إنشاء جلسة بعد تفعيل البريد. افتح الرابط من نفس الجهاز الذي أنشأت منه الحساب.",
+            "تعذر إنشاء جلسة بعد تفعيل البريد.",
           );
         }
 
@@ -104,10 +128,11 @@ function ConfirmEmailPage() {
           );
         }
 
-        // The implicit auth flow returns credentials in the URL hash.
-        // Supabase has already consumed them by this point, so remove them
-        // immediately from the address bar before showing the success state.
-        window.history.replaceState({}, document.title, window.location.pathname);
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname,
+        );
 
         const raw = localStorage.getItem(PENDING_KEY);
         const pendingEmail =
@@ -118,6 +143,10 @@ function ConfirmEmailPage() {
         if (raw) {
           const payload = JSON.parse(raw) as {
             _role?: "individual" | "office";
+            _full_name?: string;
+            _governorate_id?: string;
+            _phone?: string;
+            _office?: unknown;
           };
 
           role =
@@ -147,22 +176,25 @@ function ConfirmEmailPage() {
         localStorage.removeItem(PENDING_EMAIL_KEY);
 
         if (!raw) {
-          const [{ data: roles }, { data: office }] = await Promise.all([
-            supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", user.id),
-            supabase
-              .from("offices")
-              .select("id")
-              .eq("owner_id", user.id)
-              .maybeSingle(),
-          ]);
+          const [{ data: roles }, { data: office }] =
+            await Promise.all([
+              supabase
+                .from("user_roles")
+                .select("role")
+                .eq("user_id", user.id),
 
-          if (office?.id || roles?.some((item) => item.role === "office")) {
+              supabase
+                .from("offices")
+                .select("id")
+                .eq("owner_id", user.id)
+                .maybeSingle(),
+            ]);
+
+          if (
+            office?.id ||
+            roles?.some((item) => item.role === "office")
+          ) {
             role = "office";
-          } else if (roles?.some((item) => item.role === "admin")) {
-            role = "individual";
           } else {
             role = "individual";
           }
@@ -177,16 +209,22 @@ function ConfirmEmailPage() {
             "تم تأكيد بريدك الإلكتروني. طلب المكتب الآن قيد مراجعة الإدارة.",
           );
 
-          setTimeout(() => {
-            navigate({ to: "/office/status", replace: true });
+          window.setTimeout(() => {
+            navigate({
+              to: "/office/status",
+              replace: true,
+            });
           }, 1200);
         } else {
           setMessage(
             "تم تأكيد بريدك الإلكتروني وإنشاء حسابك بنجاح.",
           );
 
-          setTimeout(() => {
-            navigate({ to: "/home", replace: true });
+          window.setTimeout(() => {
+            navigate({
+              to: "/home",
+              replace: true,
+            });
           }, 1200);
         }
       } catch (e) {
@@ -201,17 +239,7 @@ function ConfirmEmailPage() {
       }
     }
 
-    const { data: subscription } =
-      supabase.auth.onAuthStateChange((event) => {
-        if (
-          event === "SIGNED_IN" ||
-          event === "USER_UPDATED"
-        ) {
-          void finish();
-        }
-      });
-
-    void finish();
+    void setup();
 
     return () => {
       active = false;
@@ -219,10 +247,58 @@ function ConfirmEmailPage() {
     };
   }, [navigate]);
 
+  async function confirmToken() {
+    if (!tokenHash || confirming) return;
+
+    setConfirming(true);
+    setState("loading");
+    setMessage("جاري تأكيد بريدك الإلكتروني...");
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: "email",
+      });
+
+      if (error) throw error;
+
+      const { data } = await supabase.auth.getUser();
+
+      if (!data.user) {
+        throw new Error(
+          "تعذر إنشاء جلسة بعد تفعيل البريد.",
+        );
+      }
+
+      if (!data.user.email_confirmed_at) {
+        throw new Error(
+          "لم يتم تأكيد البريد الإلكتروني بعد.",
+        );
+      }
+
+      setTokenHash(null);
+
+      window.location.reload();
+    } catch (e) {
+      setState("error");
+      setMessage(
+        e instanceof Error
+          ? e.message
+          : "تعذر تفعيل الحساب.",
+      );
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-5">
       {state === "loading" && (
         <Loader2 className="size-12 animate-spin text-forest" />
+      )}
+
+      {state === "waiting" && (
+        <MailCheck className="size-14 text-forest" />
       )}
 
       {state === "success" && (
@@ -238,12 +314,27 @@ function ConfirmEmailPage() {
           ? "تعذر تفعيل حسابك"
           : state === "success"
             ? "تم تفعيل حسابك"
-            : "تفعيل حسابك"}
+            : state === "waiting"
+              ? "تأكيد البريد الإلكتروني"
+              : "تفعيل حسابك"}
       </h1>
 
       <p className="mt-2 max-w-sm text-center text-sm leading-relaxed text-muted-foreground">
         {message}
       </p>
+
+      {state === "waiting" && tokenHash && (
+        <button
+          type="button"
+          onClick={() => void confirmToken()}
+          disabled={confirming}
+          className="mt-6 rounded-2xl bg-forest px-7 py-3.5 text-sm font-bold text-background disabled:opacity-60"
+        >
+          {confirming
+            ? "جاري التفعيل..."
+            : "تأكيد البريد الإلكتروني"}
+        </button>
+      )}
 
       {state === "error" && (
         <Link
@@ -256,3 +347,4 @@ function ConfirmEmailPage() {
     </div>
   );
 }
+
