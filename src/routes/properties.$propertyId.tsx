@@ -326,7 +326,7 @@ function PropertyDetail() {
             </span>
           </div>
           <div className="mt-1 text-sm text-muted-foreground">
-            {data.neighborhood} · {(data.governorates as { name_ar: string } | null)?.name_ar} ·{" "}
+            {data.neighborhood} · {data.governorate || (data.governorates as { name_ar: string } | null)?.name_ar || "—"} ·{" "}
             {timeAgo(data.created_at)}
           </div>
           <div className="mt-3 font-display text-2xl font-extrabold text-forest">
