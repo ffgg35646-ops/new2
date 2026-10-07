@@ -93,7 +93,9 @@ function NewProperty() {
         .insert({
           property_number: "",
           office_id: office.id,
-          governorate_id: propertyGovernorateId! ,
+          governorate_id: propertyGovernorateId!,
+          is_published: true,
+          is_deleted: false,
           kind: kind as never,
           listing: listing as never,
           title: title.trim(),
