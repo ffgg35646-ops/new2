@@ -13,8 +13,7 @@ import {
   Phone,
   XCircle,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchAdminDirectory, type AdminOffice } from "@/lib/admin";
+import { useAdminDirectory, type AdminOffice } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/offices")({
@@ -35,12 +34,12 @@ function OfficesRoute() {
 }
 
 function OfficesPage() {
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["admin-directory"],
-    queryFn: fetchAdminDirectory,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useAdminDirectory();
 
   const offices = data?.offices ?? [];
 
@@ -95,7 +94,7 @@ function OfficesPage() {
         <Stat title="مرفوضة" value={rejected} />
       </div>
 
-      {isLoading ? (
+      {isLoading && !data ? (
         <Skeleton />
       ) : isError ? (
         <div className="rounded-[26px] bg-surface p-8 text-center ring-1 ring-line">
