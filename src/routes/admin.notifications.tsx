@@ -13,6 +13,13 @@ import {
   Building2,
   X,
   Loader2,
+  Megaphone,
+  UserRound,
+  Building,
+  CheckCheck,
+  UsersRound,
+  SendHorizontal,
+  ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -416,31 +423,84 @@ function AdminNotifications() {
   });
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
-      <AppHeader showSearch={false} />
+    <div dir="rtl" className="space-y-6 pb-8">
+      <section className="overflow-hidden rounded-[34px] bg-surface ring-1 ring-line">
+        <div className="relative overflow-hidden bg-forest px-6 py-7 text-background">
+          <div className="pointer-events-none absolute -left-10 -top-10 size-40 rounded-full bg-background/10" />
+          <div className="pointer-events-none absolute -bottom-16 right-10 size-48 rounded-full bg-background/5" />
 
-      <main className="flex-1 space-y-4 px-4 py-4 pb-24">
-        <div>
-          <h1 className="font-display text-xl font-extrabold">
-            الإشعارات
-          </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            الإشعارات الواردة وإرسال إشعارات للمستخدمين.
-          </p>
+          <div className="relative flex items-start justify-between gap-5">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full bg-background/10 px-3 py-1.5 text-[10px] font-bold">
+                <Megaphone className="size-3.5" />
+                مركز الإشعارات
+              </div>
+
+              <h1 className="mt-4 font-display text-2xl font-extrabold md:text-3xl">
+                إرسال رسالة داخل التطبيق
+              </h1>
+
+              <p className="mt-2 max-w-xl text-sm leading-7 opacity-80">
+                اختر الجمهور، حدد المستلمين، ثم أرسل إشعارًا يظهر لهم مباشرة داخل التطبيق.
+              </p>
+            </div>
+
+            <div className="hidden size-16 shrink-0 place-items-center rounded-3xl bg-background/10 md:grid">
+              <SendHorizontal className="size-7" />
+            </div>
+          </div>
         </div>
 
-        <AdminInbox />
+        <div className="grid grid-cols-2 gap-px bg-line md:grid-cols-4">
+          <SummaryCard
+            icon={UserRound}
+            label="أفراد"
+            value={recipients.filter((x) => x.kind === "individual").length}
+          />
+          <SummaryCard
+            icon={Building}
+            label="مكاتب"
+            value={recipients.filter((x) => x.kind === "office").length}
+          />
+          <SummaryCard
+            icon={UsersRound}
+            label="الظاهر"
+            value={visible.length}
+          />
+          <SummaryCard
+            icon={CheckCheck}
+            label="محدد"
+            value={selected.size}
+          />
+        </div>
+      </section>
 
-        {/* الجمهور */}
-        <section className="space-y-3 rounded-3xl bg-surface p-4 ring-1 ring-line">
-          <div className="text-sm font-bold">المستلمون</div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
+        <section className="rounded-[30px] bg-surface p-5 ring-1 ring-line">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <UsersRound className="size-5 text-forest" />
+                <h2 className="font-display text-lg font-extrabold">
+                  اختر المستلمين
+                </h2>
+              </div>
+              <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                يمكنك تحديد أفراد أو مكاتب أو جميع الحسابات المتاحة.
+              </p>
+            </div>
 
-          <div className="grid grid-cols-3 gap-1.5">
+            <div className="rounded-2xl bg-forest-soft px-3 py-2 text-xs font-bold text-forest">
+              {selected.size} محدد
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
             {(
               [
-                ["individual", "الأفراد", Users],
-                ["office", "المكاتب", Building2],
-                ["all", "الكل", Users],
+                ["individual", "الأفراد", UserRound],
+                ["office", "المكاتب", Building],
+                ["all", "الكل", UsersRound],
               ] as const
             ).map(([value, label, Icon]) => (
               <button
@@ -448,67 +508,78 @@ function AdminNotifications() {
                 type="button"
                 onClick={() => setAudience(value)}
                 className={cn(
-                  "flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition",
+                  "flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-extrabold transition",
                   audience === value
-                    ? "bg-forest text-background"
-                    : "bg-sand text-muted-foreground",
+                    ? "bg-forest text-background shadow-sm"
+                    : "bg-background text-muted-foreground ring-1 ring-line hover:bg-sand",
                 )}
               >
-                <Icon className="size-3.5" />
+                <Icon className="size-4" />
                 {label}
               </button>
             ))}
           </div>
 
-          <div className="relative">
-            <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative mt-4">
+            <Search className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="ابحث بالاسم أو البريد الإلكتروني..."
-              className="w-full rounded-2xl bg-sand py-3 pe-10 ps-3 text-sm outline-none focus:ring-2 focus:ring-forest"
+              placeholder="ابحث باسم المستخدم أو البريد..."
+              className="w-full rounded-2xl bg-background px-11 py-3.5 text-sm outline-none ring-1 ring-line transition focus:ring-2 focus:ring-forest"
             />
+            {!!search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute left-3 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full bg-sand"
+                aria-label="مسح البحث"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center justify-between gap-2 text-[11px]">
-            <span className="text-muted-foreground">
-              {visible.length} نتيجة ظاهرة
-              {selected.size ? ` · ${selected.size} محدد` : ""}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] text-muted-foreground">
+              {visible.length} مستلم ظاهر
             </span>
 
-            <div className="flex gap-1.5">
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={selectVisible}
                 disabled={!visible.length}
-                className="rounded-lg bg-forest-soft px-2.5 py-1.5 font-bold text-forest disabled:opacity-50"
+                className="rounded-xl bg-forest-soft px-3 py-2 text-[10px] font-extrabold text-forest disabled:opacity-50"
               >
-                تحديد الظاهر
+                تحديد الكل الظاهر
               </button>
 
               {!!selected.size && (
                 <button
                   type="button"
                   onClick={clearSelected}
-                  className="rounded-lg bg-terracotta-soft px-2.5 py-1.5 font-bold text-terracotta"
+                  className="rounded-xl bg-terracotta-soft px-3 py-2 text-[10px] font-extrabold text-terracotta"
                 >
-                  إلغاء
+                  إلغاء التحديد
                 </button>
               )}
             </div>
           </div>
 
-          {recipientsQuery.isLoading ? (
-            <ListSkeleton />
-          ) : !visible.length ? (
-            <EmptyState
-              icon={Users}
-              title="لا يوجد مستلمون مطابقون"
-              description="غيّر نوع الجمهور أو كلمة البحث."
-            />
-          ) : (
-            <div className="max-h-[360px] space-y-1.5 overflow-y-auto pe-1">
-              {visible.map((recipient) => {
+          <div className="mt-4 max-h-[560px] space-y-2 overflow-y-auto pe-1">
+            {recipientsQuery.isLoading && !recipientsQuery.data ? (
+              <div className="grid min-h-56 place-items-center rounded-3xl bg-background ring-1 ring-line">
+                <Loader2 className="size-5 animate-spin text-forest" />
+              </div>
+            ) : !visible.length ? (
+              <EmptyState
+                icon={UsersRound}
+                title="لا يوجد مستلمون مطابقون"
+                description="غيّر نوع الجمهور أو كلمة البحث."
+              />
+            ) : (
+              visible.map((recipient) => {
                 const checked = selected.has(recipient.userId);
 
                 return (
@@ -517,124 +588,185 @@ function AdminNotifications() {
                     type="button"
                     onClick={() => toggle(recipient.userId)}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-2xl p-3 text-right ring-1 transition",
+                      "group flex w-full items-center gap-3 rounded-2xl p-3.5 text-right ring-1 transition",
                       checked
                         ? "bg-forest-soft ring-forest/30"
-                        : "bg-background ring-line",
+                        : "bg-background ring-line hover:bg-sand",
                     )}
                   >
                     <span
                       className={cn(
-                        "grid size-5 shrink-0 place-items-center rounded-md ring-1",
+                        "grid size-10 shrink-0 place-items-center rounded-2xl",
                         checked
-                          ? "bg-forest text-background ring-forest"
-                          : "bg-surface ring-line",
+                          ? "bg-forest text-background"
+                          : recipient.kind === "office"
+                            ? "bg-terracotta-soft text-terracotta"
+                            : "bg-sand text-muted-foreground",
                       )}
                     >
-                      {checked && <Check className="size-3.5" />}
+                      {checked ? (
+                        <Check className="size-4" />
+                      ) : recipient.kind === "office" ? (
+                        <Building className="size-4" />
+                      ) : (
+                        <UserRound className="size-4" />
+                      )}
                     </span>
 
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold">
+                      <span className="block truncate text-sm font-extrabold">
                         {recipient.name}
                       </span>
-                      <span className="block truncate text-[11px] text-muted-foreground">
+                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                         {recipient.email}
                       </span>
                     </span>
 
-                    <span className="shrink-0 rounded-full bg-sand px-2 py-1 text-[10px] font-semibold">
+                    <span className="shrink-0 rounded-full bg-sand px-2.5 py-1 text-[10px] font-bold text-muted-foreground">
                       {recipient.kind === "office" ? "مكتب" : "فرد"}
                     </span>
+
+                    <ChevronLeft className="size-4 shrink-0 text-muted-foreground transition group-hover:-translate-x-0.5" />
                   </button>
                 );
-              })}
-            </div>
-          )}
+              })
+            )}
+          </div>
         </section>
 
-        {/* الرسالة */}
-        <section className="space-y-3 rounded-3xl bg-surface p-4 ring-1 ring-line">
-          <div className="flex items-center gap-2 text-sm font-bold">
-            <Mail className="size-4 text-terracotta" />
-            محتوى الإشعار
-          </div>
+        <div className="space-y-6">
+          <section className="rounded-[30px] bg-surface p-5 ring-1 ring-line">
+            <div className="flex items-start gap-3">
+              <div className="grid size-11 place-items-center rounded-2xl bg-forest-soft text-forest">
+                <Mail className="size-5" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg font-extrabold">
+                  محتوى الإشعار
+                </h2>
+                <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                  اكتب الرسالة كما ستظهر للمستلم داخل التطبيق.
+                </p>
+              </div>
+            </div>
 
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="عنوان الموضوع"
-            className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
-          />
+            <div className="mt-5 space-y-3">
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="عنوان الإشعار"
+                className="w-full rounded-2xl bg-background px-4 py-3.5 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-forest"
+              />
 
-          <textarea
-            rows={6}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="اكتب الرسالة هنا..."
-            className="w-full resize-none rounded-2xl bg-sand px-3 py-3 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-forest"
-          />
+              <textarea
+                rows={7}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="اكتب نص الرسالة..."
+                className="w-full resize-none rounded-2xl bg-background px-4 py-3.5 text-sm leading-7 outline-none ring-1 ring-line focus:ring-2 focus:ring-forest"
+              />
+            </div>
+          </section>
 
-          <div className="grid grid-cols-2 gap-2">
+          <section className="rounded-[30px] bg-surface p-5 ring-1 ring-line">
+            <h2 className="font-display text-base font-extrabold">
+              نوع الإشعار
+            </h2>
+
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setNotificationType("general")}
+                className={cn(
+                  "rounded-2xl px-4 py-3 text-xs font-extrabold transition",
+                  notificationType === "general"
+                    ? "bg-forest text-background"
+                    : "bg-background text-muted-foreground ring-1 ring-line",
+                )}
+              >
+                إشعار عام
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setNotificationType("property")}
+                className={cn(
+                  "rounded-2xl px-4 py-3 text-xs font-extrabold transition",
+                  notificationType === "property"
+                    ? "bg-forest text-background"
+                    : "bg-background text-muted-foreground ring-1 ring-line",
+                )}
+              >
+                مرتبط بعقار
+              </button>
+            </div>
+
+            {notificationType === "property" && (
+              <input
+                value={propertyNumber}
+                onChange={(e) => setPropertyNumber(e.target.value)}
+                placeholder="رقم العقار المرتبط"
+                className="mt-3 w-full rounded-2xl bg-background px-4 py-3.5 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-forest"
+              />
+            )}
+
+            <div className="mt-4 rounded-2xl bg-forest-soft p-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-bold">عدد المستلمين</span>
+                <span className="font-display text-xl font-extrabold text-forest">
+                  {selected.size}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] leading-6 text-muted-foreground">
+                سيظهر الإشعار داخل جرس التطبيق لدى الحسابات المحددة.
+              </p>
+            </div>
+
             <button
               type="button"
-              onClick={() => setNotificationType("general")}
-              className={cn(
-                "rounded-xl py-2.5 text-xs font-bold",
-                notificationType === "general"
-                  ? "bg-forest text-background"
-                  : "bg-sand text-muted-foreground",
-              )}
+              onClick={() => send.mutate()}
+              disabled={send.isPending || !selected.size}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-4 font-display font-extrabold text-background transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
             >
-              إشعار عام
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setNotificationType("property")}
-              className={cn(
-                "rounded-xl py-2.5 text-xs font-bold",
-                notificationType === "property"
-                  ? "bg-forest text-background"
-                  : "bg-sand text-muted-foreground",
+              {send.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Send className="size-4" />
               )}
-            >
-              متعلق بعقار
+              {send.isPending ? "جارٍ الإرسال..." : "إرسال الإشعار"}
             </button>
-          </div>
+          </section>
+        </div>
+      </div>
 
-          {notificationType === "property" && (
-            <input
-              value={propertyNumber}
-              onChange={(e) => setPropertyNumber(e.target.value)}
-              placeholder="رقم العقار المرتبط"
-              inputMode="text"
-              className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
-            />
-          )}
-
-          <div className="rounded-2xl bg-background p-3 text-xs ring-1 ring-line">
-            <div className="font-bold">
-              سيتم الإرسال إلى: {selected.size} مستلم
-            </div>
-            <div className="mt-1 text-muted-foreground">
-              الإشعار سيظهر داخل جرس التطبيق لدى كل مستلم.
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => send.mutate()}
-            disabled={send.isPending || !selected.size}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-terracotta py-3.5 font-display font-bold text-background disabled:opacity-60"
-          >
-            <Send className="size-4" />
-            {send.isPending ? "جارٍ الإرسال..." : "إرسال الإشعار"}
-          </button>
-        </section>
-      </main>
+      <AdminInbox />
 
       <BottomNav />
     </div>
   );
+}
+
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="bg-background p-4">
+      <div className="text-[10px] font-semibold text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 flex items-center gap-2">
+        <Icon className="size-4 text-forest" />
+        <span className="font-display text-xl font-extrabold">
+          {value}
+        </span>
+      </div>
+    </div>
+  );
+}
 }
