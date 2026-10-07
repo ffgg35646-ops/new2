@@ -59,26 +59,39 @@ function ConfirmEmailPage() {
     );
   }, []);
 
-  async function finishAccount(userId: string) {
+  async function finishAccount(userId: string, userMetadata: Record<string, unknown>) {
     const raw = localStorage.getItem(PENDING_KEY);
+    let payload: Record<string, unknown> | null = null;
 
     if (raw) {
-      const payload = JSON.parse(raw);
-
-      const { error } = await supabase.rpc(
-        "complete_signup",
-        payload as never,
-      );
-
-      if (error) {
-        throw new Error(
-          `تم تأكيد البريد لكن تعذر إكمال إنشاء الحساب: ${error.message}`,
-        );
+      try {
+        payload = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        localStorage.removeItem(PENDING_KEY);
       }
-
-      localStorage.removeItem(PENDING_KEY);
     }
 
+    if (!payload) {
+      const fromMetadata = userMetadata.signup_payload;
+      if (fromMetadata && typeof fromMetadata === "object" && !Array.isArray(fromMetadata)) {
+        payload = fromMetadata as Record<string, unknown>;
+      }
+    }
+
+    if (!payload) {
+      throw new Error(
+        "تم تأكيد البريد، لكن بيانات إنشاء الحساب غير متاحة. سجّل الدخول لإكمال الحساب.",
+      );
+    }
+
+    const { error } = await supabase.rpc("complete_signup", payload as never);
+    if (error) {
+      throw new Error(
+        `تم تأكيد البريد لكن تعذر إكمال إنشاء الحساب: ${error.message}`,
+      );
+    }
+
+    localStorage.removeItem(PENDING_KEY);
     localStorage.removeItem(PENDING_EMAIL_KEY);
 
     const [{ data: roles }, { data: office }] = await Promise.all([
@@ -166,27 +179,11 @@ function ConfirmEmailPage() {
         );
       }
 
-      const { error: sessionError } =
-        await supabase.auth.setSession(session);
-
-      if (sessionError) {
-        throw new Error(
-          `تم تأكيد البريد لكن فشل حفظ الجلسة: ${sessionError.message}`,
-        );
-      }
-
-      const { data: currentSession } =
-        await supabase.auth.getSession();
-
-      if (!currentSession.session?.user) {
-        throw new Error(
-          "تم تأكيد البريد لكن الجلسة لم تُحفظ في المتصفح.",
-        );
-      }
-
       setTokenHash(null);
 
-      await finishAccount(user.id);
+      const metadata =
+        (user.user_metadata as Record<string, unknown>) ?? {};
+      await finishAccount(user.id, metadata);
     } catch (error) {
       console.error("[CONFIRM EMAIL ERROR]", error);
 
