@@ -180,6 +180,11 @@ function VerifyEmailPage() {
   const [pausedUntil, setPausedUntil] = useState(0);
   const [now, setNow] = useState(Date.now());
 
+  const loginRoute =
+    pending?.role === "office"
+      ? "/auth/office"
+      : "/auth/individual";
+
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
