@@ -765,4 +765,3 @@ function SummaryCard({
     </div>
   );
 }
-}
