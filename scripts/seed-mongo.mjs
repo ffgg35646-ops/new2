@@ -1,0 +1,215 @@
+import { randomUUID, randomBytes, scrypt } from "node:crypto";
+import { MongoClient } from "mongodb";
+
+const uri = process.env.MONGODB_URI;
+const dbName = process.env.MONGODB_DB_NAME || "aqar_albatin";
+
+if (!uri) {
+  throw new Error("MONGODB_URI is required");
+}
+
+function hashPassword(password) {
+  return new Promise((resolve, reject) => {
+    const salt = randomBytes(16).toString("hex");
+    scrypt(password, salt, 64, (error, derived) => {
+      if (error) return reject(error);
+      resolve(\`scrypt$\${salt}$\${Buffer.from(derived).toString("hex")}\`);
+    });
+  });
+}
+
+const client = new MongoClient(uri, { maxPoolSize: 10 });
+await client.connect();
+
+try {
+  const db = client.db(dbName);
+  const now = new Date();
+
+  await db.collection("governorates").bulkWrite([
+    {
+      updateOne: {
+        filter: { code: "MUZAHMIYAH" },
+        update: {
+          $set: {
+            name_ar: "المزاحمية",
+            name_en: "Al Muzahimiyah",
+            code: "MUZAHMIYAH",
+            is_active: true,
+            sort_order: 1,
+            updated_at: now,
+          },
+          $setOnInsert: { id: randomUUID(), created_at: now },
+        },
+        upsert: true,
+      },
+    },
+    {
+      updateOne: {
+        filter: { code: "DHURMA" },
+        update: {
+          $set: {
+            name_ar: "ضرما",
+            name_en: "Dhurma",
+            code: "DHURMA",
+            is_active: true,
+            sort_order: 2,
+            updated_at: now,
+          },
+          $setOnInsert: { id: randomUUID(), created_at: now },
+        },
+        upsert: true,
+      },
+    },
+  ]);
+
+  const packages = [
+    {
+      code: "free",
+      name: "الباقة المجانية",
+      description: "الباقة الأساسية للمكاتب العقارية",
+      price: 0,
+      duration_days: 0,
+      property_limit: 5,
+      chat_enabled: false,
+      featured_limit: 0,
+      verification_included: false,
+      features: [
+        "إنشاء صفحة خاصة بالمكتب",
+        "الظهور في قسم المكاتب العقارية",
+        "إضافة حتى 5 عقارات",
+        "استقبال المتابعين والتقييمات",
+        "اتصال وواتساب",
+        "مشاركة صفحة المكتب",
+        "إحصائيات أساسية",
+      ],
+      is_active: true,
+      sort_order: 1,
+    },
+    {
+      code: "pro",
+      name: "الباقة الاحترافية",
+      description: "الباقة الاحترافية للمكاتب العقارية",
+      price: 199,
+      duration_days: 30,
+      property_limit: null,
+      chat_enabled: true,
+      featured_limit: 3,
+      verification_included: true,
+      features: [
+        "عقارات غير محدودة",
+        "توثيق المكتب ✓",
+        "دردشة خاصة ومستقلة مع كل عميل",
+        "إرسال الصور داخل المحادثة",
+        "معرفة العقار الذي يستفسر عنه العميل",
+        "رمز QR للمكتب والعقار",
+        "تمييز حتى 3 عقارات",
+        "أولوية ظهور المكتب",
+        "كل مميزات الباقة المجانية",
+      ],
+      is_active: true,
+      sort_order: 2,
+    },
+  ];
+
+  for (const pkg of packages) {
+    await db.collection("package_catalog").updateOne(
+      { code: pkg.code },
+      {
+        $set: { ...pkg, updated_at: now },
+        $setOnInsert: { id: randomUUID(), created_at: now },
+      },
+      { upsert: true },
+    );
+  }
+
+  const policies = [
+    {
+      key: "privacy_policy",
+      content:
+        "سياسة الخصوصية\\n\\nنحترم خصوصية المستخدم ونستخدم البيانات اللازمة لتقديم خدمات عقار البطين وتشغيل الحساب والطلبات والمراسلات والدعم.",
+      updated_at: now,
+    },
+    {
+      key: "terms_of_use",
+      content:
+        "شروط الاستخدام\\n\\nباستخدام عقار البطين أنت توافق على استخدام المنصة وفق الأنظمة المعمول بها، وتتحمل مسؤولية المعلومات والإعلانات التي تضيفها إلى حسابك.",
+      updated_at: now,
+    },
+  ];
+
+  for (const policy of policies) {
+    await db.collection("app_content").updateOne(
+      { key: policy.key },
+      { $set: policy, $setOnInsert: { id: randomUUID(), created_at: now } },
+      { upsert: true },
+    );
+  }
+
+  const adminEmail = process.env.MONGODB_ADMIN_EMAIL?.trim().toLowerCase();
+  const adminPassword = process.env.MONGODB_ADMIN_PASSWORD;
+  const adminName = process.env.MONGODB_ADMIN_NAME || "مدير النظام";
+
+  if (adminEmail && adminPassword) {
+    const passwordHash = await hashPassword(adminPassword);
+
+    const existing = await db.collection("users").findOne({
+      email: adminEmail,
+    });
+
+    const userId = existing?._id || randomUUID();
+
+    await db.collection("users").updateOne(
+      { _id: userId },
+      {
+        $set: {
+          email: adminEmail,
+          password_hash: passwordHash,
+          email_verified: true,
+          email_confirmed_at: now.toISOString(),
+          full_name: adminName,
+          role: "admin",
+          updated_at: now,
+        },
+        $setOnInsert: {
+          _id: userId,
+          created_at: now,
+        },
+      },
+      { upsert: true },
+    );
+
+    await db.collection("profiles").updateOne(
+      { id: userId },
+      {
+        $set: {
+          id: userId,
+          _id: userId,
+          email: adminEmail,
+          full_name: adminName,
+          updated_at: now,
+        },
+        $setOnInsert: { created_at: now },
+      },
+      { upsert: true },
+    );
+
+    await db.collection("user_roles").updateOne(
+      { user_id: userId, role: "admin" },
+      {
+        $setOnInsert: {
+          id: randomUUID(),
+          user_id: userId,
+          role: "admin",
+          created_at: now,
+        },
+      },
+      { upsert: true },
+    );
+
+    console.log("Admin account seeded:", adminEmail);
+  }
+
+  console.log("MongoDB seed completed:", dbName);
+} finally {
+  await client.close();
+}
