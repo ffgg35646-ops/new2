@@ -679,6 +679,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const userId = getSessionUserId();
+      const role = userId ? await roleFor(userId) : null;
 
       if (data.name === "complete_signup") {
         if (!userId) throw new Error("يجب تأكيد البريد أولًا.");
