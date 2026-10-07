@@ -400,7 +400,7 @@ function AdminNotifications() {
         } as never,
       );
 
-      if (error) throw error;
+      if (error) throw new Error(error.message || "تعذّر إرسال الإشعار");
 
       return Number(data ?? selected.size);
     },
