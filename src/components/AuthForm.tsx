@@ -9,22 +9,6 @@ import { LegalPolicyModal } from "@/components/LegalPolicyModal";
 
 const PENDING_KEY = "ufuq.pending-signup";
 const PENDING_EMAIL_KEY = "ufuq.pending-email";
-const EMAIL_SEND_STATE_KEY = "ufuq.email-send-state";
-const MAX_EMAIL_SENDS = 15;
-const EMAIL_SEND_PAUSE_MS = 5 * 60 * 1000;
-
-function normalizePhone(raw: string) {
-  const digits = raw.replace(/[^\d]/g, "");
-  if (digits.startsWith("966")) return `+${digits}`;
-  if (digits.startsWith("0")) return `+966${digits.slice(1)}`;
-  if (digits.startsWith("5")) return `+966${digits}`;
-  return `+${digits}`;
-}
-
-function isValidSaudiPhone(raw: string) {
-  return /^\\+9665\\d{8}$/.test(normalizePhone(raw));
-}
-
 function authErrorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e ?? "");
   const m = raw.toLowerCase();
@@ -64,7 +48,6 @@ export function AuthForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
   const [officeName, setOfficeName] = useState("");
   const [officeAddress, setOfficeAddress] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
@@ -82,9 +65,6 @@ export function AuthForm({
 
   function validateRegisterFields() {
     if (!fullName.trim()) throw new Error("الرجاء إدخال الاسم الكامل.");
-    if (!phone.trim() || !isValidSaudiPhone(phone)) {
-      throw new Error("رقم الجوال غير صحيح. مثال: 05XXXXXXXX");
-    }
     if (!selectedGov) throw new Error("الرجاء اختيار المحافظة.");
     if (role === "office") {
       if (!officeName.trim()) throw new Error("الرجاء إدخال اسم المكتب.");
@@ -97,7 +77,6 @@ export function AuthForm({
     return {
       _role: role,
       _full_name: fullName.trim(),
-      _phone: normalizePhone(phone),
       _governorate_id: selectedGov,
       _office:
         role === "office"
@@ -163,7 +142,6 @@ export function AuthForm({
           options: {
             data: {
               full_name: fullName.trim(),
-              phone: normalizePhone(phone),
               role,
             },
           },
@@ -237,16 +215,6 @@ export function AuthForm({
             value={fullName}
             onChange={setFullName}
             placeholder="مثال: محمد العتيبي"
-          />
-        )}
-        {isRegister && (
-          <Field
-            label="رقم الجوال"
-            value={phone}
-            onChange={setPhone}
-            placeholder="05xxxxxxxx"
-            type="tel"
-            dir="ltr"
           />
         )}
         {isRegister && (
