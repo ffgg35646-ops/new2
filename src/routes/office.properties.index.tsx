@@ -10,6 +10,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 import { QrDialog } from "@/components/QrDialog";
 import { useAuth } from "@/lib/auth";
+import { useMyOffice } from "@/lib/office";
 import { kindLabel, listingLabel, stateLabel } from "@/lib/constants";
 import { formatArea, formatPrice } from "@/lib/format";
 import { useMyPlan } from "@/lib/plans";
@@ -32,20 +33,23 @@ export const Route = createFileRoute("/office/properties/")({
 
 function OfficeProperties() {
   const { userId } = useAuth();
+  const { data: membership } = useMyOffice();
+  const officeId = membership?.office?.id ?? null;
   const qc = useQueryClient();
   const { featuredLimit } = useMyPlan();
   const canFeature = featuredLimit > 0;
   const [qrFor, setQrFor] = useState<{ id: string; title: string } | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["office-my-properties", userId],
-    enabled: !!userId,
+    queryKey: ["office-my-properties", officeId],
+    enabled: !!officeId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("properties")
         .select(
           "id,property_number,title,price,area,kind,listing,state,neighborhood,cover_url,is_published,is_featured,views_count",
         )
+        .eq("office_id", officeId!)
         .eq("is_deleted", false)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -58,7 +62,8 @@ function OfficeProperties() {
       const { error } = await supabase
         .from("properties")
         .update({ is_featured: next })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("office_id", officeId!);
       if (error) {
         if (error.message.includes("featured_requires_pro"))
           throw new Error("التمييز ميزة احترافية — رقِّ باقتك أولًا.");
@@ -79,7 +84,8 @@ function OfficeProperties() {
       const { error } = await supabase
         .from("properties")
         .update({ is_published: next })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("office_id", officeId!);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["office-my-properties"] }),
@@ -88,7 +94,7 @@ function OfficeProperties() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("properties").update({ is_deleted: true }).eq("id", id);
+      const { error } = await supabase.from("properties").update({ is_deleted: true }).eq("id", id).eq("office_id", officeId!);
       if (error) throw error;
     },
     onSuccess: () => {
