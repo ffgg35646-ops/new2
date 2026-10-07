@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { KeyRound, Loader2, Mail, Pencil, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,47 +26,14 @@ export function ProfileModal({
 }: ProfileModalProps) {
   const [emailBusy, setEmailBusy] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const navigate = useNavigate();
 
   if (!open) return null;
 
   async function startEmailChange() {
-    const currentEmail = email.trim().toLowerCase();
-    if (!currentEmail) {
-      toast.error("البريد الإلكتروني الحالي غير متاح.");
-      return;
-    }
-
-    setEmailBusy(true);
-
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: currentEmail,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo:
-            window.location.origin + "/auth/change-email",
-        },
-      });
-
-      if (error) throw error;
-
-      toast.success("أرسلنا رابط تأكيد إلى بريدك الحالي. افتح الرابط لإكمال تغيير البريد.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message.toLowerCase() : "";
-
-      if (/rate limit|too many|429/i.test(message)) {
-        toast.error("تعذر إرسال رابط التأكيد الآن. حاول مرة أخرى بعد قليل.");
-      } else {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "تعذر بدء تغيير البريد الإلكتروني.",
-        );
-      }
-    } finally {
-      setEmailBusy(false);
-    }
+    setEmailBusy(false);
+    onClose();
+    navigate({ to: "/auth/change-email" });
   }
 
   function openPasswordChange() {
