@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -86,6 +86,7 @@ function PropertyDetail() {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const countedViewRef = useRef<string | null>(null);
 
   const { data, isLoading, error: propertyError } = useQuery({
     queryKey: ["property", propertyId],
@@ -211,7 +212,23 @@ function PropertyDetail() {
 
   useEffect(() => {
     if (!data?.id) return;
-    void supabase.from("property_views").insert({ property_id: data.id, user_id: userId ?? null });
+
+    if (!isOffice && userId && countedViewRef.current !== data.id) {
+      countedViewRef.current = data.id;
+      void supabase
+        .from("property_views")
+        .insert({ property_id: data.id, user_id: userId })
+        .then(({ error }) => {
+          if (error) {
+            countedViewRef.current = null;
+            console.warn("[property-detail] view count failed", error);
+            return;
+          }
+
+          void qc.invalidateQueries({ queryKey: ["property", propertyId] });
+          void qc.invalidateQueries({ queryKey: ["office-stats"] });
+        });
+    }
 
     if (typeof window !== "undefined" && window.location.hash === "#property-inquiry") {
       window.setTimeout(() => {
@@ -221,7 +238,7 @@ function PropertyDetail() {
         });
       }, 0);
     }
-  }, [data?.id, userId]);
+  }, [data?.id, userId, isOffice, qc, propertyId]);
 
   const book = useMutation({
     mutationFn: async () => {
