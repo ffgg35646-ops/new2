@@ -80,6 +80,8 @@ function RequestPage() {
       if (error) throw error;
       return data ?? [];
     },
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 
   const setOfferStatus = useMutation({
