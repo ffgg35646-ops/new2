@@ -39,6 +39,7 @@ import { shareLink, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { saudiAppointmentDateTime } from "@/lib/saudi-time";
 
 const REPORT_REASONS = [
   "معلومات غير صحيحة",
@@ -77,6 +78,7 @@ function PropertyDetail() {
   const { userId, profile, isOffice } = useAuth();
   const { favoriteIds, toggleFavorite } = useFavorites();
   const [bookingDate, setBookingDate] = useState("");
+  const [bookingContact, setBookingContact] = useState("");
   const [inquiryType, setInquiryType] = useState<string>(INQUIRY_TYPES[0].value);
   const [inquiryMessage, setInquiryMessage] = useState("");
   const [inquiryPhone, setInquiryPhone] = useState("");
@@ -225,6 +227,15 @@ function PropertyDetail() {
     mutationFn: async () => {
       if (!userId) throw new Error("سجّل الدخول لحجز معاينة");
       if (!bookingDate) throw new Error("اختر تاريخ ووقت المعاينة");
+      const contactPhone = (bookingContact || profile?.phone || "").trim();
+      if (!contactPhone) throw new Error("أدخل رقم الهاتف أو وسيلة اتصال");
+      const scheduled = saudiAppointmentDateTime(
+        bookingDate.slice(0, 10),
+        bookingDate.slice(11, 16),
+      );
+      if (!Number.isFinite(scheduled.getTime()) || scheduled.getTime() <= Date.now()) {
+        throw new Error("اختر موعدًا مستقبليًا");
+      }
       const { data: row, error } = await supabase
         .from("viewing_bookings")
         .insert({
@@ -233,6 +244,7 @@ function PropertyDetail() {
           office_id: data!.office_id,
           visit_date: bookingDate.slice(0, 10),
           visit_time: bookingDate.slice(11, 16),
+          contact_phone: contactPhone,
         })
         .select("id")
         .single();
@@ -251,7 +263,8 @@ function PropertyDetail() {
     onSuccess: () => {
       toast.success("تم إرسال طلب المعاينة للمكتب");
       setBookingDate("");
-      qc.invalidateQueries({ queryKey: ["bookings"] });
+      setBookingContact("");
+      void qc.invalidateQueries({ queryKey: ["bookings"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر الحجز"),
   });
@@ -648,16 +661,28 @@ function PropertyDetail() {
           <input
             type="datetime-local"
             value={bookingDate}
+            min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
             onChange={(e) => setBookingDate(e.target.value)}
             className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
           />
+          <input
+            type="tel"
+            value={bookingContact || profile?.phone || ""}
+            onChange={(e) => setBookingContact(e.target.value)}
+            placeholder="رقم الهاتف أو وسيلة الاتصال"
+            className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
+          />
+          <p className="text-[11px] leading-5 text-muted-foreground">
+            سيظهر للمكتب اسمك ورقم التواصل والمحافظة فقط لإتمام المعاينة.
+          </p>
           <button
             onClick={() => book.mutate()}
             disabled={book.isPending}
             className="w-full rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
           >
-            إرسال طلب المعاينة
+            {book.isPending ? <Loader2 className="mx-auto size-4 animate-spin" /> : "إرسال طلب المعاينة"}
           </button>
+        </section>
         </section>
 
         {!!similar?.length && (
