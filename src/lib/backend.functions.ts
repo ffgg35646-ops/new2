@@ -1037,9 +1037,9 @@ export const rpcRequest = createServerFn({ method: "POST" })
               id: randomUUID(),
               _id: randomUUID(),
               user_id: recipientId,
-              title: "طلب عقار جديد",
+              title: "عميل يريد التواصل معك",
               body:
-                "يوجد طلب عقاري جديد: " +
+                "هناك عميل يريد التواصل معك بخصوص طلب عقاري: "
                 String(request.kind ?? "عقار") +
                 " · " +
                 String(request.listing ?? "") +
@@ -1234,6 +1234,28 @@ export const rpcRequest = createServerFn({ method: "POST" })
           },
         );
 
+        if (requestedStatus === "rejected") {
+          const officeId = String(offer.office_id ?? "");
+          if (officeId) {
+            const offices = await getMongoCollection<Record<string, unknown>>("offices");
+            const office = await offices.findOne({ id: officeId });
+
+            if (office?.owner_id) {
+              await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+                id: randomUUID(),
+                _id: randomUUID(),
+                user_id: String(office.owner_id),
+                title: "تم رفض عرضك",
+                body: "تم رفض عرض مكتبك على الطلب العقاري.",
+                type: "property_request",
+                link: "/office/requests",
+                is_read: false,
+                created_at: now,
+              });
+            }
+          }
+        }
+
         if (requestedStatus === "accepted") {
           await requests.updateOne(
             { id: request.id, user_id: userId, status: "active" },
@@ -1330,10 +1352,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
           id: randomUUID(),
           _id: randomUUID(),
           user_id: office.owner_id,
-          title: "طلب جديد على عقارك",
+          title: "شخص يريد التواصل معك",
           body:
             String(inquiry.contact_name ?? "عميل") +
-            " أرسل طلب " +
+            " يريد التواصل معك بخصوص "
             String(typeLabel[String(inquiry.type ?? "")] ?? "تواصل") +
             " على " +
             String(property?.title ?? "عقار") +
@@ -1396,11 +1418,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
           id: randomUUID(),
           _id: randomUUID(),
           user_id: request.user_id,
-          title: "وصل عرض جديد",
+          title: "مكتب يريد التواصل معك",
           body:
-            "أرسل لك " +
             String(office.name ?? "مكتب عقاري") +
-            " عرضًا على طلبك العقاري" +
+            " أرسل لك عرضًا جديدًا على طلبك العقاري" +
             (property?.title ? " · " + String(property.title) : "") +
             priceText +
             (offer.message ? " · " + String(offer.message).slice(0, 160) : ""),
