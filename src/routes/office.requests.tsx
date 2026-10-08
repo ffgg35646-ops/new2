@@ -1,6 +1,6 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Loader2, MessageCircle, Phone, Send, X } from "lucide-react";
 import { toast } from "sonner";
@@ -44,6 +44,21 @@ function OfficeRequests() {
   const [tab, setTab] = useState<"inbox" | "bookings" | "market">("inbox");
   const { data: membership } = useMyOffice();
   const officeId = membership?.office?.id ?? null;
+  const officeGovernorateId = membership?.office?.governorate_id ?? null;
+
+  const { data: marketRequests = [] } = useQuery({
+    queryKey: ["open-requests", officeId, officeGovernorateId],
+    enabled: !!officeId && !!officeGovernorateId,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "office_market_requests" as never,
+      );
+
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
+    },
+  });
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
@@ -66,6 +81,7 @@ function OfficeRequests() {
             active={tab === "market"}
             onClick={() => setTab("market")}
             label="طلبات العملاء"
+            count={marketRequests.length}
           />
         </div>
 
@@ -241,9 +257,10 @@ function TabButton({
   active,
   onClick,
 }: {
-  label: string;
+  label: ReactNode;
   active: boolean;
   onClick: () => void;
+  count?: number;
 }) {
   return (
     <button
@@ -253,7 +270,14 @@ function TabButton({
         active ? "bg-forest text-background" : "bg-surface text-muted-foreground ring-1 ring-line",
       )}
     >
-      {label}
+      <span className="inline-flex items-center justify-center gap-1.5">
+        {label}
+        {count != null && count > 0 && (
+          <span className="min-w-5 rounded-full bg-terracotta px-1.5 py-0.5 text-[10px] font-extrabold leading-none text-background">
+            {count}
+          </span>
+        )}
+      </span>
     </button>
   );
 }
