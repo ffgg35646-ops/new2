@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadMedia as uploadMediaServer } from "@/lib/backend.functions";
 
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -10,24 +10,13 @@ export async function uploadMedia(file: File, userId: string, folder: string) {
   if (!ALLOWED.includes(file.type)) throw new Error("الصيغة غير مدعومة. استخدم JPG أو PNG أو WEBP");
   if (file.size > MAX_BYTES) throw new Error("حجم الملف يتجاوز 8 ميجابايت");
   const ext = file.name.split(".").pop() ?? "jpg";
-  const path = `${userId}/${folder}/${crypto.randomUUID()}.${ext}`;
-  const { data, error } = await supabase.storage.from("property-media").upload(path, file, {
-    contentType: file.type,
-    upsert: false,
-  });
-  if (error) throw error;
+  const form = new FormData();
+  form.append("file", file, file.name);
 
-  const uploaded = data as
-    | { path?: string; publicUrl?: string }
-    | null;
+  const result = await uploadMediaServer({ data: form });
+  if (result.error) throw new Error(result.error.message);
 
-  const mediaPath = uploaded?.path;
-  const publicUrl =
-    uploaded?.publicUrl ??
-    (mediaPath
-      ? "/api/media/" + encodeURIComponent(mediaPath)
-      : null);
-
+  const publicUrl = result.data?.publicUrl;
   if (!publicUrl) throw new Error("تعذّر إنشاء رابط المرفق.");
 
   return publicUrl;
