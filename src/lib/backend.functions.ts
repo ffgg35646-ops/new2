@@ -1026,7 +1026,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
           ),
         ];
 
-        const [offers, profiles] = await Promise.all([
+        const governoratesCollection =
+          await getMongoCollection<Record<string, unknown>>("governorates");
+
+        const [offers, profiles, governorate] = await Promise.all([
           offersCollection
             .find({
               office_id: office.id,
@@ -1038,6 +1041,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
             .find({ id: { $in: userIds } })
             .project({ id: 1, full_name: 1, phone: 1 })
             .toArray(),
+          governoratesCollection.findOne(
+            { id: office.governorate_id },
+            { projection: { name_ar: 1 } },
+          ),
         ]);
 
         const offeredRequests = new Set(
@@ -1066,6 +1073,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               user_id: ownerId,
               kind: request.kind ?? null,
               listing: request.listing ?? null,
+              governorate_name: governorate?.name_ar ?? null,
               neighborhood: request.neighborhood ?? null,
               budget_min: request.budget_min ?? null,
               budget_max: request.budget_max ?? null,
