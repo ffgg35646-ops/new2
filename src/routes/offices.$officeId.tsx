@@ -70,7 +70,7 @@ function OfficePage() {
       const { data, error } = await supabase
         .from("offices")
         .select(
-          "id,name,logo_url,plan,plan_expires_at,verification_status,address,phone,whatsapp,description,working_hours,license_number,fal_license_number,rating_avg,reviews_count,experience_years,latitude,longitude,updated_at,completed_requests_count,governorates(name_ar)",
+          "id,name,logo_url,plan,plan_expires_at,verification_status,address,phone,whatsapp,description,working_hours,license_number,fal_license_number,rating_avg,reviews_count,experience_years,latitude,longitude,updated_at,package_id,completed_requests_count,is_pro_current,verification_badge,governorates(name_ar)",
         )
         .eq("id", officeId)
         .eq("verification_status", "verified")
@@ -228,8 +228,8 @@ function OfficePage() {
     );
   }
 
-  const isPro = effectivePlan(office) === "pro";
-  const verified = isPro && Number((office as { completed_requests_count?: number } | null)?.completed_requests_count ?? 0) >= 10;
+  const isPro = office?.is_pro_current === true;
+  const verified = office?.verification_badge === true;
 
   const lastActivity = office
     ? [
