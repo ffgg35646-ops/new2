@@ -91,6 +91,8 @@ function NotificationsPage() {
       if (error) throw error;
       return data ?? [];
     },
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 
   const markRead = useMutation({
