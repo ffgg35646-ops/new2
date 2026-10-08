@@ -309,7 +309,12 @@ async function authorize(input: DbInput) {
     }
   }
 
-  if (userOwned.has(input.collection) && role !== "admin" && input.operation === "select") {
+  if (
+    userOwned.has(input.collection) &&
+    role !== "admin" &&
+    input.operation === "select" &&
+    !(input.collection === "property_requests" && role === "office")
+  ) {
     const hasOwnerFilter = (input.filters ?? []).some(
       (filter) => filter.field === "user_id" || filter.field === "owner_id",
     );
@@ -346,6 +351,15 @@ async function runDb(input: DbInput) {
       filters.push({ field: "is_published", op: "eq", value: true });
       filters.push({ field: "is_deleted", op: "neq", value: true });
     }
+  }
+
+  if (
+    input.collection === "property_requests" &&
+    input.operation === "select" &&
+    role === "office" &&
+    !filters.some((filter) => filter.field === "status")
+  ) {
+    filters.push({ field: "status", op: "eq", value: "active" });
   }
 
   const base = buildFilter(filters);
