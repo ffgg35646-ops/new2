@@ -145,6 +145,139 @@ try {
     );
   }
 
+  const testOfficeEmail = process.env.MONGODB_TEST_OFFICE_EMAIL?.trim().toLowerCase();
+  const testOfficePassword = process.env.MONGODB_TEST_OFFICE_PASSWORD;
+  const testOfficeName = process.env.MONGODB_TEST_OFFICE_NAME || "مكتب اختبار احترافي";
+  const testOfficePhone = process.env.MONGODB_TEST_OFFICE_PHONE || "0550000000";
+
+  if (testOfficeEmail && testOfficePassword) {
+    const proPackage = await db.collection("package_catalog").findOne({
+      code: "pro",
+      is_active: true,
+    });
+
+    const testGovernorate = await db.collection("governorates").findOne({
+      code: "MUZAHMIYAH",
+      is_active: true,
+    });
+
+    if (!proPackage || !testGovernorate) {
+      throw new Error("لا يمكن تجهيز حساب المكتب التجريبي قبل الباقات والمحافظات.");
+    }
+
+    const passwordHash = await hashPassword(testOfficePassword);
+    const existing = await db.collection("users").findOne({
+      email: testOfficeEmail,
+    });
+    const userId = existing?._id || randomUUID();
+    const expiresAt = new Date(Date.now() + Number(proPackage.duration_days || 30) * 86_400_000);
+
+    await db.collection("users").updateOne(
+      { _id: userId },
+      {
+        $set: {
+          email: testOfficeEmail,
+          password_hash: passwordHash,
+          email_verified: true,
+          email_confirmed_at: now.toISOString(),
+          full_name: testOfficeName,
+          phone: testOfficePhone,
+          role: "office",
+          updated_at: now,
+        },
+        $setOnInsert: {
+          _id: userId,
+          created_at: now,
+        },
+      },
+      { upsert: true },
+    );
+
+    await db.collection("profiles").updateOne(
+      { id: userId },
+      {
+        $set: {
+          id: userId,
+          _id: userId,
+          email: testOfficeEmail,
+          full_name: testOfficeName,
+          phone: testOfficePhone,
+          updated_at: now,
+        },
+        $setOnInsert: { created_at: now },
+      },
+      { upsert: true },
+    );
+
+    await db.collection("user_roles").updateOne(
+      { user_id: userId, role: "office" },
+      {
+        $setOnInsert: {
+          id: randomUUID(),
+          user_id: userId,
+          role: "office",
+          created_at: now,
+        },
+      },
+      { upsert: true },
+    );
+
+    const existingOffice = await db.collection("offices").findOne({
+      owner_id: userId,
+    });
+    const officeId = existingOffice?.id || randomUUID();
+
+    await db.collection("offices").updateOne(
+      { owner_id: userId },
+      {
+        $set: {
+          id: officeId,
+          _id: officeId,
+          owner_id: userId,
+          package_id: proPackage.id,
+          name: testOfficeName,
+          manager_name: testOfficeName,
+          phone: testOfficePhone,
+          whatsapp: testOfficePhone,
+          email: testOfficeEmail,
+          governorate_id: testGovernorate.id,
+          plan: "pro",
+          plan_started_at: now,
+          plan_expires_at: expiresAt,
+          verification_status: "verified",
+          is_deleted: false,
+          updated_at: now,
+        },
+        $setOnInsert: {
+          created_at: now,
+        },
+      },
+      { upsert: true },
+    );
+
+    await db.collection("office_plan_events").updateOne(
+      {
+        office_id: officeId,
+        action: "test_seed",
+        plan: "pro",
+      },
+      {
+        $set: {
+          office_id: officeId,
+          action: "test_seed",
+          plan: "pro",
+          expires_at: expiresAt,
+          created_at: now,
+          note: "حساب اختبار للباقة الاحترافية",
+        },
+        $setOnInsert: { id: randomUUID() },
+      },
+      { upsert: true },
+    );
+
+    console.log("Test Pro office account seeded:", testOfficeEmail);
+  }
+
   const adminEmail = process.env.MONGODB_ADMIN_EMAIL?.trim().toLowerCase();
   const adminPassword = process.env.MONGODB_ADMIN_PASSWORD;
   const adminName = process.env.MONGODB_ADMIN_NAME || "مدير النظام";
