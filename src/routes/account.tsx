@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import {
   Bell,
   Building2,
-  Sparkles,
   CalendarDays,
   ChevronLeft,
   Heart,
@@ -176,7 +175,6 @@ function AccountPage() {
                 label="المكاتب التي أتابعها · إشعارات المكاتب"
               />
               <NavRow to="/properties" icon={Building2} label="جميع العقارات" />
-              <NavRow to="/extras" icon={Sparkles} label="الإضافات" />
               <button
                 type="button"
                 onClick={() => setSupportOpen(true)}
