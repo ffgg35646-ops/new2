@@ -47,6 +47,8 @@ function OfficeDashboard() {
   const { data: stats } = useQuery({
     queryKey: ["office-stats", office?.id],
     enabled: !!office?.id,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
     queryFn: async () => {
       const [props, bookings, inquiries] = await Promise.all([
         supabase
