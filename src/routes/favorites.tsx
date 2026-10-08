@@ -25,7 +25,7 @@ export const Route = createFileRoute("/favorites")({
     ],
   }),
   component: () => (
-    <RoleGuard allow={["individual", "admin"]}>
+    <RoleGuard allow={["individual", "office", "admin"]}>
       <FavoritesPage />
     </RoleGuard>
   ),
