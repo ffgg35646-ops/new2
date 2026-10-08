@@ -73,7 +73,7 @@ function OfficeProfile() {
   const office = membership?.office ?? null;
   const isOwner = membership?.isOwner ?? false;
   const { isPro } = useMyPlan();
-  const isVerified = isPro && Number(office?.completed_requests_count ?? 0) >= 10;
+  const isVerified = office?.verification_badge === true;
   const [showQr, setShowQr] = useState(false);
   const [editing, setEditing] = useState(false);
   const [dark, setDark] = useState(false);
