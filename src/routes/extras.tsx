@@ -4,11 +4,9 @@ import {
   Building2,
   ChevronLeft,
   ClipboardList,
-  Crown,
   Heart,
   MessageSquare,
   QrCode,
-  Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
@@ -65,7 +63,6 @@ function ExtrasPage() {
           <Row to="/properties" icon={Building2} label="جميع العقارات" />
           <Row to="/favorites" icon={Heart} label="المفضلة" />
           <Row to="/request" icon={ClipboardList} label="طلباتي العقارية" />
-          <Row to="/plans" icon={Sparkles} label="الباقات" />
         </section>
 
         <section className="space-y-2">
