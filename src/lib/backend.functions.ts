@@ -2036,29 +2036,33 @@ export const rpcRequest = createServerFn({ method: "POST" })
         );
 
         if (allRecipients.length) {
-          await notifications.insertMany(
-            allRecipients.map((recipient) => ({
-              id: randomUUID(),
-              _id: randomUUID(),
-              user_id: recipient,
-              title,
-              body,
-              type: "viewing_booking",
-              link:
-                recipient === bookingUserId
-                  ? "/bookings"
-                  : "/office/requests?tab=bookings",
-              is_read: false,
-              created_at: now,
-              booking_id: booking.id,
-              cancel_reason:
-                requestedStatus === "cancelled" ? cancelReason : null,
-              completion_reason:
-                requestedStatus === "completed" && !isOfficeOwner
-                  ? cancelReason
-                  : null,
-            })),
-          );
+          try {
+            await notifications.insertMany(
+              allRecipients.map((recipient) => ({
+                id: randomUUID(),
+                _id: randomUUID(),
+                user_id: recipient,
+                title,
+                body,
+                type: "viewing_booking",
+                link:
+                  recipient === bookingUserId
+                    ? "/bookings"
+                    : "/office/requests?tab=bookings",
+                is_read: false,
+                created_at: now,
+                booking_id: booking.id,
+                cancel_reason:
+                  requestedStatus === "cancelled" ? cancelReason : null,
+                completion_reason:
+                  requestedStatus === "completed" && !isOfficeOwner
+                    ? cancelReason
+                    : null,
+              })),
+            );
+          } catch (notificationError) {
+            console.error("[viewing-booking-notifications]", notificationError);
+          }
         }
 
         return { data: requestedStatus, error: null };
