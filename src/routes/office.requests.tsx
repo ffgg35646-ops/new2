@@ -645,6 +645,83 @@ function SentOffers({ officeId }: { officeId: string | null }) {
   );
 }
 
+
+function MarketOfferActions({
+  requestId,
+  offerId,
+  onChanged,
+}: {
+  requestId: string;
+  offerId: string | null;
+  onChanged: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+
+  async function completeRequest() {
+    setPending(true);
+    try {
+      const { error } = await supabase.rpc(
+        "set_property_request_status" as never,
+        { _request_id: requestId, _status: "fulfilled" } as never,
+      );
+      if (error) throw error;
+      toast.success("تم تسجيل الطلب كمكتمل");
+      onChanged();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذّر تحديث الطلب");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function deleteOffer() {
+    if (!offerId) {
+      toast.error("تعذّر العثور على العرض");
+      return;
+    }
+    setPending(true);
+    try {
+      const { error } = await supabase.rpc(
+        "set_office_offer_status" as never,
+        { _offer_id: offerId, _status: "deleted" } as never,
+      );
+      if (error) throw error;
+      toast.success("تم حذف العرض");
+      onChanged();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذّر حذف العرض");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="mt-2.5 space-y-2">
+      <div className="rounded-xl bg-forest-soft py-2 text-center text-xs font-semibold text-forest">
+        تم إرسال عرضك
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => void completeRequest()}
+          disabled={pending}
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-[11px] font-bold text-background disabled:opacity-50"
+        >
+          <CheckCircle2 className="size-4" /> طلب مكتمل
+        </button>
+        <button
+          type="button"
+          onClick={() => void deleteOffer()}
+          disabled={pending}
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
+        >
+          <Trash2 className="size-4" /> حذف العرض
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function MarketRequests({ officeId }: { officeId: string | null }) {
   const qc = useQueryClient();
   const { data: membership } = useMyOffice();
@@ -681,6 +758,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
         created_at: string | null;
         expires_at: string | null;
         offer_sent: boolean;
+        offer_id: string | null;
         client_name: string;
         client_phone: string | null;
       }>;
@@ -793,9 +871,13 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
             )}
 
             {sent ? (
-              <div className="mt-2.5 rounded-xl bg-forest-soft py-2 text-center text-xs font-semibold text-forest">
-                تم إرسال عرضك
-              </div>
+              <MarketOfferActions
+                requestId={r.id}
+                offerId={r.offer_id}
+                onChanged={() => {
+                  void qc.invalidateQueries({ queryKey: ["open-requests"] });
+                }}
+              />
             ) : openId === r.id ? (
               <div className="mt-2.5 space-y-2">
                 <textarea
