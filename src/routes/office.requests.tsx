@@ -825,39 +825,18 @@ function MarketOfferActions({
 }) {
   const [pending, setPending] = useState(false);
 
-  async function completeRequest() {
+  async function setRequestStatus(status: "fulfilled" | "cancelled") {
     setPending(true);
     try {
       const { error } = await supabase.rpc(
         "set_property_request_status" as never,
-        { _request_id: requestId, _status: "fulfilled" } as never,
+        { _request_id: requestId, _status: status } as never,
       );
       if (error) throw error;
-      toast.success("تم تسجيل الطلب كمكتمل");
+      toast.success(status === "fulfilled" ? "تم تسجيل الطلب كمكتمل" : "تم حذف الطلب من سوق الطلبات");
       onChanged();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذّر تحديث الطلب");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function deleteOffer() {
-    if (!offerId) {
-      toast.error("تعذّر العثور على العرض");
-      return;
-    }
-    setPending(true);
-    try {
-      const { error } = await supabase.rpc(
-        "set_office_offer_status" as never,
-        { _offer_id: offerId, _status: "deleted" } as never,
-      );
-      if (error) throw error;
-      toast.success("تم حذف العرض");
-      onChanged();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تعذّر حذف العرض");
     } finally {
       setPending(false);
     }
@@ -871,7 +850,7 @@ function MarketOfferActions({
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() => void completeRequest()}
+          onClick={() => void setRequestStatus("fulfilled")}
           disabled={pending}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-[11px] font-bold text-background disabled:opacity-50"
         >
@@ -879,11 +858,11 @@ function MarketOfferActions({
         </button>
         <button
           type="button"
-          onClick={() => void deleteOffer()}
+          onClick={() => void setRequestStatus("cancelled")}
           disabled={pending}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
         >
-          <Trash2 className="size-4" /> حذف العرض
+          <Trash2 className="size-4" /> حذف الطلب
         </button>
       </div>
     </div>
