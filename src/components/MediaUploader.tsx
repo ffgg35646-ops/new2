@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { storageRef } from "@/lib/media-url";
 
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -12,14 +11,16 @@ export async function uploadMedia(file: File, userId: string, folder: string) {
   if (file.size > MAX_BYTES) throw new Error("حجم الملف يتجاوز 8 ميجابايت");
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `${userId}/${folder}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from("property-media").upload(path, file, {
+  const { data, error } = await supabase.storage.from("property-media").upload(path, file, {
     contentType: file.type,
     upsert: false,
   });
   if (error) throw error;
-  // نخزن مسار الملف فقط، وليس Signed URL مؤقت.
-  // الرابط الحقيقي يتولد وقت عرض الملف.
-  return storageRef(path);
+
+  const publicUrl = (data as { publicUrl?: string } | null)?.publicUrl;
+  if (!publicUrl) throw new Error("تعذّر إنشاء رابط المرفق.");
+
+  return publicUrl;
 }
 
 export function MediaUploader({
