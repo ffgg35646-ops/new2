@@ -463,6 +463,19 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
 
       if (error) throw error;
 
+      if (offer?.id) {
+        const { error: notifyError } = await supabase.rpc(
+          "notify_new_property_offer" as never,
+          { _offer_id: offer.id } as never,
+        );
+
+        if (notifyError) {
+          console.warn(
+            "[office-requests] customer notification failed",
+            notifyError,
+          );
+        }
+      }
     },
     onSuccess: () => {
       toast.success("تم إرسال عرضك للعميل");
