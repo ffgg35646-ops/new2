@@ -85,29 +85,80 @@ function PropertyDetail() {
   const [reportDetails, setReportDetails] = useState("");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error: propertyError } = useQuery({
     queryKey: ["property", propertyId],
     queryFn: async () => {
-      const fields =
-        "*, governorates(name_ar), offices(id,name,logo_url,phone,whatsapp,working_hours,license_number,verification_status,rating_avg,reviews_count), property_images(id,url,sort_order), agent:office_staff(id,name,job_title,phone)";
-
-      const byId = await supabase
+      let propertyResult = await supabase
         .from("properties")
-        .select(fields)
+        .select("*")
         .eq("id", propertyId)
         .maybeSingle();
 
-      if (byId.error) throw byId.error;
-      if (byId.data) return byId.data;
+      if (propertyResult.error) throw propertyResult.error;
 
-      const byNumber = await supabase
-        .from("properties")
-        .select(fields)
-        .eq("property_number", propertyId)
-        .maybeSingle();
+      if (!propertyResult.data) {
+        propertyResult = await supabase
+          .from("properties")
+          .select("*")
+          .eq("property_number", propertyId)
+          .maybeSingle();
+        if (propertyResult.error) throw propertyResult.error;
+      }
 
-      if (byNumber.error) throw byNumber.error;
-      return byNumber.data;
+      const property = propertyResult.data;
+      if (!property) return null;
+
+      const officePromise = property.office_id
+        ? supabase
+            .from("offices")
+            .select("id,name,logo_url,phone,whatsapp,working_hours,license_number,verification_status,rating_avg,reviews_count")
+            .eq("id", property.office_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+
+      const imagesPromise = supabase
+        .from("property_images")
+        .select("id,url,sort_order")
+        .eq("property_id", property.id)
+        .order("sort_order", { ascending: true });
+
+      const governoratePromise = property.governorate_id
+        ? supabase
+            .from("governorates")
+            .select("id,name_ar")
+            .eq("id", property.governorate_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+
+      const agentPromise = property.office_id
+        ? supabase
+            .from("office_staff")
+            .select("id,name,job_title,phone")
+            .eq("office_id", property.office_id)
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+
+      const [officeResult, imagesResult, governorateResult, agentResult] =
+        await Promise.all([
+          officePromise,
+          imagesPromise,
+          governoratePromise,
+          agentPromise,
+        ]);
+
+      if (officeResult.error) throw officeResult.error;
+      if (imagesResult.error) throw imagesResult.error;
+      if (governorateResult.error) throw governorateResult.error;
+      if (agentResult.error) throw agentResult.error;
+
+      return {
+        ...property,
+        offices: officeResult.data,
+        property_images: imagesResult.data ?? [],
+        governorates: governorateResult.data,
+        agent: agentResult.data,
+      };
     },
   });
 
@@ -300,6 +351,16 @@ function PropertyDetail() {
 
   if (isLoading) {
     return <div className="mx-auto h-screen w-full max-w-md animate-shimmer bg-sand" />;
+  }
+  if (propertyError) {
+    return (
+      <div className="p-8 text-center text-sm">
+        تعذّر تحميل العقار.
+        <div className="mt-1 text-xs text-muted-foreground">
+          {propertyError instanceof Error ? propertyError.message : "خطأ غير معروف"}
+        </div>
+      </div>
+    );
   }
   if (!data) return <div className="p-8 text-center text-sm">العقار غير موجود</div>;
 
