@@ -160,40 +160,6 @@ function AccountPage() {
               {isAdmin && <NavRow to="/admin" icon={ShieldCheck} label="لوحة الإدارة" />}
             </section>
 
-            <section className="space-y-3">
-              <h2 className="font-display text-lg font-extrabold">حجوزات المعاينة</h2>
-              {bookings?.length ? (
-                <div className="space-y-2.5">
-                  {bookings.map((b) => (
-                    <div key={b.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate text-sm font-bold">
-                          {(b.properties as { title: string } | null)?.title}
-                        </span>
-                        <span className="shrink-0 rounded-full bg-terracotta-soft px-2 py-0.5 text-[10px] font-semibold text-terracotta">
-                          {BOOKING_STATUS[b.status]}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {(b.offices as { name: string } | null)?.name} · {formatDate(b.visit_date)}{" "}
-                        · {String(b.visit_time).slice(0, 5)}
-                      </div>
-                      {b.status === "pending" && (
-                        <button
-                          onClick={() => cancelBooking.mutate(b.id)}
-                          disabled={cancelBooking.isPending}
-                          className="mt-2 w-full rounded-xl bg-terracotta-soft py-2 text-xs font-bold text-terracotta disabled:opacity-50"
-                        >
-                          إلغاء الحجز
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">لا توجد حجوزات حتى الآن.</p>
-              )}
-            </section>
 
             <button
               onClick={toggleTheme}
