@@ -28,7 +28,7 @@ export const BOOKING_STATUS: Record<string, string> = {
   pending: "بانتظار الموافقة",
   accepted: "مقبول",
   rejected: "مرفوض",
-  completed: "مكتمل",
+  completed: "المعاينة انتهت",
   cancelled: "ملغي",
 };
 
