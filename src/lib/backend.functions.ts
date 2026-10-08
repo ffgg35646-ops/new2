@@ -14,6 +14,7 @@ import {
   verifyEmailCode,
 } from "./auth.server";
 import { getSessionUserId } from "./session.server";
+import { saudiAppointmentDateTime, saudiDateKey } from "@/lib/saudi-time";
 
 type Filter = { field: string; op: string; value: unknown };
 
@@ -1503,14 +1504,127 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: null, error: null };
       }
 
+      if (data.name === "sync_viewing_booking_reminders") {
+        if (!userId) throw new Error("not_authenticated");
+
+        const bookings = await getMongoCollection<Record<string, unknown>>("viewing_bookings");
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
+        const properties = await getMongoCollection<Record<string, unknown>>("properties");
+
+        const today = saudiDateKey();
+        const userBookingFilter =
+          role === "office"
+            ? { office_id: { $exists: true } }
+            : { user_id: userId };
+
+        const candidates = await bookings
+          .find({
+            ...userBookingFilter,
+            status: "accepted",
+            visit_date: today,
+            reminder_sent_on: { $ne: today },
+          })
+          .limit(50)
+          .toArray();
+
+        let sent = 0;
+
+        for (const booking of candidates) {
+          const bookingUserId = String(booking.user_id ?? "");
+          const bookingOfficeId = String(booking.office_id ?? "");
+          if (!bookingUserId || !bookingOfficeId) continue;
+
+          const appointment = saudiAppointmentDateTime(
+            String(booking.visit_date ?? ""),
+            String(booking.visit_time ?? ""),
+          );
+          if (!Number.isFinite(appointment.getTime())) continue;
+
+          const office = await offices.findOne({
+            id: bookingOfficeId,
+            is_deleted: { $ne: true },
+          });
+          if (!office) continue;
+
+          const claimed = await bookings.updateOne(
+            {
+              id: booking.id,
+              status: "accepted",
+              visit_date: today,
+              reminder_sent_on: { $ne: today },
+            },
+            {
+              $set: {
+                reminder_sent_on: today,
+                updated_at: new Date(),
+              },
+            },
+          );
+
+          if (claimed.modifiedCount !== 1) continue;
+
+          const property = await properties.findOne(
+            { id: booking.property_id },
+            { projection: { title: 1 } },
+          );
+
+          const timeText = String(booking.visit_time ?? "").slice(0, 5);
+          const propertyText = property?.title
+            ? " لعقار " + String(property.title)
+            : "";
+
+          const recipientIds = [
+            bookingUserId,
+            String(office.owner_id ?? ""),
+          ].filter((id, index, ids) => Boolean(id) && ids.indexOf(id) === index);
+
+          if (recipientIds.length) {
+            await notifications.insertMany(
+              recipientIds.map((recipientId) => ({
+                id: randomUUID(),
+                _id: randomUUID(),
+                user_id: recipientId,
+                title: "لديك معاينة اليوم",
+                body:
+                  "لديك موعد معاينة اليوم الساعة " +
+                  timeText +
+                  propertyText +
+                  ".",
+                type: "viewing_booking_reminder",
+                link:
+                  recipientId === bookingUserId
+                    ? "/bookings"
+                    : "/office/requests?tab=bookings",
+                is_read: false,
+                created_at: new Date(),
+                booking_id: booking.id,
+              })),
+            );
+          }
+
+          sent += 1;
+        }
+
+        return { data: sent, error: null };
+      }
+
       if (data.name === "set_viewing_booking_status") {
         if (!userId) throw new Error("not_authenticated");
 
         const bookingId = String(data.args?._booking_id ?? "");
         const requestedStatus = String(data.args?._status ?? "");
+        const cancelReason = String(data.args?._reason ?? "").trim();
 
-        if (!bookingId || !["accepted", "rejected", "completed", "cancelled"].includes(requestedStatus)) {
+        if (
+          !bookingId ||
+          !["accepted", "rejected", "completed", "cancelled"].includes(requestedStatus)
+        ) {
           throw new Error("invalid_booking_status");
+        }
+
+        if (requestedStatus === "cancelled" && (cancelReason.length < 3 || cancelReason.length > 500)) {
+          throw new Error("cancel_reason_required");
         }
 
         const bookings = await getMongoCollection<Record<string, unknown>>("viewing_bookings");
@@ -1536,65 +1650,124 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         if (!allowed) throw new Error("not_booking_member");
 
-        if (bookingUserId === userId && requestedStatus !== "cancelled") {
+        if (bookingUserId === userId && requestedStatus !== "cancelled" && requestedStatus !== "completed") {
           throw new Error("not_allowed");
         }
 
         if (isOfficeOwner && requestedStatus === "cancelled") {
-          throw new Error("not_allowed");
+          // Allowed: either side can cancel an active/pending appointment.
         }
 
-        if (requestedStatus === "accepted" && String(booking.status ?? "") !== "pending") {
+        if (
+          requestedStatus === "accepted" &&
+          String(booking.status ?? "") !== "pending"
+        ) {
           throw new Error("booking_not_pending");
         }
 
-        if (requestedStatus === "rejected" && String(booking.status ?? "") !== "pending") {
+        if (
+          requestedStatus === "rejected" &&
+          String(booking.status ?? "") !== "pending"
+        ) {
           throw new Error("booking_not_pending");
         }
 
-        if (requestedStatus === "completed" && String(booking.status ?? "") !== "accepted") {
+        if (
+          requestedStatus === "completed" &&
+          String(booking.status ?? "") !== "accepted"
+        ) {
           throw new Error("booking_not_accepted");
         }
 
-        if (requestedStatus === "cancelled" && String(booking.status ?? "") !== "pending") {
-          throw new Error("booking_not_pending");
+        if (
+          requestedStatus === "cancelled" &&
+          !["pending", "accepted"].includes(String(booking.status ?? ""))
+        ) {
+          throw new Error("booking_not_active");
+        }
+
+        if (
+          requestedStatus === "completed" &&
+          saudiAppointmentDateTime(
+            String(booking.visit_date ?? ""),
+            String(booking.visit_time ?? ""),
+          ).getTime() > Date.now()
+        ) {
+          throw new Error("appointment_not_started");
         }
 
         const now = new Date();
 
         await bookings.updateOne(
           { id: bookingId },
-          { $set: { status: requestedStatus, updated_at: now } },
+          {
+            $set: {
+              status: requestedStatus,
+              ...(requestedStatus === "cancelled"
+                ? { cancel_reason: cancelReason, cancelled_at: now }
+                : requestedStatus === "completed"
+                  ? { completed_at: now }
+                  : {}),
+              updated_at: now,
+            },
+          },
         );
 
         const properties = await getMongoCollection<Record<string, unknown>>("properties");
         const property = await properties.findOne({ id: booking.property_id });
+        const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
 
+        const actorLabel = isOfficeOwner ? "المكتب" : "العميل";
         const recipientId = isOfficeOwner
           ? bookingUserId
           : String(bookingOffice?.owner_id ?? "");
-        if (recipientId && recipientId !== userId) {
-          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
-            id: randomUUID(),
-            _id: randomUUID(),
-            user_id: recipientId,
-            title:
-              requestedStatus === "accepted"
-                ? "تم قبول حجز المعاينة"
-                : requestedStatus === "rejected"
-                  ? "تم رفض حجز المعاينة"
-                  : requestedStatus === "completed"
-                    ? "تم إكمال المعاينة"
-                    : "تم إلغاء حجز المعاينة",
-            body:
-              (property?.title ? String(property.title) : "العقار") +
-              " · حالة الحجز: " +
-              String(BOOKING_STATUS_LABELS[requestedStatus] ?? requestedStatus),
-            type: "viewing_booking",
-            link: isOfficeOwner ? "/bookings" : "/office/requests?tab=bookings",
-            is_read: false,
-            created_at: now,
-          });
+
+        const title =
+          requestedStatus === "cancelled"
+            ? "تم إلغاء المعاينة من " + actorLabel
+            : requestedStatus === "accepted"
+              ? "تم قبول حجز المعاينة"
+              : requestedStatus === "rejected"
+                ? "تم رفض حجز المعاينة"
+                : "المعاينة انتهت";
+
+        const baseBody =
+          (property?.title ? String(property.title) + " · " : "") +
+          "الساعة " +
+          String(booking.visit_time ?? "").slice(0, 5);
+
+        const body =
+          requestedStatus === "cancelled"
+            ? baseBody + " · السبب: " + cancelReason
+            : requestedStatus === "completed"
+              ? baseBody + " · تم تسجيل المعاينة كمنتهية."
+              : baseBody;
+
+        const allRecipients = [
+          userId,
+          recipientId,
+        ].filter((id, index, ids) => Boolean(id) && ids.indexOf(id) === index);
+
+        if (allRecipients.length) {
+          await notifications.insertMany(
+            allRecipients.map((recipient) => ({
+              id: randomUUID(),
+              _id: randomUUID(),
+              user_id: recipient,
+              title,
+              body,
+              type: "viewing_booking",
+              link:
+                recipient === bookingUserId
+                  ? "/bookings"
+                  : "/office/requests?tab=bookings",
+              is_read: false,
+              created_at: now,
+              booking_id: booking.id,
+              cancel_reason:
+                requestedStatus === "cancelled" ? cancelReason : null,
+            })),
+          );
         }
 
         return { data: requestedStatus, error: null };
