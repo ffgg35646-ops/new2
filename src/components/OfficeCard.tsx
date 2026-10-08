@@ -1,7 +1,11 @@
-import { Link } from "@tanstack/react-router";
-import { Crown, ShieldCheck, Star } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
+import { Crown, Loader2, MessageCircle, ShieldCheck, Star } from "lucide-react";
+import { toast } from "sonner";
 import { timeAgo } from "@/lib/format";
 import { effectivePlan } from "@/lib/plans";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 
 export type OfficeCardData = {
   id: string;
@@ -18,6 +22,69 @@ export type OfficeCardData = {
 
 export function OfficeCard({ office }: { office: OfficeCardData }) {
   const isPro = effectivePlan(office) === "pro";
+  const { userId } = useAuth();
+  const navigate = useNavigate();
+
+  const startChat = useMutation({
+    mutationFn: async () => {
+      if (!userId) {
+        await navigate({ to: "/auth/individual" });
+        throw new Error("سجّل الدخول لبدء المحادثة");
+      }
+
+      const { data: plan, error: planError } = await supabase.rpc(
+        "office_effective_plan",
+        { _office_id: office.id },
+      );
+
+      if (planError) throw planError;
+
+      const chatResult = plan as {
+        plan?: string;
+        expires_at?: string | null;
+      } | null;
+
+      if (
+        chatResult?.plan !== "pro" ||
+        (chatResult.expires_at &&
+          new Date(chatResult.expires_at).getTime() <= Date.now())
+      ) {
+        throw new Error("الدردشة غير متاحة لهذا المكتب حاليًا");
+      }
+
+      const { data: existing, error: existingError } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("office_id", office.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingError) throw existingError;
+      if (existing) return existing.id;
+
+      const { data: created, error } = await supabase
+        .from("conversations")
+        .insert({
+          user_id: userId,
+          office_id: office.id,
+          property_id: null,
+        })
+        .select("id")
+        .single();
+
+      if (error) throw new Error("تعذّر بدء المحادثة");
+      return created.id;
+    },
+    onSuccess: (id) => {
+      void navigate({ to: "/chats", search: { c: id } });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "تعذّر بدء المحادثة";
+      if (message !== "سجّل الدخول لبدء المحادثة") toast.error(message);
+    },
+  });
+
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-surface p-3 ring-1 ring-line animate-rise-in">
       {office.logo_url ? (
@@ -54,13 +121,30 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
           {office.properties_count ?? 0} عقارًا · {timeAgo(office.updated_at)}
         </div>
       </div>
-      <Link
-        to="/offices/$officeId"
-        params={{ officeId: office.id }}
-        className="ms-auto shrink-0 rounded-full bg-forest px-3.5 py-2 text-xs font-semibold text-background"
-      >
-        دخول المكتب
-      </Link>
+
+      {isPro ? (
+        <button
+          type="button"
+          onClick={() => startChat.mutate()}
+          disabled={startChat.isPending}
+          className="ms-auto flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-forest px-3.5 py-2 text-xs font-semibold text-background disabled:opacity-60"
+        >
+          {startChat.isPending ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <MessageCircle className="size-3.5" />
+          )}
+          مراسلة
+        </button>
+      ) : (
+        <Link
+          to="/offices/$officeId"
+          params={{ officeId: office.id }}
+          className="ms-auto shrink-0 rounded-full bg-forest px-3.5 py-2 text-xs font-semibold text-background"
+        >
+          دخول المكتب
+        </Link>
+      )}
     </div>
   );
 }
