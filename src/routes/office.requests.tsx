@@ -16,9 +16,8 @@ import {
   kindLabel,
   listingLabel,
 } from "@/lib/constants";
-import { formatDate, formatPrice, timeAgo } from "@/lib/format";
+import { formatArea, formatDate, formatPrice, timeAgo } from "@/lib/format";
 import { notifyWhatsApp } from "@/lib/notify-whatsapp";
-import { useSelectedGovernorate } from "@/lib/governorate";
 import { useMyOffice, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
 
@@ -410,51 +409,43 @@ function FilterChip({
 
 function MarketRequests({ officeId }: { officeId: string | null }) {
   const qc = useQueryClient();
-  const { governorateId } = useSelectedGovernorate();
+  const { data: membership } = useMyOffice();
+  const officeGovernorateId = membership?.office?.governorate_id ?? null;
   const [openId, setOpenId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [price, setPrice] = useState("");
   const viewed = useRef(new Set<string>());
 
   const { data, isLoading } = useQuery({
-    queryKey: ["open-requests", governorateId, officeId],
-    enabled: !!officeId && !!governorateId,
+    queryKey: ["open-requests", officeId, officeGovernorateId],
+    enabled: !!officeId && !!officeGovernorateId,
     queryFn: async () => {
-      const { data: officeProperties, error: propertiesError } = await supabase
-        .from("properties")
-        .select("kind,neighborhood")
-        .eq("office_id", officeId!)
-        .eq("governorate_id", governorateId!)
-        .eq("is_published", true)
-        .eq("is_deleted", false);
-
-      if (propertiesError) throw propertiesError;
-
-      const matches = new Set(
-        (officeProperties ?? []).map((p) => `${p.kind}::${p.neighborhood}`),
+      const { data, error } = await supabase.rpc(
+        "office_market_requests" as never,
       );
-      const kinds = new Set((officeProperties ?? []).map((p) => p.kind));
-
-      if (!kinds.size) return [];
-
-      const { data, error } = await supabase
-        .from("property_requests")
-        .select("*, office_offers(id,office_id)")
-        .eq("governorate_id", governorateId!)
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(100);
 
       if (error) throw error;
 
-      return (data ?? []).filter((r) => {
-        if (!kinds.has(r.kind)) return false;
-        if (!r.neighborhood) return true;
-        return matches.has(`${r.kind}::${r.neighborhood}`);
-      });
+      return (data ?? []) as Array<{
+        id: string;
+        user_id: string;
+        kind: string;
+        listing: string;
+        neighborhood: string | null;
+        budget_min: number | null;
+        budget_max: number | null;
+        area_min: number | null;
+        description: string;
+        attachment_url: string | null;
+        views_count: number;
+        created_at: string | null;
+        expires_at: string | null;
+        offer_sent: boolean;
+        client_name: string;
+        client_phone: string | null;
+      }>;
     },
   });
-
   const sendOffer = useMutation({
     mutationFn: async (requestId: string) => {
       if (!officeId) throw new Error("مكتبك غير متاح");
@@ -489,9 +480,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   return (
     <div className="space-y-2.5">
       {data.map((r) => {
-        const sent = (r.office_offers as { office_id: string }[] | null)?.some(
-          (o) => o.office_id === officeId,
-        );
+        const sent = r.offer_sent;
         return (
           <div key={r.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
             <div className="flex items-center justify-between">
@@ -500,13 +489,44 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               </span>
               <span className="text-[10px] text-muted-foreground">{timeAgo(r.created_at)}</span>
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{r.description}</p>
+            <div className="mt-2 rounded-xl bg-background p-3 ring-1 ring-line">
+              <div className="text-xs font-bold">{r.client_name}</div>
+              {r.client_phone && (
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                  {r.client_phone}
+                </div>
+              )}
+            </div>
+
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{r.description}</p>
             <div className="mt-1.5 text-[11px] text-muted-foreground">
-              {r.neighborhood ? `${r.neighborhood} · ` : ""}
+              {r.neighborhood ? r.neighborhood + " · " : ""}
+              {r.area_min ? "من " + formatArea(r.area_min) + " · " : ""}
               {r.budget_min || r.budget_max
-                ? `${formatPrice(r.budget_min)} - ${formatPrice(r.budget_max)} ر.س`
+                ? formatPrice(r.budget_min) + " - " + formatPrice(r.budget_max) + " ر.س"
                 : "بدون ميزانية محددة"}
             </div>
+
+            {r.client_phone && (
+              <div className="mt-2 flex gap-2">
+                <a
+                  href={"tel:" + r.client_phone}
+                  className="flex-1 rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"
+                >
+                  <Phone className="mx-auto mb-1 size-3.5" />
+                  اتصال بالعميل
+                </a>
+                <a
+                  href={whatsappHref(r.client_phone, "مرحبًا " + r.client_name + "، بخصوص طلب العقار")}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 rounded-xl bg-sand py-2.5 text-center text-xs font-bold"
+                >
+                  <MessageCircle className="mx-auto mb-1 size-3.5" />
+                  واتساب
+                </a>
+              </div>
+            )}
 
             {sent ? (
               <div className="mt-2.5 rounded-xl bg-forest-soft py-2 text-center text-xs font-semibold text-forest">
