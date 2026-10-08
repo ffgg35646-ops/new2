@@ -13,6 +13,7 @@ import { BOOKING_STATUS } from "@/lib/constants";
 import { formatDate, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { EditViewingBookingModal } from "@/components/EditViewingBookingModal";
+import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
 import { CancelReasonModal } from "@/components/CancelReasonModal";
 import { isSaudiAppointmentToday, formatBookingTime } from "@/lib/saudi-time";
 
@@ -243,24 +244,7 @@ function BookingsPage() {
                     </div>
                   )}
 
-                  {booking.status === "accepted" && isToday && booking.status !== "appointment_ended" && (
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        disabled
-                        className="flex items-center justify-center gap-1.5 rounded-xl bg-sand py-2.5 text-xs font-bold opacity-40"
-                      >
-                        تعديل المعاينة
-                      </button>
-                      <button
-                        type="button"
-                        disabled
-                        className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background opacity-40"
-                      >
-                        <CheckCircle2 className="size-4" /> إنهاء المعاينة
-                      </button>
-                    </div>
-                  )}
+
 
                   {(booking.status === "pending" || booking.status === "accepted") && (
                     <button
