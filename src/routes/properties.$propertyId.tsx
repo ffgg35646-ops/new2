@@ -685,7 +685,6 @@ function PropertyDetail() {
             {book.isPending ? <Loader2 className="mx-auto size-4 animate-spin" /> : "إرسال طلب المعاينة"}
           </button>
         </section>
-        </section>
 
         {!!similar?.length && (
           <section className="space-y-3">
