@@ -246,6 +246,10 @@ function RequestsPage() {
                 key={offer.id}
                 offer={offer}
                 pending={setOfferStatus.isPending}
+                contactOpen={openOfferId === offer.id}
+                onContactToggle={() =>
+                  setOpenOfferId((current) => (current === offer.id ? null : offer.id))
+                }
                 onStatus={(status) => setOfferStatus.mutate({ id: offer.id, status })}
               />
             ))}
@@ -505,12 +509,14 @@ function OfferCard({
             onContactToggle();
           }}
           aria-expanded={contactOpen}
+          aria-label="عرض رقم الاتصال"
+          title="اتصال"
           className={cn(
-            "flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold ring-1 ring-line",
+            "grid size-10 place-items-center rounded-xl ring-1 ring-line",
             contactOpen ? "bg-forest-soft text-forest" : "bg-surface text-forest",
           )}
         >
-          <Phone className="size-3.5" /> اتصال
+          <Phone className="size-4" />
         </button>
 
         <a
@@ -521,9 +527,11 @@ function OfferCard({
           target="_blank"
           rel="noreferrer"
           onClick={(event) => event.stopPropagation()}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-sand py-2.5 text-xs font-bold"
+          aria-label="واتساب"
+          title="واتساب"
+          className="grid size-10 place-items-center rounded-xl bg-sand"
         >
-          واتساب
+          <WhatsAppIcon className="size-5" />
         </a>
       </div>
 
@@ -543,7 +551,20 @@ function OfferCard({
                 onClick={async (event) => {
                   event.stopPropagation();
                   try {
-                    await navigator.clipboard.writeText(office.phone!);
+                    if (navigator.clipboard?.writeText) {
+                      await navigator.clipboard.writeText(office.phone!);
+                    } else {
+                      const input = document.createElement("textarea");
+                      input.value = office.phone!;
+                      input.setAttribute("readonly", "");
+                      input.style.position = "fixed";
+                      input.style.opacity = "0";
+                      document.body.appendChild(input);
+                      input.select();
+                      const copied = document.execCommand("copy");
+                      document.body.removeChild(input);
+                      if (!copied) throw new Error("copy_failed");
+                    }
                     toast.success("تم نسخ رقم الاتصال");
                   } catch {
                     toast.error("تعذّر نسخ رقم الاتصال");
@@ -560,6 +581,18 @@ function OfferCard({
         </div>
       )}
     </div>
+  );
+}
+
+function WhatsAppIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={cn("fill-current", className)}
+    >
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.198.297-.767.966-.94 1.164-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.099-.198.05-.372-.025-.521-.075-.149-.669-1.611-.916-2.206-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.075-.792.372-.273.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.077 4.487.71.307 1.263.49 1.694.626.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.268c.001-5.45 4.436-9.884 9.888-9.884a9.83 9.83 0 0 1 6.988 2.898 9.83 9.83 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.89a11.86 11.86 0 0 0 1.595 5.946L.057 24l6.304-1.655a11.88 11.88 0 0 0 5.684 1.448h.005c6.554 0 11.89-5.335 11.893-11.89a11.821 11.821 0 0 0-3.479-8.415" />
+    </svg>
   );
 }
 
