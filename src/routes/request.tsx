@@ -84,17 +84,26 @@ function RequestPage() {
 
   const setOfferStatus = useMutation({
     mutationFn: async (vars: { id: string; status: "accepted" | "rejected" }) => {
-      const { error } = await supabase
-        .from("office_offers")
-        .update({ status: vars.status })
-        .eq("id", vars.id);
+      const { error } = await supabase.rpc(
+        "respond_property_offer" as never,
+        {
+          _offer_id: vars.id,
+          _status: vars.status,
+        } as never,
+      );
       if (error) throw error;
     },
     onSuccess: (_, vars) => {
-      toast.success(vars.status === "accepted" ? "تم قبول العرض" : "تم رفض العرض");
+      toast.success(
+        vars.status === "accepted"
+          ? "تم قبول العرض وإغلاق الطلب كمكتمل"
+          : "تم رفض العرض",
+      );
       void qc.invalidateQueries({ queryKey: ["my-requests"] });
+      void qc.invalidateQueries({ queryKey: ["open-requests"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر تحديث العرض"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "تعذّر تحديث العرض"),
   });
 
   const create = useMutation({
