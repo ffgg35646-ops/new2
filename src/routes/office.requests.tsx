@@ -537,6 +537,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                 )}
 
                 {booking.status === "accepted" &&
+                  !isSaudiAppointmentToday(booking.visit_date) &&
                   isSaudiAppointmentStarted(booking.visit_date, booking.visit_time) && (
                     <button
                       type="button"
