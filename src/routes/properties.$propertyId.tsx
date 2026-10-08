@@ -451,7 +451,7 @@ function PropertyDetail() {
           </section>
         )}
 
-        <section className="space-y-2.5 rounded-3xl bg-surface p-4 ring-1 ring-line">
+        <section id="property-inquiry" className="scroll-mt-24 space-y-2.5 rounded-3xl bg-surface p-4 ring-1 ring-line">
           <h2 className="flex items-center gap-2 font-display text-base font-bold">
             <Send className="size-4 text-terracotta" /> إرسال طلب للمكتب
           </h2>
@@ -636,14 +636,30 @@ function PropertyDetail() {
           <>
             {!isOffice && (
               <button
+                type="button"
+                onClick={() =>
+                  document.getElementById("property-inquiry")?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  })
+                }
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-terracotta py-3.5 font-display font-bold text-background"
+              >
+                <Send className="size-4" />
+                إرسال طلب
+              </button>
+            )}
+            {!isOffice && (
+              <button
+                type="button"
                 onClick={() => startChat.mutate()}
                 disabled={startChat.isPending}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-terracotta py-3.5 font-display font-bold text-background disabled:opacity-60"
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line disabled:opacity-60"
               >
                 {startChat.isPending ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
-                  <Send className="size-4" />
+                  <MessageCircle className="size-4" />
                 )}
                 مراسلة
               </button>
