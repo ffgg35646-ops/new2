@@ -1,6 +1,6 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Loader2, MessageCircle, Phone, Send, X } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +22,14 @@ import { useMyOffice, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/office/requests")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab:
+      search.tab === "inbox" ||
+      search.tab === "bookings" ||
+      search.tab === "market"
+        ? search.tab
+        : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "الطلبات | عقار البطين" },
@@ -41,7 +49,14 @@ export const Route = createFileRoute("/office/requests")({
 });
 
 function OfficeRequests() {
-  const [tab, setTab] = useState<"inbox" | "bookings" | "market">("inbox");
+  const search = Route.useSearch();
+  const [tab, setTab] = useState<"inbox" | "bookings" | "market">(
+    search.tab ?? "inbox",
+  );
+
+  useEffect(() => {
+    if (search.tab) setTab(search.tab);
+  }, [search.tab]);
   const { data: membership } = useMyOffice();
   const officeId = membership?.office?.id ?? null;
   const officeGovernorateId = membership?.office?.governorate_id ?? null;
@@ -49,7 +64,8 @@ function OfficeRequests() {
   const { data: marketRequests = [] } = useQuery({
     queryKey: ["open-requests", officeId, officeGovernorateId],
     enabled: !!officeId && !!officeGovernorateId,
-    refetchInterval: 60_000,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
     queryFn: async () => {
       const { data, error } = await supabase.rpc(
         "office_market_requests" as never,
@@ -256,10 +272,12 @@ function TabButton({
   label,
   active,
   onClick,
+  count,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  count?: number;
 }) {
   return (
     <button
@@ -269,7 +287,12 @@ function TabButton({
         active ? "bg-forest text-background" : "bg-surface text-muted-foreground ring-1 ring-line",
       )}
     >
-      {label}
+      <span>{label}</span>
+      {count != null && count > 0 && (
+        <span className="min-w-5 rounded-full bg-terracotta px-1.5 py-0.5 text-[10px] font-extrabold leading-none text-background">
+          {count}
+        </span>
+      )}
     </button>
   );
 }
@@ -405,6 +428,7 @@ function FilterChip({
   label,
   active,
   onClick,
+  count,
 }: {
   label: string;
   active: boolean;
