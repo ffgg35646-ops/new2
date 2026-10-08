@@ -34,7 +34,7 @@ function OfficesPage() {
       const { data, error } = await supabase
         .from("offices")
         .select(
-          "id,name,logo_url,verification_status,updated_at,plan,plan_expires_at,rating_avg,properties(count)",
+          "id,name,logo_url,verification_status,updated_at,plan,plan_expires_at,rating_avg,completed_requests_count,properties(count)",
         )
         .eq("governorate_id", governorateId!)
         .eq("is_deleted", false)
