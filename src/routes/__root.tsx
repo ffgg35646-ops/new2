@@ -15,6 +15,7 @@ import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 import { registerPush } from "@/lib/push";
 import { ensureDeviceCookie } from "@/lib/device";
 
@@ -133,6 +134,30 @@ function PushRegistrar() {
   return null;
 }
 
+function BookingReminderSync() {
+  const { userId } = useAuth();
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const sync = () => {
+      void supabase
+        .rpc("sync_viewing_booking_reminders" as never)
+        .then(({ error }) => {
+          if (error) {
+            console.warn("[booking-reminders] sync failed", error);
+          }
+        });
+    };
+
+    sync();
+    const timer = window.setInterval(sync, 60_000);
+    return () => window.clearInterval(timer);
+  }, [userId]);
+
+  return null;
+}
+
 function OfficeApprovalGate({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -202,6 +227,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <PushRegistrar />
+      <BookingReminderSync />
       <OfficeApprovalGate>
         <Outlet />
       </OfficeApprovalGate>
