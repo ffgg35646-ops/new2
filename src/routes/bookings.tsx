@@ -105,9 +105,15 @@ function BookingsPage() {
         error instanceof Error
           ? error.message === "completion_reason_required"
             ? "اكتب سبب إنهاء المعاينة"
-            : error.message === "appointment_not_started"
-              ? "لا يمكن إنهاء المعاينة قبل موعدها"
-              : error.message
+            : error.message === "booking_not_accepted"
+              ? "هذا الحجز لم يعد في حالة تسمح بإنهائه"
+              : error.message === "not_booking_member"
+                ? "لا تملك صلاحية إنهاء هذه المعاينة"
+                : error.message === "not_individual"
+                  ? "إنهاء المعاينة متاح للمستخدم الفردي فقط"
+                  : error.message === "appointment_not_started"
+                    ? "لا يمكن إنهاء المعاينة قبل موعدها"
+                    : error.message
           : "تعذّر إنهاء المعاينة",
       ),
   });
@@ -208,7 +214,15 @@ function BookingsPage() {
                 booking.visit_time,
                 now,
               );
-              const canEdit = !history && !isToday && ["pending", "accepted"].includes(String(booking.status ?? ""));
+              const status = String(booking.status ?? "");
+              const canEdit =
+                !history &&
+                !started &&
+                ["pending", "accepted"].includes(status);
+              const canFinish =
+                !history &&
+                status === "accepted" &&
+                started;
 
               return (
                 <article
@@ -276,49 +290,43 @@ function BookingsPage() {
                     </div>
                   )}
 
-                  {!history && !isToday && (
+                  {(!history && (canEdit || canFinish)) && (
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditId(booking.id)}
-                        disabled={!canEdit || edit.isPending}
-                        className="flex items-center justify-center gap-1.5 rounded-2xl bg-sand py-3 text-xs font-bold text-foreground ring-1 ring-line disabled:cursor-not-allowed disabled:opacity-45"
-                        title="تعديل موعد المعاينة أو وسيلة الاتصال"
-                      >
-                        <Edit3 className="size-3.5" />
-                        تعديل موعد المعاينة
-                      </button>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => setEditId(booking.id)}
+                          disabled={edit.isPending}
+                          className="flex items-center justify-center gap-1.5 rounded-2xl bg-sand py-3 text-xs font-bold text-foreground ring-1 ring-line disabled:cursor-not-allowed disabled:opacity-45"
+                          title="تعديل موعد المعاينة أو وسيلة الاتصال"
+                        >
+                          <Edit3 className="size-3.5" />
+                          تعديل المعاينة
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (booking.status !== "accepted") {
-                            toast.info("إنهاء المعاينة متاح بعد قبول المكتب.");
-                            return;
-                          }
-                          if (!started) {
-                            toast.info("سيصبح إنهاء المعاينة متاحًا عند بدء الموعد.");
-                            return;
-                          }
-                          setFinishId(booking.id);
-                        }}
-                        disabled={finish.isPending}
-                        className="flex items-center justify-center gap-1.5 rounded-2xl bg-forest py-3 text-xs font-bold text-background disabled:opacity-50"
-                        title="إنهاء المعاينة"
-                      >
-                        <CheckCircle2 className="size-3.5" />
-                        إنهاء المعاينة
-                      </button>
+                      {canFinish && (
+                        <button
+                          type="button"
+                          onClick={() => setFinishId(booking.id)}
+                          disabled={finish.isPending}
+                          className="flex items-center justify-center gap-1.5 rounded-2xl bg-forest py-3 text-xs font-bold text-background disabled:opacity-50"
+                          title="إنهاء المعاينة"
+                        >
+                          <CheckCircle2 className="size-3.5" />
+                          إنهاء المعاينة
+                        </button>
+                      )}
                     </div>
                   )}
 
-                  {isToday && !history && (
+                  {isToday && !history && !started && (
                     <div className="mt-3 rounded-2xl bg-forest-soft p-3 text-center text-[11px] font-semibold text-forest">
                       لديك معاينة اليوم الساعة {formatBookingTime(booking.visit_time)}
                     </div>
                   )}
 
-                  {!history && !isToday && (
+                  {!history && (
                     <button
                       type="button"
                       onClick={() => setCancelId(booking.id)}
