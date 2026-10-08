@@ -166,37 +166,29 @@ function BookingsPage() {
           <ListSkeleton />
         ) : data.length ? (
           (() => {
-            const activeBookings = data.filter((booking: any) => {
+            const historyStatuses = new Set([
+              "rejected",
+              "completed",
+              "cancelled",
+              "appointment_ended",
+            ]);
+
+            const isHistoryBooking = (booking: any) => {
               const status = String(booking.status ?? "");
+              if (historyStatuses.has(status)) return true;
 
-              if (!["pending", "accepted"].includes(status)) {
-                return false;
-              }
-
-              return !isSaudiAppointmentStarted(
+              return isSaudiAppointmentStarted(
                 String(booking.visit_date ?? ""),
                 String(booking.visit_time ?? ""),
                 now,
               );
-            });
+            };
 
-            const historyBookings = data.filter((booking: any) => {
-              const status = String(booking.status ?? "");
+            const activeBookings = data.filter(
+              (booking: any) => !isHistoryBooking(booking),
+            );
 
-              if (["rejected", "completed", "cancelled", "appointment_ended"].includes(status)) {
-                return true;
-              }
-
-              if (status === "pending" || status === "accepted") {
-                return isSaudiAppointmentStarted(
-                  String(booking.visit_date ?? ""),
-                  String(booking.visit_time ?? ""),
-                  now,
-                );
-              }
-
-              return true;
-            });
+            const historyBookings = data.filter(isHistoryBooking);
 
             const renderBooking = (booking: any, history = false) => {
               const property = booking.properties as {
