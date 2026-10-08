@@ -1795,29 +1795,33 @@ export const rpcRequest = createServerFn({ method: "POST" })
             ? " لعقار " + String(property.title)
             : "";
 
-          await getMongoCollection<Record<string, unknown>>(
-            "notifications",
-          ).insertOne({
-            id: randomUUID(),
-            _id: randomUUID(),
-            user_id: officeOwnerId,
-            title: "تم تعديل حجز المعاينة",
-            body:
-              clientName +
-              " عدّل حجز المعاينة" +
-              propertyText +
-              " · الموعد الجديد " +
-              visitDate +
-              " الساعة " +
-              visitTime +
-              " · وسيلة الاتصال: " +
-              contactPhone,
-            type: "viewing_booking_updated",
-            link: "/office/requests?tab=bookings",
-            is_read: false,
-            created_at: now,
-            booking_id: booking.id,
-          });
+          try {
+            await getMongoCollection<Record<string, unknown>>(
+              "notifications",
+            ).insertOne({
+              id: randomUUID(),
+              _id: randomUUID(),
+              user_id: officeOwnerId,
+              title: "تم تعديل حجز المعاينة",
+              body:
+                clientName +
+                " عدّل حجز المعاينة" +
+                propertyText +
+                " · الموعد الجديد " +
+                visitDate +
+                " الساعة " +
+                visitTime +
+                " · وسيلة الاتصال: " +
+                (contactPhone || "كما هي"),
+              type: "viewing_booking_updated",
+              link: "/office/requests?tab=bookings",
+              is_read: false,
+              created_at: now,
+              booking_id: booking.id,
+            });
+          } catch (notificationError) {
+            console.error("[viewing-booking-update-notification]", notificationError);
+          }
         }
 
         return {
@@ -1972,7 +1976,6 @@ export const rpcRequest = createServerFn({ method: "POST" })
           : String(
               bookingOffice?.owner_id ??
                 bookingOffice?.user_id ??
-                bookingOfficeId ??
                 "",
             );
 
@@ -2005,7 +2008,6 @@ export const rpcRequest = createServerFn({ method: "POST" })
             String(
               bookingOffice?.owner_id ??
                 bookingOffice?.user_id ??
-                bookingOfficeId ??
                 "",
             ),
           ];
