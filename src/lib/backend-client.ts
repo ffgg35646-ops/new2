@@ -217,7 +217,12 @@ class StorageBucket {
     const form = new FormData();
     form.append("file", file, file.name);
     try {
-      return await uploadMedia({ data: form });
+      const result = await uploadMedia({ data: form });
+
+      return {
+        data: result.data,
+        error: result.error,
+      };
     } catch (error) {
       return { data: null, error: errorOf(error) };
     }
