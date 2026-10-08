@@ -88,6 +88,17 @@ export function AppHeader({
   useEffect(() => {
     if (!userId) return;
 
+    const sync = async () => {
+      try {
+        await supabase.rpc("sync_viewing_booking_reminders" as never);
+      } catch (error) {
+        console.warn("[booking-reminder] sync failed", error);
+      }
+    };
+
+    void sync();
+    const timer = window.setInterval(() => void sync(), 60_000);
+
     const channel = supabase
       .channel(`header-notifications-${userId}`)
       .on(
@@ -110,6 +121,7 @@ export function AppHeader({
       .subscribe();
 
     return () => {
+      window.clearInterval(timer);
       void supabase.removeChannel(channel);
     };
   }, [userId, qc]);
