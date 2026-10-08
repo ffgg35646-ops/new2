@@ -23,7 +23,7 @@ import { effectivePlan } from "@/lib/plans";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 import { PropertyCard } from "@/components/PropertyCard";
 import { PROPERTY_SELECT, useFavorites } from "@/lib/properties";
-import { LISTING_TYPES, VERIFICATION_STATUS } from "@/lib/constants";
+import { LISTING_TYPES } from "@/lib/constants";
 import { shareLink, whatsappHref } from "@/lib/office";
 import { useAuth } from "@/lib/auth";
 import { useFollowState, useSetOfficeNotifications, useToggleFollow } from "@/lib/follows";
