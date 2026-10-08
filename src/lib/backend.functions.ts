@@ -1004,83 +1004,59 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         if (!request) throw new Error("request_not_found");
 
-        const properties = await getMongoCollection<Record<string, unknown>>(
-          "properties",
+        const offices = await getMongoCollection<Record<string, unknown>>(
+          "offices",
+        );
+        const notifications = await getMongoCollection<Record<string, unknown>>(
+          "notifications",
         );
 
-        const propertyFilter: Record<string, unknown> = {
-          governorate_id: request.governorate_id,
-          kind: request.kind,
-          is_published: true,
-          is_deleted: { $ne: true },
-        };
-
-        if (request.neighborhood) {
-          propertyFilter.neighborhood = request.neighborhood;
-        }
-
-        const matchingProperties = await properties
-          .find(propertyFilter)
-          .project({ office_id: 1 })
+        // أي مكتب موثق في نفس المحافظة يستقبل الطلب في صندوقه،
+        // وليس فقط المكاتب التي لديها عقار مطابق منشور بالفعل.
+        const rows = await offices
+          .find({
+            governorate_id: request.governorate_id,
+            is_deleted: { $ne: true },
+            verification_status: "verified",
+            owner_id: { $ne: userId },
+          })
+          .project({ owner_id: 1 })
           .toArray();
 
-        const officeIds = [
+        const recipientIds = [
           ...new Set(
-            matchingProperties
-              .map((row) => row.office_id)
+            rows
+              .map((row) => row.owner_id)
               .filter((id): id is string => typeof id === "string"),
           ),
         ];
 
-        if (officeIds.length) {
-          const offices = await getMongoCollection<Record<string, unknown>>("offices");
-          const notifications =
-            await getMongoCollection<Record<string, unknown>>("notifications");
-
-          const rows = await offices
-            .find({
-              id: { $in: officeIds },
-              is_deleted: false,
-              verification_status: "verified",
-            })
-            .project({ owner_id: 1 })
-            .toArray();
-
-          const recipientIds = [
-            ...new Set(
-              rows
-                .map((row) => row.owner_id)
-                .filter((id): id is string => typeof id === "string"),
-            ),
-          ];
-
-          if (recipientIds.length) {
-            await notifications.insertMany(
-              recipientIds.map((recipientId) => ({
-                id: randomUUID(),
-                _id: randomUUID(),
-                user_id: recipientId,
-                title: "طلب عقار جديد",
-                body:
-                  "يوجد طلب عقاري جديد: " +
-                  String(request.kind ?? "عقار") +
-                  " · " +
-                  String(request.listing ?? "") +
-                  (request.budget_min != null || request.budget_max != null
-                    ? " · الميزانية " +
-                      String(request.budget_min ?? "—") +
-                      " - " +
-                      String(request.budget_max ?? "—")
-                    : "") +
-                  " · " +
-                  String(request.description ?? "").slice(0, 140),
-                type: "property_request",
-                link: "/office/requests?tab=market",
-                is_read: false,
-                created_at: new Date(),
-              })),
-            );
-          }
+        if (recipientIds.length) {
+          await notifications.insertMany(
+            recipientIds.map((recipientId) => ({
+              id: randomUUID(),
+              _id: randomUUID(),
+              user_id: recipientId,
+              title: "طلب عقار جديد",
+              body:
+                "يوجد طلب عقاري جديد: " +
+                String(request.kind ?? "عقار") +
+                " · " +
+                String(request.listing ?? "") +
+                (request.budget_min != null || request.budget_max != null
+                  ? " · الميزانية " +
+                    String(request.budget_min ?? "—") +
+                    " - " +
+                    String(request.budget_max ?? "—")
+                  : "") +
+                " · " +
+                String(request.description ?? "").slice(0, 140),
+              type: "property_request",
+              link: "/office/requests?tab=market",
+              is_read: false,
+              created_at: new Date(),
+            })),
+          );
         }
 
         return { data: null, error: null };
