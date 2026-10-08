@@ -91,7 +91,7 @@ function PropertyDetail() {
       let propertyResult = await supabase
         .from("properties")
         .select("*")
-        .eq("id", propertyId)
+        .eq("_id", propertyId)
         .maybeSingle();
 
       if (propertyResult.error) throw propertyResult.error;
