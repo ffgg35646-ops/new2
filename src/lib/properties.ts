@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import type { PropertyCardData } from "@/components/PropertyCard";
 
 export const PROPERTY_SELECT =
-  "id,property_number,title,price,area,kind,listing,neighborhood,cover_url,is_featured,created_at,rent_period,images_count,governorates(name_ar),offices(name,verification_status)";
+  "id,property_number,title,price,area,kind,listing,neighborhood,cover_url,is_featured,created_at,rent_period,images_count,governorates(name_ar),offices(name,verification_status,plan,plan_expires_at,completed_requests_count)";
 
 export type PropertyFilters = {
   governorateId?: string | null;
