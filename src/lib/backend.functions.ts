@@ -166,19 +166,37 @@ function parseRelations(select: string | null): RelationSpec[] {
   if (!select) return [];
 
   const relations: RelationSpec[] = [];
-  const pattern = /(?:(\w+):)?(\w+)\(([^()]*)\)/g;
+  const relationPattern = /(?:(\\w+):)?(\\w+)\\(/g;
 
-  for (const match of select.matchAll(pattern)) {
+  for (const match of select.matchAll(relationPattern)) {
     const output = match[1] ?? match[2];
     const collection = match[2];
-    const fields = match[3]
+    const openIndex = (match.index ?? 0) + match[0].length - 1;
+
+    let depth = 0;
+    let closeIndex = -1;
+
+    for (let index = openIndex; index < select.length; index += 1) {
+      const char = select[index];
+      if (char === "(") depth += 1;
+      if (char === ")") {
+        depth -= 1;
+        if (depth === 0) {
+          closeIndex = index;
+          break;
+        }
+      }
+    }
+
+    if (closeIndex < 0 || !output || !collection) continue;
+
+    const fieldsText = select.slice(openIndex + 1, closeIndex);
+    const fields = fieldsText
       .split(",")
       .map((field) => field.trim())
       .filter(Boolean);
 
-    if (output && collection) {
-      relations.push({ output, collection, fields });
-    }
+    relations.push({ output, collection, fields });
   }
 
   return relations;
