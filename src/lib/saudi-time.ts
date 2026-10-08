@@ -39,3 +39,28 @@ export function isSaudiAppointmentToday(
 export function formatBookingTime(visitTime: string) {
   return String(visitTime ?? "").slice(0, 5);
 }
+
+export function saudiInputDateTime(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: SAUDI_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return (
+    get("year") +
+    "-" +
+    get("month") +
+    "-" +
+    get("day") +
+    "T" +
+    get("hour") +
+    ":" +
+    get("minute")
+  );
+}
