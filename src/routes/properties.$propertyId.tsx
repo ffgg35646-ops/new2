@@ -111,6 +111,24 @@ function PropertyDetail() {
     },
   });
 
+  const { data: officeChatPlan } = useQuery({
+    queryKey: ["office-chat-plan", data?.office_id],
+    enabled: !!data?.office_id && !!userId && !isOffice,
+    queryFn: async () => {
+      const { data: result, error } = await supabase.rpc("office_effective_plan", {
+        _office_id: data!.office_id,
+      });
+      if (error) throw error;
+      return result as { plan?: string; expires_at?: string | null } | null;
+    },
+    staleTime: 30_000,
+  });
+
+  const officeChatEnabled =
+    officeChatPlan?.plan === "pro" &&
+    (!officeChatPlan.expires_at ||
+      new Date(officeChatPlan.expires_at).getTime() > Date.now());
+
   const { data: similar } = useQuery({
     queryKey: ["similar-properties", propertyId, data?.kind, data?.governorate_id],
     enabled: !!data?.id,
@@ -225,8 +243,17 @@ function PropertyDetail() {
       const { data: plan } = await supabase.rpc("office_effective_plan", {
         _office_id: officeId,
       });
-      if (plan !== "pro") {
-        throw new Error("الدردشة غير متاحة لهذا المكتب — تواصل عبر الاتصال أو واتساب");
+      const chatResult = plan as {
+        plan?: string;
+        expires_at?: string | null;
+      } | null;
+
+      if (
+        chatResult?.plan !== "pro" ||
+        (chatResult.expires_at &&
+          new Date(chatResult.expires_at).getTime() <= Date.now())
+      ) {
+        throw new Error("الدردشة متاحة للمكاتب المشتركة في الباقة الاحترافية فقط");
       }
 
       const { data: existing } = await supabase
@@ -466,6 +493,22 @@ function PropertyDetail() {
                 </Link>
               </div>
             </div>
+            {!isOffice && userId && officeChatEnabled && (
+              <button
+                type="button"
+                onClick={() => startChat.mutate()}
+                disabled={startChat.isPending}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
+              >
+                {startChat.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <MessageCircle className="size-4" />
+                )}
+                مراسلة المكتب
+              </button>
+            )}
+
             {agent && (
               <div className="rounded-2xl bg-background p-3 text-xs ring-1 ring-line">
                 <div className="font-semibold">المسوّق المسؤول: {agent.name}</div>
@@ -676,7 +719,7 @@ function PropertyDetail() {
                 إرسال طلب
               </button>
             )}
-            {!isOffice && (
+            {!isOffice && officeChatEnabled && (
               <button
                 type="button"
                 onClick={() => startChat.mutate()}
