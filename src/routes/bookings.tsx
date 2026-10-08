@@ -381,7 +381,7 @@ function BookingsPage() {
               </Link>
             }
           />
-        )
+        )}
       </main>
       <BottomNav />
       <CancelReasonModal
