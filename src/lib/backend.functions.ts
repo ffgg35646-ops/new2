@@ -1523,13 +1523,13 @@ export const rpcRequest = createServerFn({ method: "POST" })
         let allowed = bookingUserId === userId;
 
         const offices = await getMongoCollection<Record<string, unknown>>("offices");
-        const office = bookingOfficeId
+        const bookingOffice = bookingOfficeId
           ? await offices.findOne({
               id: bookingOfficeId,
-              owner_id: userId,
               is_deleted: { $ne: true },
             })
           : null;
+        const office = bookingOffice?.owner_id === userId ? bookingOffice : null;
 
         const isOfficeOwner = !!office;
         if (isOfficeOwner) allowed = true;
@@ -1570,7 +1570,9 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const properties = await getMongoCollection<Record<string, unknown>>("properties");
         const property = await properties.findOne({ id: booking.property_id });
 
-        const recipientId = isOfficeOwner ? bookingUserId : String(office?.owner_id ?? "");
+        const recipientId = isOfficeOwner
+          ? bookingUserId
+          : String(bookingOffice?.owner_id ?? "");
         if (recipientId && recipientId !== userId) {
           await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
             id: randomUUID(),
