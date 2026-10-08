@@ -108,7 +108,7 @@ function parseOr(value: string | null | undefined) {
 
   const expressions = value.split(",").map((part) => part.trim()).filter(Boolean);
   const queries = expressions.map((part) => {
-    const match = part.match(/^([\\w.]+)\\.(eq|ilike|like)\\.(.*)$/);
+    const match = part.match(/^([\w.]+)\\.(eq|ilike|like)\\.(.*)$/);
     if (!match) return null;
 
     const field = match[1];
@@ -166,7 +166,7 @@ function parseRelations(select: string | null): RelationSpec[] {
   if (!select) return [];
 
   const relations: RelationSpec[] = [];
-  const relationPattern = /(?:(\\w+):)?(\\w+)\\(/g;
+  const relationPattern = /(?:(\w+):)?(\w+)\\(/g;
 
   for (const match of select.matchAll(relationPattern)) {
     const output = match[1] ?? match[2];
@@ -273,8 +273,8 @@ async function enrichRows(
         if (relation.collection === "office_offers") {
           const offerFields = relation.fields;
 
-          const needOffices = /(?:^|,)\\s*offices\\(/.test(offerFields.join(","));
-          const needProperties = /(?:^|,)\\s*properties\\(/.test(offerFields.join(","));
+          const needOffices = /(?:^|,)\s*offices\\(/.test(offerFields.join(","));
+          const needProperties = /(?:^|,)\s*properties\\(/.test(offerFields.join(","));
 
           const officeIds = needOffices
             ? [
