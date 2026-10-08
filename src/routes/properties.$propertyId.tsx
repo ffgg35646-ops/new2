@@ -237,7 +237,16 @@ function PropertyDetail() {
         .select("id")
         .single();
       if (error) throw error;
-      if (row) notifyWhatsApp("booking_created", row.id);
+      if (row) {
+        notifyWhatsApp("booking_created", row.id);
+        const { error: notifyError } = await supabase.rpc(
+          "notify_new_viewing_booking" as never,
+          { _booking_id: row.id } as never,
+        );
+        if (notifyError) {
+          console.warn("[property-detail] booking notification failed", notifyError);
+        }
+      }
     },
     onSuccess: () => {
       toast.success("تم إرسال طلب المعاينة للمكتب");
