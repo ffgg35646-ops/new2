@@ -1,12 +1,34 @@
 import { GridFSBucket, MongoClient, type Db, type Document } from "mongodb";
 
 let clientPromise: Promise<MongoClient> | undefined;
+let indexesPromise: Promise<void> | undefined;
 
 function getConfig() {
   const uri = process.env["MONGODB_URI"];
   const dbName = process.env["MONGODB_DB_NAME"] || "aqar_albatin";
   if (!uri) throw new Error("MONGODB_URI is missing.");
   return { uri, dbName };
+}
+
+async function createMongoIndexes(db: Db) {
+  await Promise.all([
+    db.collection("users").createIndex({ email: 1 }, { unique: true }),
+    db.collection("profiles").createIndex({ id: 1 }, { unique: true }),
+    db.collection("user_roles").createIndex({ user_id: 1, role: 1 }, { unique: true }),
+    db.collection("notifications").createIndex({ user_id: 1, created_at: -1 }),
+    db.collection("properties").createIndex({ property_number: 1 }),
+    db.collection("properties").createIndex({
+      office_id: 1,
+      is_published: 1,
+      is_deleted: 1,
+      created_at: -1,
+    }),
+    db.collection("properties").createIndex({
+      is_published: 1,
+      is_deleted: 1,
+      created_at: -1,
+    }),
+  ]);
 }
 
 export async function getMongoDb(): Promise<Db> {
@@ -18,7 +40,18 @@ export async function getMongoDb(): Promise<Db> {
     });
     clientPromise = client.connect();
   }
-  return (await clientPromise).db(dbName);
+
+  const db = (await clientPromise).db(dbName);
+
+  if (!indexesPromise) {
+    indexesPromise = createMongoIndexes(db).catch((error) => {
+      indexesPromise = undefined;
+      throw error;
+    });
+  }
+
+  await indexesPromise;
+  return db;
 }
 
 export async function getMongoCollection<T extends Document = Document>(name: string) {
@@ -27,13 +60,7 @@ export async function getMongoCollection<T extends Document = Document>(name: st
 
 export async function ensureMongoIndexes() {
   const db = await getMongoDb();
-  await Promise.all([
-    db.collection("users").createIndex({ email: 1 }, { unique: true }),
-    db.collection("profiles").createIndex({ id: 1 }, { unique: true }),
-    db.collection("user_roles").createIndex({ user_id: 1, role: 1 }, { unique: true }),
-    db.collection("notifications").createIndex({ user_id: 1, created_at: -1 }),
-    db.collection("properties").createIndex({ is_published: 1, is_deleted: 1, created_at: -1 }),
-  ]);
+  await createMongoIndexes(db);
 }
 
 export async function storeMedia(fileName: string, mimeType: string, bytes: Buffer) {
