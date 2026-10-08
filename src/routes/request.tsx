@@ -100,7 +100,7 @@ function RequestPage() {
         block: "center",
       });
     }, 0);
-  }, [search.request, myRequests]);
+  }, [search.request, myRequests?.length]);
 
   async function copyPhone(phone: string) {
     try {
