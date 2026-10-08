@@ -1092,6 +1092,128 @@ export const rpcRequest = createServerFn({ method: "POST" })
         };
       }
 
+      if (data.name === "respond_property_offer") {
+        if (!userId) throw new Error("not_authenticated");
+        if (role !== "individual") throw new Error("not_individual");
+
+        const offerId = String(data.args?._offer_id ?? "");
+        const requestedStatus = String(data.args?._status ?? "");
+
+        if (!offerId || !["accepted", "rejected"].includes(requestedStatus)) {
+          throw new Error("invalid_offer_response");
+        }
+
+        const offers = await getMongoCollection<Record<string, unknown>>(
+          "office_offers",
+        );
+        const requests = await getMongoCollection<Record<string, unknown>>(
+          "property_requests",
+        );
+
+        const offer = await offers.findOne({
+          id: offerId,
+          status: "sent",
+        });
+
+        if (!offer) throw new Error("offer_not_pending");
+
+        const request = await requests.findOne({
+          id: offer.request_id,
+          user_id: userId,
+        });
+
+        if (!request) throw new Error("request_not_found");
+
+        if (request.status !== "active") {
+          throw new Error("request_not_active");
+        }
+
+        const expiresAt = request.expires_at
+          ? new Date(String(request.expires_at))
+          : null;
+
+        if (expiresAt && expiresAt.getTime() <= Date.now()) {
+          await requests.updateOne(
+            { id: request.id, user_id: userId, status: "active" },
+            {
+              $set: {
+                status: "expired",
+                updated_at: new Date(),
+              },
+            },
+          );
+          throw new Error("request_expired");
+        }
+
+        const now = new Date();
+
+        await offers.updateOne(
+          { id: offerId, status: "sent" },
+          {
+            $set: {
+              status: requestedStatus,
+              updated_at: now,
+            },
+          },
+        );
+
+        if (requestedStatus === "accepted") {
+          await requests.updateOne(
+            { id: request.id, user_id: userId, status: "active" },
+            {
+              $set: {
+                status: "fulfilled",
+                fulfilled_at: now,
+                updated_at: now,
+              },
+            },
+          );
+
+          await offers.updateMany(
+            {
+              request_id: request.id,
+              id: { $ne: offerId },
+              status: "sent",
+            },
+            {
+              $set: {
+                status: "rejected",
+                updated_at: now,
+              },
+            },
+          );
+
+          const officeId = String(offer.office_id ?? "");
+          if (officeId) {
+            const offices = await getMongoCollection<Record<string, unknown>>(
+              "offices",
+            );
+            const office = await offices.findOne({ id: officeId });
+
+            if (office?.owner_id) {
+              const notifications =
+                await getMongoCollection<Record<string, unknown>>(
+                  "notifications",
+                );
+
+              await notifications.insertOne({
+                id: randomUUID(),
+                _id: randomUUID(),
+                user_id: String(office.owner_id),
+                title: "تم قبول عرضك",
+                body: "تم قبول عرض مكتبك على الطلب العقاري وإغلاق الطلب كمكتمل.",
+                type: "property_request",
+                link: "/office/requests",
+                is_read: false,
+                created_at: now,
+              });
+            }
+          }
+        }
+
+        return { data: requestedStatus, error: null };
+      }
+
       if (data.name === "notify_new_property_offer") {
         if (!userId) throw new Error("not_authenticated");
 
