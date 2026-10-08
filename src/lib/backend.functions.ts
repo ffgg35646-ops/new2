@@ -16,6 +16,14 @@ import {
 import { getSessionUserId } from "./session.server";
 
 type Filter = { field: string; op: string; value: unknown };
+
+const BOOKING_STATUS_LABELS: Record<string, string> = {
+  pending: "بانتظار الموافقة",
+  accepted: "مقبول",
+  rejected: "مرفوض",
+  completed: "مكتمل",
+  cancelled: "ملغي",
+};
 type Order = { field: string; ascending: boolean };
 
 type DbInput = {
@@ -991,6 +999,134 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: id, error: null };
       }
 
+      if (data.name === "set_property_request_status") {
+        if (!userId) throw new Error("not_authenticated");
+
+        const requestId = String(data.args?._request_id ?? "");
+        const requestedStatus = String(data.args?._status ?? "");
+
+        if (!requestId || !["cancelled", "fulfilled"].includes(requestedStatus)) {
+          throw new Error("invalid_request_status");
+        }
+
+        const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
+        const request = await requests.findOne({ id: requestId });
+
+        if (!request) throw new Error("request_not_found");
+
+        const ownerId = String(request.user_id ?? "");
+        let allowed = ownerId === userId;
+
+        if (!allowed && role === "office") {
+          const offices = await getMongoCollection<Record<string, unknown>>("offices");
+          const office = await offices.findOne({
+            owner_id: userId,
+            is_deleted: { $ne: true },
+          });
+
+          if (office) {
+            const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
+            const ownOffer = await offers.findOne({
+              request_id: requestId,
+              office_id: office.id,
+            });
+            allowed = !!ownOffer;
+          }
+        }
+
+        if (!allowed) throw new Error("not_request_owner");
+
+        if (requestedStatus === "cancelled" && request.status !== "active") {
+          throw new Error("request_not_active");
+        }
+
+        if (requestedStatus === "fulfilled" && request.status !== "active") {
+          throw new Error("request_not_active");
+        }
+
+        const now = new Date();
+
+        await requests.updateOne(
+          { id: requestId },
+          {
+            $set: {
+              status: requestedStatus,
+              updated_at: now,
+              ...(requestedStatus === "fulfilled" ? { fulfilled_at: now } : {}),
+            },
+          },
+        );
+
+        const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
+        const relatedOffers = await offers
+          .find({ request_id: requestId })
+          .project({ office_id: 1 })
+          .toArray();
+
+        const officeIds = [
+          ...new Set(
+            relatedOffers
+              .map((offer) => String(offer.office_id ?? ""))
+              .filter(Boolean),
+          ),
+        ];
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const affectedOffices = officeIds.length
+          ? await offices.find({ id: { $in: officeIds } }).project({ id: 1, owner_id: 1, name: 1 }).toArray()
+          : [];
+
+        const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
+        const title =
+          requestedStatus === "fulfilled"
+            ? "تم إكمال الطلب العقاري"
+            : "تم إلغاء الطلب العقاري";
+        const body =
+          requestedStatus === "fulfilled"
+            ? "تم تحديد الطلب العقاري كمكتمل، ولم يعد ظاهرًا في سوق الطلبات."
+            : "تم إلغاء الطلب العقاري، ولم يعد ظاهرًا في سوق الطلبات.";
+
+        const recipientIds = [
+          ...new Set(
+            affectedOffices
+              .map((office) => String(office.owner_id ?? ""))
+              .filter((id) => id && id !== userId),
+          ),
+        ];
+
+        if (recipientIds.length) {
+          await notifications.insertMany(
+            recipientIds.map((recipientId) => ({
+              id: randomUUID(),
+              _id: randomUUID(),
+              user_id: recipientId,
+              title,
+              body,
+              type: "property_request",
+              link: "/office/requests",
+              is_read: false,
+              created_at: now,
+            })),
+          );
+        }
+
+        if (ownerId !== userId) {
+          await notifications.insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: ownerId,
+            title,
+            body,
+            type: "property_request",
+            link: "/requests",
+            is_read: false,
+            created_at: now,
+          });
+        }
+
+        return { data: requestedStatus, error: null };
+      }
+
       if (data.name === "notify_matching_offices_for_request") {
         if (!userId) throw new Error("not_authenticated");
 
@@ -1309,6 +1445,150 @@ export const rpcRequest = createServerFn({ method: "POST" })
               });
             }
           }
+        }
+
+        return { data: requestedStatus, error: null };
+      }
+
+      if (data.name === "notify_new_viewing_booking") {
+        if (!userId || role !== "individual") throw new Error("not_individual");
+
+        const bookingId = String(data.args?._booking_id ?? "");
+        if (!bookingId) throw new Error("booking_not_found");
+
+        const bookings = await getMongoCollection<Record<string, unknown>>("viewing_bookings");
+        const booking = await bookings.findOne({
+          id: bookingId,
+          user_id: userId,
+        });
+
+        if (!booking) throw new Error("booking_not_found");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          id: booking.office_id,
+          is_deleted: { $ne: true },
+        });
+
+        if (!office || typeof office.owner_id !== "string") {
+          throw new Error("office_not_found");
+        }
+
+        const properties = await getMongoCollection<Record<string, unknown>>("properties");
+        const property = await properties.findOne({ id: booking.property_id });
+        const now = new Date();
+
+        await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+          id: randomUUID(),
+          _id: randomUUID(),
+          user_id: office.owner_id,
+          title: "طلب معاينة جديد",
+          body:
+            "يوجد طلب معاينة جديد" +
+            (property?.title ? " لعقار " + String(property.title) : "") +
+            " بتاريخ " +
+            String(booking.visit_date ?? "") +
+            " الساعة " +
+            String(booking.visit_time ?? "").slice(0, 5),
+          type: "viewing_booking",
+          link: "/office/requests?tab=bookings",
+          is_read: false,
+          created_at: now,
+        });
+
+        return { data: null, error: null };
+      }
+
+      if (data.name === "set_viewing_booking_status") {
+        if (!userId) throw new Error("not_authenticated");
+
+        const bookingId = String(data.args?._booking_id ?? "");
+        const requestedStatus = String(data.args?._status ?? "");
+
+        if (!bookingId || !["accepted", "rejected", "completed", "cancelled"].includes(requestedStatus)) {
+          throw new Error("invalid_booking_status");
+        }
+
+        const bookings = await getMongoCollection<Record<string, unknown>>("viewing_bookings");
+        const booking = await bookings.findOne({ id: bookingId });
+
+        if (!booking) throw new Error("booking_not_found");
+
+        const bookingUserId = String(booking.user_id ?? "");
+        const bookingOfficeId = String(booking.office_id ?? "");
+        let allowed = bookingUserId === userId;
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = bookingOfficeId
+          ? await offices.findOne({
+              id: bookingOfficeId,
+              owner_id: userId,
+              is_deleted: { $ne: true },
+            })
+          : null;
+
+        const isOfficeOwner = !!office;
+        if (isOfficeOwner) allowed = true;
+
+        if (!allowed) throw new Error("not_booking_member");
+
+        if (bookingUserId === userId && requestedStatus !== "cancelled") {
+          throw new Error("not_allowed");
+        }
+
+        if (isOfficeOwner && requestedStatus === "cancelled") {
+          throw new Error("not_allowed");
+        }
+
+        if (requestedStatus === "accepted" && String(booking.status ?? "") !== "pending") {
+          throw new Error("booking_not_pending");
+        }
+
+        if (requestedStatus === "rejected" && String(booking.status ?? "") !== "pending") {
+          throw new Error("booking_not_pending");
+        }
+
+        if (requestedStatus === "completed" && String(booking.status ?? "") !== "accepted") {
+          throw new Error("booking_not_accepted");
+        }
+
+        if (requestedStatus === "cancelled" && String(booking.status ?? "") !== "pending") {
+          throw new Error("booking_not_pending");
+        }
+
+        const now = new Date();
+
+        await bookings.updateOne(
+          { id: bookingId },
+          { $set: { status: requestedStatus, updated_at: now } },
+        );
+
+        const properties = await getMongoCollection<Record<string, unknown>>("properties");
+        const property = await properties.findOne({ id: booking.property_id });
+
+        const recipientId = isOfficeOwner ? bookingUserId : String(office?.owner_id ?? "");
+        if (recipientId && recipientId !== userId) {
+          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: recipientId,
+            title:
+              requestedStatus === "accepted"
+                ? "تم قبول حجز المعاينة"
+                : requestedStatus === "rejected"
+                  ? "تم رفض حجز المعاينة"
+                  : requestedStatus === "completed"
+                    ? "تم إكمال المعاينة"
+                    : "تم إلغاء حجز المعاينة",
+            body:
+              (property?.title ? String(property.title) : "العقار") +
+              " · حالة الحجز: " +
+              String(BOOKING_STATUS_LABELS[requestedStatus] ?? requestedStatus),
+            type: "viewing_booking",
+            link: isOfficeOwner ? "/bookings" : "/office/requests?tab=bookings",
+            is_read: false,
+            created_at: now,
+          });
         }
 
         return { data: requestedStatus, error: null };
