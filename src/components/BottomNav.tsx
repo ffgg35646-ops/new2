@@ -9,7 +9,6 @@ import {
   LayoutGrid,
   PlusCircle,
   MessageSquare,
-  Sparkles,
   User,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -20,7 +19,6 @@ const individualItems: Item[] = [
   { to: "/home", label: "الرئيسية", icon: Home },
   { to: "/properties", label: "العقارات", icon: Building2 },
   { to: "/request", label: "اطلب", icon: PlusCircle, primary: true },
-  { to: "/extras", label: "الإضافات", icon: Sparkles },
   { to: "/account", label: "حسابي", icon: User },
 ];
 
