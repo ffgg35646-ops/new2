@@ -15,6 +15,9 @@ import { useMyPlan } from "@/lib/plans";
 import { RoleGuard } from "@/lib/role-guard";
 
 export const Route = createFileRoute("/office/chat")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    c: typeof search["c"] === "string" ? search["c"] : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "الدردشة مع العملاء | عقار البطين" },
@@ -56,10 +59,15 @@ type ConversationRow = {
 
 function OfficeChatPage() {
   const { data: membership } = useMyOffice();
+  const { c } = Route.useSearch();
   const officeId = membership?.office?.id ?? null;
   const { chatEnabled, isLoading } = useMyPlan();
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(c ?? null);
   const qc = useQueryClient();
+
+  useEffect(() => {
+    setActiveId(c ?? null);
+  }, [c]);
 
   useEffect(() => {
     if (!officeId) return;
