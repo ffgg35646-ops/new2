@@ -190,7 +190,22 @@ function PropertyDetail() {
         .select("id")
         .single();
       if (error) throw error;
-      if (row) notifyWhatsApp("inquiry_created", row.id);
+
+      if (row) {
+        notifyWhatsApp("inquiry_created", row.id);
+
+        const { error: notifyError } = await supabase.rpc(
+          "notify_new_property_inquiry" as never,
+          { _inquiry_id: row.id } as never,
+        );
+
+        if (notifyError) {
+          console.warn(
+            "[property-detail] office inquiry notification failed",
+            notifyError,
+          );
+        }
+      }
     },
     onSuccess: () => {
       toast.success("تم إرسال طلبك للمكتب");
