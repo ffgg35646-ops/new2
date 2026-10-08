@@ -72,7 +72,13 @@ function OfficeProfile() {
   const { data: membership, isLoading } = useMyOffice();
   const office = membership?.office ?? null;
   const isOwner = membership?.isOwner ?? false;
-  const { isPro } = useMyPlan();\n  const isVerified = isPro && Number((office as { completed_requests_count?: number } | null)?.completed_requests_count ?? 0) >= 10;
+  const { isPro } = useMyPlan();
+  const isVerified =
+    isPro &&
+    Number(
+      (office as { completed_requests_count?: number } | null)
+        ?.completed_requests_count ?? 0,
+    ) >= 10;
   const [showQr, setShowQr] = useState(false);
   const [editing, setEditing] = useState(false);
   const [dark, setDark] = useState(false);
