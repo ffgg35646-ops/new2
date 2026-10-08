@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { CalendarDays, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, Edit3, Loader2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { EditViewingBookingModal } from "@/components/EditViewingBookingModal";
 import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
 import { CancelReasonModal } from "@/components/CancelReasonModal";
-import { isSaudiAppointmentToday, formatBookingTime } from "@/lib/saudi-time";
+import { isSaudiAppointmentStarted, isSaudiAppointmentToday, formatBookingTime } from "@/lib/saudi-time";
 
 export const Route = createFileRoute("/bookings")({
   head: () => ({
@@ -165,8 +165,19 @@ function BookingsPage() {
         {isLoading ? (
           <ListSkeleton />
         ) : data.length ? (
-          <div className="space-y-3">
-            {data.map((booking: any) => {
+          (() => {
+            const activeBookings = data.filter((booking: any) => {
+              if (!["pending", "accepted"].includes(String(booking.status ?? ""))) return false;
+              return !isSaudiAppointmentStarted(
+                String(booking.visit_date ?? ""),
+                String(booking.visit_time ?? ""),
+                now,
+              );
+            });
+
+            const historyBookings = data.filter((booking: any) => !activeBookings.includes(booking));
+
+            const renderBooking = (booking: any, history = false) => {
               const property = booking.properties as {
                 title: string;
                 price: number | string;
@@ -177,10 +188,24 @@ function BookingsPage() {
                 phone: string | null;
                 whatsapp: string | null;
               } | null;
+
               const isToday = isSaudiAppointmentToday(booking.visit_date, now);
+              const started = isSaudiAppointmentStarted(
+                booking.visit_date,
+                booking.visit_time,
+                now,
+              );
+              const canEdit = !history && !isToday && ["pending", "accepted"].includes(String(booking.status ?? ""));
+              const canFinish = !history && booking.status === "accepted" && started;
 
               return (
-                <div key={booking.id} className="rounded-3xl bg-surface p-4 ring-1 ring-line">
+                <article
+                  key={booking.id}
+                  className={cn(
+                    "rounded-3xl bg-surface p-4 ring-1 ring-line",
+                    history && "opacity-95",
+                  )}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-display text-sm font-extrabold">
@@ -190,12 +215,30 @@ function BookingsPage() {
                         {office?.name ?? "مكتب عقاري"}
                       </div>
                     </div>
-                    <StatusBadge status={booking.status} />
+                    <StatusBadge
+                      status={
+                        history &&
+                        ["pending", "accepted"].includes(String(booking.status ?? "")) &&
+                        started
+                          ? "appointment_ended"
+                          : booking.status
+                      }
+                    />
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Info label="تاريخ المعاينة">{formatDate(booking.visit_date)}</Info>
-                    <Info label="الوقت">{String(booking.visit_time).slice(0, 5)}</Info>
+                    <Info label="تاريخ المعاينة">
+                      <span className="inline-flex items-center gap-1.5">
+                        <CalendarDays className="size-3.5 text-terracotta" />
+                        {formatDate(booking.visit_date)}
+                      </span>
+                    </Info>
+                    <Info label="الوقت">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock3 className="size-3.5 text-terracotta" />
+                        {formatBookingTime(booking.visit_time)}
+                      </span>
+                    </Info>
                     <Info label="الحي">{property?.neighborhood || "—"}</Info>
                     <Info label="السعر">
                       {property?.price != null ? formatPrice(property.price) + " ر.س" : "—"}
@@ -215,57 +258,116 @@ function BookingsPage() {
                     </div>
                   )}
 
-                  {booking.cancel_reason && booking.status === "cancelled" && (
+                  {booking.cancel_reason && (
                     <div className="mt-3 rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
                       سبب الإلغاء: {booking.cancel_reason}
                     </div>
                   )}
 
-                  {(booking.status === "pending" || booking.status === "accepted") && !isToday && (
+                  {!history && !isToday && (
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setEditId(booking.id)}
-                        disabled={edit.isPending}
-                        className="flex items-center justify-center gap-1.5 rounded-xl bg-sand py-2.5 text-xs font-bold disabled:opacity-50"
+                        disabled={!canEdit || edit.isPending}
+                        className="flex items-center justify-center gap-1.5 rounded-2xl bg-sand py-3 text-xs font-bold text-foreground ring-1 ring-line disabled:cursor-not-allowed disabled:opacity-45"
+                        title="تعديل موعد المعاينة أو وسيلة الاتصال"
                       >
-                        تعديل المعاينة
+                        <Edit3 className="size-3.5" />
+                        تعديل موعد المعاينة
                       </button>
+
                       <button
                         type="button"
                         onClick={() => {
-                          if (booking.status === "accepted" && isToday) setFinishId(booking.id);
+                          if (booking.status !== "accepted") {
+                            toast.info("إنهاء المعاينة متاح بعد قبول المكتب.");
+                            return;
+                          }
+                          if (!started) {
+                            toast.info("سيصبح إنهاء المعاينة متاحًا عند بدء الموعد.");
+                            return;
+                          }
+                          setFinishId(booking.id);
                         }}
-                        disabled
-                        className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background opacity-40"
+                        disabled={finish.isPending}
+                        className="flex items-center justify-center gap-1.5 rounded-2xl bg-forest py-3 text-xs font-bold text-background disabled:opacity-50"
+                        title="إنهاء المعاينة"
                       >
-                        <CheckCircle2 className="size-4" /> إنهاء المعاينة
+                        <CheckCircle2 className="size-3.5" />
+                        إنهاء المعاينة
                       </button>
                     </div>
                   )}
 
+                  {isToday && !history && (
+                    <div className="mt-3 rounded-2xl bg-forest-soft p-3 text-center text-[11px] font-semibold text-forest">
+                      لديك معاينة اليوم الساعة {formatBookingTime(booking.visit_time)}
+                    </div>
+                  )}
 
-
-                  {(booking.status === "pending" || booking.status === "accepted") && (
+                  {!history && !isToday && (
                     <button
                       type="button"
                       onClick={() => setCancelId(booking.id)}
                       disabled={cancel.isPending}
-                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
                     >
                       <XCircle className="size-4" /> إلغاء المعاينة
                     </button>
                   )}
+                </article>
+              );
+            };
 
-                  {booking.status === "accepted" && (
-                    <div className="mt-2 text-center text-[11px] text-muted-foreground">
-                      موعدك الساعة {formatBookingTime(booking.visit_time)}
+            return (
+              <div className="space-y-6">
+                <section>
+                  <div className="mb-2.5 flex items-end justify-between">
+                    <div>
+                      <h2 className="font-display text-sm font-extrabold">المعاينات النشطة</h2>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        المواعيد الحالية والقادمة
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      {activeBookings.length}
+                    </span>
+                  </div>
+
+                  {activeBookings.length ? (
+                    <div className="space-y-3">
+                      {activeBookings.map((booking: any) => renderBooking(booking))}
+                    </div>
+                  ) : (
+                    <div className="rounded-3xl bg-surface p-4 text-center text-xs text-muted-foreground ring-1 ring-line">
+                      لا توجد معاينات نشطة.
                     </div>
                   )}
-                </div>
-              );
-            })}
-          </div>
+                </section>
+
+                {historyBookings.length > 0 && (
+                  <section className="border-t border-line pt-5">
+                    <div className="mb-2.5 flex items-end justify-between">
+                      <div>
+                        <h2 className="font-display text-sm font-extrabold">سجل المعاينات</h2>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          المعاينات المنتهية والمكتملة والملغاة
+                        </p>
+                      </div>
+                      <span className="text-[11px] font-semibold text-muted-foreground">
+                        {historyBookings.length}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {historyBookings.map((booking: any) => renderBooking(booking, true))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            );
+          })()
         ) : (
           <EmptyState
             icon={CalendarDays}
@@ -280,7 +382,7 @@ function BookingsPage() {
               </Link>
             }
           />
-        )}
+        )
       </main>
       <BottomNav />
       <CancelReasonModal
@@ -341,7 +443,9 @@ function StatusBadge({ status }: { status: string }) {
           ? "bg-forest-soft text-forest"
           : status === "rejected" || status === "cancelled"
             ? "bg-terracotta-soft text-terracotta"
-            : "bg-sand text-muted-foreground",
+            : status === "appointment_ended"
+              ? "bg-sand text-muted-foreground"
+              : "bg-sand text-muted-foreground",
       )}
     >
       {BOOKING_STATUS[status] ?? status}
