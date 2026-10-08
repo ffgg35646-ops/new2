@@ -1601,11 +1601,6 @@ export const rpcRequest = createServerFn({ method: "POST" })
           if (!bookingUserId || !bookingOfficeId) continue;
 
           const visitDate = String(booking.visit_date ?? "").slice(0, 10);
-          const appointment = saudiAppointmentDateTime(
-            visitDate,
-            String(booking.visit_time ?? ""),
-          );
-          if (!Number.isFinite(appointment.getTime())) continue;
 
           const office = await offices.findOne({
             id: bookingOfficeId,
@@ -1613,69 +1608,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
           });
           if (!office) continue;
 
-          // Once the appointment time has passed, close the booking automatically.
-          // This is deliberately separate from "completed": the user no longer
-          // needs to press "إنهاء المعاينة" after the appointment day.
-          if (appointment.getTime() <= now.getTime()) {
-            const claimed = await bookings.updateOne(
-              {
-                id: booking.id,
-                status: { $in: ["pending", "accepted"] },
-                appointment_ended_at: { $exists: false },
-              },
-              {
-                $set: {
-                  status: "appointment_ended",
-                  appointment_ended_at: now,
-                  updated_at: now,
-                },
-              },
-            );
-
-            if (claimed.modifiedCount !== 1) continue;
-
-            const property = await properties.findOne(
-              { id: booking.property_id },
-              { projection: { title: 1 } },
-            );
-            const propertyText = property?.title
-              ? " لعقار " + String(property.title)
-              : "";
-
-            const recipientIds = [
-              bookingUserId,
-              String(office.owner_id ?? ""),
-            ].filter((id, index, ids) => Boolean(id) && ids.indexOf(id) === index);
-
-            if (recipientIds.length) {
-              await notifications.insertMany(
-                recipientIds.map((recipientId) => ({
-                  id: randomUUID(),
-                  _id: randomUUID(),
-                  user_id: recipientId,
-                  title: "انتهى موعد المعاينة",
-                  body:
-                    "انتهى موعد المعاينة" +
-                    propertyText +
-                    " · الساعة " +
-                    String(booking.visit_time ?? "").slice(0, 5) +
-                    ".",
-                  type: "viewing_booking_ended",
-                  link:
-                    recipientId === bookingUserId
-                      ? "/bookings"
-                      : "/office/requests?tab=bookings",
-                  is_read: false,
-                  created_at: now,
-                  booking_id: booking.id,
-                })),
-              );
-            }
-
-            sent += 1;
-            continue;
-          }
-
+          // The appointment remains active until the user or office explicitly
+          // completes/cancels it. Reaching the appointment time must not change
+          // "accepted" to "appointment_ended", otherwise the finish action becomes
+          // impossible and the completion-reason flow cannot run.
           // Send the "today" reminder once for confirmed appointments.
           if (
             String(booking.status ?? "") === "accepted" &&
