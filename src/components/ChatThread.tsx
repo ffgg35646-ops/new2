@@ -374,35 +374,32 @@ export function ChatThread({
         );
       }
 
-      const { error } = await supabase
-        .from("messages")
-        .insert({
-          conversation_id: conversationId,
-          sender_id: userId,
-          body: payload.body ?? null,
-          image_url: payload.imageUrl ?? null,
-        });
+      const { error } = await supabase.rpc(
+        "send_chat_message" as never,
+        {
+          _conversation_id: conversationId,
+          _body: payload.body ?? null,
+          _image_url: payload.imageUrl ?? null,
+        } as never,
+      );
 
       if (error) {
-        if (
-          error.message.includes("CHAT_BLOCKED")
-        ) {
+        if (error.message.includes("CHAT_BLOCKED")) {
           throw new Error(
             "لا يمكن إرسال الرسائل: المحادثة محظورة",
           );
         }
 
+        if (error.message.includes("chat_not_available")) {
+          throw new Error(
+            "الدردشة غير متاحة لهذا المكتب حاليًا",
+          );
+        }
+
         throw new Error(
-          "تعذّر الإرسال — الدردشة غير متاحة لهذا المكتب حاليًا",
+          error.message || "تعذّر إرسال الرسالة",
         );
       }
-
-      await supabase
-        .from("conversations")
-        .update({
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", conversationId);
 
       await publishTyping(false);
     },
@@ -430,6 +427,10 @@ export function ChatThread({
 
       void qc.invalidateQueries({
         queryKey: ["office-conversations"],
+      });
+
+      void qc.invalidateQueries({
+        queryKey: ["unread-notifications", userId],
       });
     },
 
