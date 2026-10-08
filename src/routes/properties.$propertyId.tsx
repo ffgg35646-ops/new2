@@ -39,7 +39,7 @@ import { shareLink, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
-import { saudiAppointmentDateTime } from "@/lib/saudi-time";
+import { saudiAppointmentDateTime, saudiInputDateTime } from "@/lib/saudi-time";
 
 const REPORT_REASONS = [
   "معلومات غير صحيحة",
@@ -661,7 +661,7 @@ function PropertyDetail() {
           <input
             type="datetime-local"
             value={bookingDate}
-            min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
+            min={saudiInputDateTime(new Date(Date.now() + 60_000))}
             onChange={(e) => setBookingDate(e.target.value)}
             className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
           />
