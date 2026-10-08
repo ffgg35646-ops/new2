@@ -380,7 +380,7 @@ function OfficeProfile() {
                 </div>
               ))}
               <div className="flex items-center justify-between py-2">
-                <dt className="text-xs text-muted-foreground">شعار الحساب</dt>
+                <dt className="text-xs text-muted-foreground">شارة الحساب</dt>
                 <dd className="text-xs font-semibold">
                   {isVerified ? "موثق" : "حساب أساسي"}
                 </dd>
