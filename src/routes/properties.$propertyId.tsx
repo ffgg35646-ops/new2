@@ -244,6 +244,7 @@ function PropertyDetail() {
           office_id: data!.office_id,
           visit_date: bookingDate.slice(0, 10),
           visit_time: bookingDate.slice(11, 16),
+          status: "pending",
           contact_phone: contactPhone,
           contact_name: profile?.full_name || "عميل",
           contact_governorate_id: profile?.governorate_id || null,
