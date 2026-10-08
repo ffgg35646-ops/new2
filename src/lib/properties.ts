@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -100,14 +101,16 @@ export function useFavorites() {
     queryFn: async () => {
       const { data, error } = await supabase.from("favorites").select("property_id");
       if (error) throw error;
-      return new Set((data ?? []).map((r) => r.property_id));
+      return (data ?? [])
+        .map((r) => r.property_id)
+        .filter((id): id is string => typeof id === "string");
     },
   });
 
   const toggle = useMutation({
     mutationFn: async (propertyId: string) => {
       if (!userId) throw new Error("سجّل الدخول لحفظ العقار في المفضلة");
-      if (ids.data?.has(propertyId)) {
+      if (ids.data?.includes(propertyId)) {
         const { error } = await supabase
           .from("favorites")
           .delete()
@@ -128,8 +131,13 @@ export function useFavorites() {
     },
   });
 
+  const favoriteIds = useMemo(
+    () => new Set(ids.data ?? []),
+    [ids.data],
+  );
+
   return {
-    favoriteIds: ids.data ?? new Set<string>(),
+    favoriteIds,
     toggleFavorite: (id: string) => toggle.mutate(id),
   };
 }
