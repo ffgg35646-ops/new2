@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { Check, Lock, Sparkles } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { ProLockDialog } from "@/components/ProLock";
@@ -24,7 +23,7 @@ export const Route = createFileRoute("/plans")({
     ],
   }),
   component: () => (
-    <RoleGuard allow={["individual", "office", "admin"]}>
+    <RoleGuard allow={["office", "admin"]}>
       <PlansPage />
     </RoleGuard>
   ),
@@ -34,7 +33,6 @@ function PlansPage() {
   const { isOffice } = useAuth();
   const { data: catalog = [], isLoading } = usePackages(true);
   const { package: currentPackage, isPaid } = useMyPlan();
-  const [locked, setLocked] = useState(false);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -139,16 +137,7 @@ function PlansPage() {
                     </Link>
                   )}
 
-                  {!isOffice && pkg.price > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setLocked(true)}
-                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-sand py-3 text-xs font-bold"
-                    >
-                      <Lock className="size-3.5" />
-                      باقة مخصصة للمكاتب
-                    </button>
-                  )}
+
                 </section>
               );
             })}
@@ -159,10 +148,6 @@ function PlansPage() {
           </p>
         )}
 
-        <ProLockDialog
-          open={locked}
-          onClose={() => setLocked(false)}
-        />
 
         {isPaid && currentPackage && (
           <p className="rounded-2xl bg-sand p-3 text-[11px] text-muted-foreground">
