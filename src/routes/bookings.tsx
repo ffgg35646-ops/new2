@@ -33,6 +33,8 @@ function BookingsPage() {
   const { userId } = useAuth();
   const qc = useQueryClient();
   const [cancelId, setCancelId] = useState<string | null>(null);
+
+  const { data = [], isLoading } = useQuery({
     queryKey: ["bookings", userId],
     enabled: !!userId,
     refetchInterval: 5000,
