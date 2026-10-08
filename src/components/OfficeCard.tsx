@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Crown, ShieldCheck, Star } from "lucide-react";
 import { timeAgo } from "@/lib/format";
-import { effectivePlan } from "@/lib/plans";
 
 export type OfficeCardData = {
   id: string;
@@ -15,11 +14,13 @@ export type OfficeCardData = {
   plan?: string | null;
   plan_expires_at?: string | null;
   completed_requests_count?: number;
+  is_pro_current?: boolean;
+  verification_badge?: boolean;
 };
 
 export function OfficeCard({ office }: { office: OfficeCardData }) {
-  const isPro = effectivePlan(office) === "pro";
-  const isVerified = isPro && Number(office.completed_requests_count ?? 0) >= 10;
+  const isPro = office.is_pro_current === true;
+  const isVerified = office.verification_badge === true;
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-surface p-3 ring-1 ring-line animate-rise-in">
       {office.logo_url ? (
