@@ -26,6 +26,8 @@ export type PropertyCardData = {
     plan?: string | null;
     plan_expires_at?: string | null;
     completed_requests_count?: number;
+    is_pro_current?: boolean;
+    verification_badge?: boolean;
   } | null;
 };
 
@@ -64,12 +66,7 @@ export function PropertyCard({
 }) {
   const { isOffice } = useAuth();
   const photos = Math.max(property.images_count ?? 0, property.cover_url ? 1 : 0);
-  const officeIsPro =
-    property.offices?.plan === "pro" &&
-    (!property.offices.plan_expires_at ||
-      new Date(property.offices.plan_expires_at).getTime() > Date.now());
-  const officeIsVerified =
-    officeIsPro && Number(property.offices?.completed_requests_count ?? 0) >= 10;
+  const officeIsVerified = property.offices?.verification_badge === true;
 
   return (
     <article className="overflow-hidden rounded-3xl bg-surface ring-1 ring-line animate-rise-in">
