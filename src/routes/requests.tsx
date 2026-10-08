@@ -558,7 +558,7 @@ function OfferCard({
             )}
           </div>
         </div>
-      )}}
+      )}
     </div>
   );
 }
