@@ -1,6 +1,6 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Loader2, MessageCircle, Phone, Send, X } from "lucide-react";
 import { toast } from "sonner";
@@ -257,10 +257,9 @@ function TabButton({
   active,
   onClick,
 }: {
-  label: ReactNode;
+  label: string;
   active: boolean;
   onClick: () => void;
-  count?: number;
 }) {
   return (
     <button
@@ -270,14 +269,7 @@ function TabButton({
         active ? "bg-forest text-background" : "bg-surface text-muted-foreground ring-1 ring-line",
       )}
     >
-      <span className="inline-flex items-center justify-center gap-1.5">
-        {label}
-        {count != null && count > 0 && (
-          <span className="min-w-5 rounded-full bg-terracotta px-1.5 py-0.5 text-[10px] font-extrabold leading-none text-background">
-            {count}
-          </span>
-        )}
-      </span>
+      {label}
     </button>
   );
 }
@@ -404,8 +396,6 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
         />
       )}
     </div>
-
-
   );
 }
 
@@ -417,6 +407,7 @@ function FilterChip({
   label: string;
   active: boolean;
   onClick: () => void;
+  count?: number;
 }) {
   return (
     <button
@@ -428,7 +419,14 @@ function FilterChip({
           : "bg-surface text-muted-foreground ring-1 ring-line",
       )}
     >
-      {label}
+      <span className="inline-flex items-center justify-center gap-1.5">
+        {label}
+        {count != null && count > 0 && (
+          <span className="min-w-5 rounded-full bg-terracotta px-1.5 py-0.5 text-[10px] font-extrabold leading-none text-background">
+            {count}
+          </span>
+        )}
+      </span>
     </button>
   );
 }
@@ -550,7 +548,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               <span>‹</span>
             </button>
 
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2">{r.description}</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{r.description}</p>
             <div className="mt-1.5 text-[11px] text-muted-foreground">
               {r.neighborhood ? r.neighborhood + " · " : ""}
               {r.area_min ? "من " + formatArea(r.area_min) + " · " : ""}
@@ -644,15 +642,13 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
         onClick={() => setDetailsId(null)}
       >
         <div
-          className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-[28px] bg-surface p-4 shadow-2xl ring-1 ring-line"
+          className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-surface p-4 shadow-2xl ring-1 ring-line"
           onClick={(event) => event.stopPropagation()}
           dir="rtl"
         >
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-[10px] font-semibold text-muted-foreground">
-                تفاصيل طلب العميل
-              </div>
+              <div className="text-[10px] font-semibold text-muted-foreground">تفاصيل طلب العميل</div>
               <h2 className="mt-1 font-display text-lg font-extrabold">
                 {kindLabel(details.kind)} · {listingLabel(details.listing)}
               </h2>
@@ -671,11 +667,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
             <section className="rounded-2xl bg-background p-3.5 ring-1 ring-line">
               <div className="text-[10px] font-semibold text-muted-foreground">العميل</div>
               <div className="mt-1 text-sm font-extrabold">{details.client_name}</div>
-              {details.client_phone && (
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {details.client_phone}
-                </div>
-              )}
+              {details.client_phone && <div className="mt-1 text-xs text-muted-foreground">{details.client_phone}</div>}
             </section>
 
             <section className="grid grid-cols-2 gap-2">
@@ -713,9 +705,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
 
             <section className="rounded-2xl bg-background p-3.5 ring-1 ring-line">
               <div className="text-[10px] font-semibold text-muted-foreground">وصف الطلب</div>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-7">
-                {details.description || "لا يوجد وصف إضافي."}
-              </p>
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-7">{details.description || "لا يوجد وصف إضافي."}</p>
             </section>
 
             {details.attachment_url && (
@@ -735,12 +725,8 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
 
             {details.client_phone && (
               <div className="flex gap-2">
-                <a
-                  href={"tel:" + details.client_phone}
-                  className="flex-1 rounded-2xl bg-forest py-3.5 text-center text-sm font-bold text-background"
-                >
-                  <Phone className="mx-auto mb-1 size-4" />
-                  اتصال
+                <a href={"tel:" + details.client_phone} className="flex-1 rounded-2xl bg-forest py-3.5 text-center text-sm font-bold text-background">
+                  <Phone className="mx-auto mb-1 size-4" /> اتصال
                 </a>
                 <a
                   href={whatsappHref(details.client_phone, "مرحبًا " + details.client_name + "، بخصوص طلب العقار")}
@@ -748,8 +734,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
                   rel="noreferrer"
                   className="flex-1 rounded-2xl bg-sand py-3.5 text-center text-sm font-bold"
                 >
-                  <MessageCircle className="mx-auto mb-1 size-4" />
-                  واتساب
+                  <MessageCircle className="mx-auto mb-1 size-4" /> واتساب
                 </a>
               </div>
             )}
