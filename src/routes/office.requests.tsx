@@ -435,7 +435,7 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
               </div>
               <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
                 <div className="text-[10px] text-muted-foreground">المحافظة</div>
-                <div className="mt-1 text-sm font-bold">{officeGovernorateId ? "محافظة المكتب" : "—"}</div>
+                <div className="mt-1 text-sm font-bold">{details.governorate_name || "—"}</div>
               </div>
               <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
                 <div className="text-[10px] text-muted-foreground">الحي</div>
@@ -568,6 +568,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
         user_id: string;
         kind: string;
         listing: string;
+        governorate_name: string | null;
         neighborhood: string | null;
         budget_min: number | null;
         budget_max: number | null;
