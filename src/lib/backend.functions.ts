@@ -587,6 +587,24 @@ async function runDb(input: DbInput) {
       }
     }
 
+    if (input.collection === "property_views") {
+      if (role !== "individual") {
+        throw new Error("not_individual");
+      }
+
+      const properties = await getMongoCollection<Record<string, unknown>>("properties");
+      for (const doc of docs) {
+        const propertyId = String(doc.property_id ?? "");
+        if (!propertyId) throw new Error("property_view_invalid");
+
+        const property = await properties.findOne({
+          id: propertyId,
+          is_deleted: { $ne: true },
+        });
+        if (!property) throw new Error("property_not_found");
+      }
+    }
+
     if (input.collection === "profiles" && userId) {
       for (const doc of docs) {
         doc.id = userId;
@@ -611,6 +629,21 @@ async function runDb(input: DbInput) {
     }
 
     await collection.insertMany(docs);
+
+    if (input.collection === "property_views") {
+      const properties = await getMongoCollection<Record<string, unknown>>("properties");
+      await Promise.all(
+        docs.map((doc) =>
+          properties.updateOne(
+            { id: String(doc.property_id) },
+            {
+              $inc: { views_count: 1 },
+              $set: { updated_at: new Date() },
+            },
+          ),
+        ),
+      );
+    }
 
     try {
       if (input.collection === "reports") {
