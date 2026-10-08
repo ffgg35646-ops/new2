@@ -55,8 +55,8 @@ function BookingsPage() {
           "id,property_id,office_id,visit_date,visit_time,status,office_note,cancel_reason,contact_phone,created_at,properties(title,price,neighborhood),offices(name,phone,whatsapp)",
         )
         .eq("user_id", userId!)
-        .order("visit_date", { ascending: true })
-        .order("visit_time", { ascending: true })
+        .order("visit_date", { ascending: false })
+        .order("visit_time", { ascending: false })
         .limit(100);
       if (error) throw error;
       return data ?? [];
@@ -262,7 +262,7 @@ function BookingsPage() {
                     </div>
                   )}
 
-                  {(booking.status === "pending" || booking.status === "accepted") && !isToday && (
+                  {(booking.status === "pending" || booking.status === "accepted") && (
                     <button
                       type="button"
                       onClick={() => setCancelId(booking.id)}
