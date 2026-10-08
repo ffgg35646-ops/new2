@@ -1371,6 +1371,129 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: null, error: null };
       }
 
+      if (data.name === "send_chat_message") {
+        if (!userId) throw new Error("not_authenticated");
+
+        const args = data.args ?? {};
+        const conversationId = String(args._conversation_id ?? "");
+        const body = String(args._body ?? "").trim();
+        const imageUrl =
+          args._image_url == null ? null : String(args._image_url).trim() || null;
+
+        if (!conversationId) throw new Error("conversation_not_found");
+        if (!body && !imageUrl) throw new Error("message_empty");
+        if (body.length > 5000) throw new Error("message_too_long");
+
+        const conversations = await getMongoCollection<Record<string, unknown>>(
+          "conversations",
+        );
+        const conversation = await conversations.findOne({ id: conversationId });
+
+        if (!conversation) throw new Error("conversation_not_found");
+
+        const clientId = String(conversation.user_id ?? "");
+        const officeId = String(conversation.office_id ?? "");
+
+        if (!clientId || !officeId) throw new Error("conversation_invalid");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          id: officeId,
+          is_deleted: { $ne: true },
+        });
+
+        if (!office || String(office.owner_id ?? "") !== userId && userId !== clientId) {
+          throw new Error("not_conversation_member");
+        }
+
+        if (userId !== clientId) {
+          const expiresAt = office.plan_expires_at
+            ? new Date(String(office.plan_expires_at))
+            : null;
+          const chatEnabled =
+            office.plan === "pro" &&
+            (!expiresAt || expiresAt.getTime() > Date.now());
+
+          if (!chatEnabled) throw new Error("chat_not_available");
+        }
+
+        const blocks = await getMongoCollection<Record<string, unknown>>(
+          "conversation_blocks",
+        );
+        const blockRows = await blocks
+          .find({ conversation_id: conversationId })
+          .toArray();
+
+        if (blockRows.length) throw new Error("CHAT_BLOCKED");
+
+        const messageId = randomUUID();
+        const now = new Date();
+
+        await getMongoCollection<Record<string, unknown>>("messages").insertOne({
+          id: messageId,
+          _id: messageId,
+          conversation_id: conversationId,
+          sender_id: userId,
+          body: body || null,
+          image_url: imageUrl,
+          created_at: now,
+          updated_at: now,
+        });
+
+        await conversations.updateOne(
+          { id: conversationId },
+          { $set: { updated_at: now } },
+        );
+
+        const recipientId = userId === clientId
+          ? String(office.owner_id ?? "")
+          : clientId;
+
+        if (recipientId && recipientId !== userId) {
+          const profiles = await getMongoCollection<Record<string, unknown>>("profiles");
+          const profile = userId === clientId
+            ? await profiles.findOne({ id: clientId })
+            : null;
+
+          const senderName =
+            userId === clientId
+              ? String(profile?.full_name ?? "عميل")
+              : String(office.name ?? "مكتب عقاري");
+
+          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: recipientId,
+            title: userId === clientId
+              ? "رسالة جديدة من العميل"
+              : "رسالة جديدة من المكتب",
+            body:
+              senderName +
+              " أرسل لك رسالة جديدة" +
+              (body ? ": " + body.slice(0, 140) : " تحتوي على صورة"),
+            type: "chat_message",
+            link: userId === clientId
+              ? "/office/chat?c=" + encodeURIComponent(conversationId)
+              : "/chats?c=" + encodeURIComponent(conversationId),
+            is_read: false,
+            created_at: now,
+          });
+        }
+
+        return {
+          data: {
+            id: messageId,
+            conversation_id: conversationId,
+            sender_id: userId,
+            body: body || null,
+            image_url: imageUrl,
+            created_at: now,
+            read_at: null,
+          },
+          error: null,
+        };
+      }
+
       if (data.name === "notify_new_property_offer") {
         if (!userId) throw new Error("not_authenticated");
 
