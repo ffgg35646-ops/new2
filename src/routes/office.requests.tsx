@@ -155,7 +155,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
       const { data: rows, error } = await supabase
         .from("viewing_bookings")
         .select(
-          "id,user_id,visit_date,visit_time,status,office_note,cancel_reason,contact_phone,created_at,properties(title)",
+          "id,user_id,visit_date,visit_time,status,office_note,cancel_reason,contact_phone,contact_name,contact_governorate_id,created_at,properties(title)",
         )
         .eq("office_id", officeId!)
         .order("visit_date", { ascending: true })
@@ -164,22 +164,17 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
 
       if (error) throw error;
 
-      const bookings = (rows ?? []) as unknown as BookingRow[];
-      const ids = [...new Set(bookings.map((booking) => booking.user_id).filter(Boolean))];
-
-      if (!ids.length) return bookings;
-
-      const { data: profiles, error: profileError } = await supabase
-        .from("profiles")
-        .select("id,full_name,phone,governorate_id")
-        .in("id", ids);
-
-      if (profileError) throw profileError;
+      const bookings = (rows ?? []) as unknown as Array<
+        BookingRow & {
+          contact_name?: string | null;
+          contact_governorate_id?: string | null;
+        }
+      >;
 
       const governorateIds = [
         ...new Set(
-          (profiles ?? [])
-            .map((profile) => profile.governorate_id)
+          bookings
+            .map((booking) => booking.contact_governorate_id)
             .filter((id): id is string => typeof id === "string" && !!id),
         ),
       ];
@@ -194,26 +189,30 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
       if (governorateError) throw governorateError;
 
       const governorateMap = new Map(
-        (governorates ?? []).map((row) => [String(row.id), String(row.name_ar ?? "")]),
-      );
-      const profileMap = new Map(
-        (profiles ?? []).map((profile) => [
-          String(profile.id),
-          {
-            full_name: String(profile.full_name ?? "عميل"),
-            phone: profile.phone ? String(profile.phone) : null,
-            governorate_name: profile.governorate_id
-              ? governorateMap.get(String(profile.governorate_id)) ?? null
-              : null,
-          },
+        (governorates ?? []).map((row) => [
+          String(row.id),
+          String(row.name_ar ?? ""),
         ]),
       );
 
       for (const booking of bookings) {
-        booking.client = profileMap.get(booking.user_id) ?? null;
+        booking.client = {
+          full_name: String(booking.contact_name ?? "عميل"),
+          phone: booking.contact_phone ? String(booking.contact_phone) : null,
+          governorate_name: booking.contact_governorate_id
+            ? governorateMap.get(String(booking.contact_governorate_id)) ?? null
+            : null,
+        };
       }
 
-      return bookings;
+      const todayBookings = bookings.filter((booking) =>
+        isSaudiAppointmentToday(booking.visit_date),
+      );
+      const otherBookings = bookings.filter(
+        (booking) => !isSaudiAppointmentToday(booking.visit_date),
+      );
+
+      return [...todayBookings, ...otherBookings];
     },
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
