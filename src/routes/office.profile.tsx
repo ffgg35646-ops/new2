@@ -21,7 +21,7 @@ import { MediaUploader } from "@/components/MediaUploader";
 import { QrDialog } from "@/components/QrDialog";
 import { QrCode } from "lucide-react";
 import { useAuth, signOut } from "@/lib/auth";
-import { VERIFICATION_STATUS } from "@/lib/constants";
+
 import { useGovernorates } from "@/lib/governorate";
 import { useMyOffice } from "@/lib/office";
 import { useMyPlan } from "@/lib/plans";
@@ -72,7 +72,7 @@ function OfficeProfile() {
   const { data: membership, isLoading } = useMyOffice();
   const office = membership?.office ?? null;
   const isOwner = membership?.isOwner ?? false;
-  const { isPro } = useMyPlan();
+  const { isPro } = useMyPlan();\n  const isVerified = isPro && Number((office as { completed_requests_count?: number } | null)?.completed_requests_count ?? 0) >= 10;
   const [showQr, setShowQr] = useState(false);
   const [editing, setEditing] = useState(false);
   const [dark, setDark] = useState(false);
@@ -201,13 +201,18 @@ function OfficeProfile() {
                 {office?.name ?? "مكتبي العقاري"}
               </div>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <ShieldCheck
-                  className={cn(
-                    "size-3.5",
-                    office?.verification_status === "verified" && "text-forest",
-                  )}
-                />
-                {office ? VERIFICATION_STATUS[office.verification_status] : "—"}
+                {isVerified ? (
+                  <>
+                    <ShieldCheck className="size-3.5 text-forest" />
+                    موثق
+                  </>
+                ) : office?.verification_status === "pending" ? (
+                  "قيد المراجعة"
+                ) : office?.verification_status === "rejected" ? (
+                  "مرفوض"
+                ) : (
+                  "الحساب الأساسي"
+                )}
               </div>
             </div>
             {office && (
