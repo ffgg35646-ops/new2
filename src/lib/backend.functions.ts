@@ -571,7 +571,7 @@ async function runDb(input: DbInput) {
       );
     }
 
-    if (input.collection === "properties")
+    if (input.collection === "properties") {
       const favorites = await getMongoCollection<Record<string, unknown>>("favorites");
       await Promise.all(
         rows.map(async (property) => {
