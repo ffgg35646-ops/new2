@@ -53,7 +53,7 @@ function BookingsPage() {
       const { data, error } = await supabase
         .from("viewing_bookings")
         .select(
-          "id,property_id,office_id,visit_date,visit_time,status,office_note,cancel_reason,contact_phone,created_at,properties(title,price,neighborhood),offices(name,phone,whatsapp)",
+          "id,property_id,office_id,visit_date,visit_time,status,office_note,cancel_reason,completion_reason,contact_phone,created_at,properties(title,price,neighborhood),offices(name,phone,whatsapp)",
         )
         .eq("user_id", userId!)
         .order("visit_date", { ascending: false })
@@ -284,6 +284,13 @@ function BookingsPage() {
                     </div>
                   )}
 
+                  {booking.completion_reason && booking.status === "completed" && (
+                    <div className="mt-3 rounded-2xl bg-forest-soft p-3 text-xs leading-6 text-forest">
+                      <span className="font-bold">سبب إنهاء المعاينة:</span>{" "}
+                      {booking.completion_reason}
+                    </div>
+                  )}
+
                   {(!history && (canEdit || canFinish)) && (
                     <div
                       className={cn(
@@ -325,7 +332,7 @@ function BookingsPage() {
                     </div>
                   )}
 
-                  {!history && (
+                  {!history && !started && (
                     <button
                       type="button"
                       onClick={() => setCancelId(booking.id)}
