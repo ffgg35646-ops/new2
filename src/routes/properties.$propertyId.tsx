@@ -105,61 +105,69 @@ function PropertyDetail() {
         if (propertyResult.error) throw propertyResult.error;
       }
 
-      const property = propertyResult.data;
-      if (!property) return null;
+      return propertyResult.data;
+    },
+  });
 
-      const officePromise = property.office_id
-        ? supabase
-            .from("offices")
-            .select("id,name,logo_url,phone,whatsapp,working_hours,license_number,verification_status,rating_avg,reviews_count")
-            .eq("id", property.office_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null });
+  const { data: officeData } = useQuery({
+    queryKey: ["property-office", data?.office_id],
+    enabled: !!data?.office_id,
+    queryFn: async () => {
+      const { data: result, error } = await supabase
+        .from("offices")
+        .select("id,name,logo_url,phone,whatsapp,working_hours,license_number,verification_status,rating_avg,reviews_count")
+        .eq("id", data!.office_id)
+        .maybeSingle();
+      if (error) throw error;
+      return result;
+    },
+    staleTime: 60_000,
+  });
 
-      const imagesPromise = supabase
+  const { data: propertyImages = [] } = useQuery({
+    queryKey: ["property-images", data?.id],
+    enabled: !!data?.id,
+    queryFn: async () => {
+      const { data: result, error } = await supabase
         .from("property_images")
         .select("id,url,sort_order")
-        .eq("property_id", property.id)
+        .eq("property_id", data!.id)
         .order("sort_order", { ascending: true });
-
-      const governoratePromise = property.governorate_id
-        ? supabase
-            .from("governorates")
-            .select("id,name_ar")
-            .eq("id", property.governorate_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null });
-
-      const agentPromise = property.office_id
-        ? supabase
-            .from("office_staff")
-            .select("id,name,job_title,phone")
-            .eq("office_id", property.office_id)
-            .limit(1)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null });
-
-      const [officeResult, imagesResult, governorateResult, agentResult] =
-        await Promise.all([
-          officePromise,
-          imagesPromise,
-          governoratePromise,
-          agentPromise,
-        ]);
-
-      if (officeResult.error) throw officeResult.error;
-      if (imagesResult.error) throw imagesResult.error;
-      if (governorateResult.error) throw governorateResult.error;
-      if (agentResult.error) throw agentResult.error;
-
-      return {
-        ...property,
-        offices: officeResult.data,
-        property_images: imagesResult.data ?? [],
-        governorates: governorateResult.data,
-        agent: agentResult.data,
-      };
+      if (error) throw error;
+      return result ?? [];
     },
+    staleTime: 60_000,
+  });
+
+  const { data: governorateData } = useQuery({
+    queryKey: ["property-governorate", data?.governorate_id],
+    enabled: !!data?.governorate_id,
+    queryFn: async () => {
+      const { data: result, error } = await supabase
+        .from("governorates")
+        .select("id,name_ar")
+        .eq("id", data!.governorate_id)
+        .maybeSingle();
+      if (error) throw error;
+      return result;
+    },
+    staleTime: 300_000,
+  });
+
+  const { data: agentData } = useQuery({
+    queryKey: ["property-agent", data?.office_id],
+    enabled: !!data?.office_id,
+    queryFn: async () => {
+      const { data: result, error } = await supabase
+        .from("office_staff")
+        .select("id,name,job_title,phone")
+        .eq("office_id", data!.office_id)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return result;
+    },
+    staleTime: 60_000,
   });
 
   const { data: officeChatPlan } = useQuery({
@@ -366,9 +374,9 @@ function PropertyDetail() {
 
   const images = [
     ...(data.cover_url ? [{ id: "cover", url: data.cover_url }] : []),
-    ...((data.property_images ?? []) as { id: string; url: string }[]),
+    ...(propertyImages as { id: string; url: string }[]),
   ];
-  const office = data.offices as {
+  const office = officeData as {
     id: string;
     name: string;
     logo_url: string | null;
@@ -380,7 +388,7 @@ function PropertyDetail() {
     rating_avg: number | string;
     reviews_count: number;
   } | null;
-  const agent = data.agent as {
+  const agent = agentData as {
     id: string;
     name: string;
     job_title: string | null;
@@ -444,7 +452,7 @@ function PropertyDetail() {
             </span>
           </div>
           <div className="mt-1 text-sm text-muted-foreground">
-            {data.neighborhood} · {data.governorate || (data.governorates as { name_ar: string } | null)?.name_ar || "—"} ·{" "}
+            {data.neighborhood} · {governorateData?.name_ar || "—"} ·{" "}
             {timeAgo(data.created_at)}
           </div>
           <div className="mt-3 font-display text-2xl font-extrabold text-forest">
