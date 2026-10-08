@@ -1,8 +1,8 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Loader2 } from "lucide-react";
+import { ClipboardList, Copy, Loader2, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -33,6 +33,10 @@ const OFFER_STATUS: Record<string, string> = {
 };
 
 export const Route = createFileRoute("/request")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    request:
+      typeof search.request === "string" ? search.request : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "اطلب عقارًا | عقار البطين" },
@@ -54,6 +58,8 @@ export const Route = createFileRoute("/request")({
 function RequestPage() {
   const { userId } = useAuth();
   const qc = useQueryClient();
+  const search = Route.useSearch();
+  const [revealedPhoneId, setRevealedPhoneId] = useState<string | null>(null);
   const { governorateId } = useSelectedGovernorate();
   const { data: neighborhoods = [] } = useNeighborhoods(governorateId);
 
@@ -83,6 +89,27 @@ function RequestPage() {
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
   });
+
+  useEffect(() => {
+    if (!search.request || !myRequests?.length) return;
+
+    const id = "request-" + search.request;
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 0);
+  }, [search.request, myRequests]);
+
+  async function copyPhone(phone: string) {
+    try {
+      await navigator.clipboard.writeText(phone);
+      toast.success("تم نسخ الرقم");
+    } catch {
+      toast.error("تعذّر نسخ الرقم");
+    }
+  }
 
   const setOfferStatus = useMutation({
     mutationFn: async (vars: { id: string; status: "accepted" | "rejected" }) => {
@@ -280,7 +307,14 @@ function RequestPage() {
             ) : myRequests?.length ? (
               <div className="space-y-2.5">
                 {myRequests.map((r) => (
-                  <div key={r.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+                  <div
+                    id={"request-" + r.id}
+                    key={r.id}
+                    className={cn(
+                      "rounded-2xl bg-surface p-3.5 ring-1 ring-line",
+                      search.request === r.id && "ring-2 ring-forest",
+                    )}
+                  >
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-bold">
                         {PROPERTY_KINDS.find((k) => k.value === r.kind)?.label} ·{" "}
@@ -352,41 +386,81 @@ function RequestPage() {
                                 العقار المقترح: {o.properties.title}
                               </Link>
                             )}
-                            <div className="mt-2 flex gap-2">
-                              {o.status === "sent" && (
-                                <>
+                            <div className="mt-2 space-y-2">
+                              <div className="flex gap-2">
+                                {o.status === "sent" && (
+                                  <>
+                                    <button
+                                      onClick={() =>
+                                        setOfferStatus.mutate({ id: o.id, status: "accepted" })
+                                      }
+                                      disabled={setOfferStatus.isPending}
+                                      className="flex-1 rounded-lg bg-forest py-1.5 text-[11px] font-bold text-background disabled:opacity-50"
+                                    >
+                                      قبول
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        setOfferStatus.mutate({ id: o.id, status: "rejected" })
+                                      }
+                                      disabled={setOfferStatus.isPending}
+                                      className="flex-1 rounded-lg bg-terracotta-soft py-1.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
+                                    >
+                                      رفض
+                                    </button>
+                                  </>
+                                )}
+
+                                {o.offices?.phone && (
                                   <button
+                                    type="button"
                                     onClick={() =>
-                                      setOfferStatus.mutate({ id: o.id, status: "accepted" })
+                                      setRevealedPhoneId((current) =>
+                                        current === o.id ? null : o.id,
+                                      )
                                     }
-                                    disabled={setOfferStatus.isPending}
-                                    className="flex-1 rounded-lg bg-forest py-1.5 text-[11px] font-bold text-background disabled:opacity-50"
+                                    className="flex-1 rounded-lg bg-surface py-1.5 text-center text-[11px] font-bold text-forest ring-1 ring-line"
                                   >
-                                    قبول
+                                    <span className="inline-flex items-center justify-center gap-1.5">
+                                      <Phone className="size-3.5" /> اتصال
+                                    </span>
                                   </button>
+                                )}
+
+                                {o.offices?.whatsapp && (
+                                  <a
+                                    href={whatsappHref(
+                                      o.offices.whatsapp,
+                                      `مرحبًا، بخصوص عرضكم على طلبي العقاري في تطبيق بيتي الخاص`,
+                                    )}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex-1 rounded-lg bg-surface py-1.5 text-center text-[11px] font-bold text-forest ring-1 ring-line"
+                                  >
+                                    تواصل واتساب
+                                  </a>
+                                )}
+                              </div>
+
+                              {revealedPhoneId === o.id && o.offices?.phone && (
+                                <div className="flex items-center gap-2 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                                  <a
+                                    dir="ltr"
+                                    href={`tel:${o.offices.phone}`}
+                                    className="flex-1 text-center text-xs font-bold text-forest"
+                                  >
+                                    {o.offices.phone}
+                                  </a>
                                   <button
-                                    onClick={() =>
-                                      setOfferStatus.mutate({ id: o.id, status: "rejected" })
-                                    }
-                                    disabled={setOfferStatus.isPending}
-                                    className="flex-1 rounded-lg bg-terracotta-soft py-1.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
+                                    type="button"
+                                    title="نسخ الرقم"
+                                    aria-label="نسخ الرقم"
+                                    onClick={() => void copyPhone(o.offices!.phone!)}
+                                    className="grid size-8 shrink-0 place-items-center rounded-lg bg-sand text-forest ring-1 ring-line"
                                   >
-                                    رفض
+                                    <Copy className="size-3.5" />
                                   </button>
-                                </>
-                              )}
-                              {(o.offices?.whatsapp || o.offices?.phone) && (
-                                <a
-                                  href={whatsappHref(
-                                    o.offices.whatsapp || o.offices.phone!,
-                                    `مرحبًا، بخصوص عرضكم على طلبي العقاري في تطبيق بيتي الخاص`,
-                                  )}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="flex-1 rounded-lg bg-surface py-1.5 text-center text-[11px] font-bold text-forest ring-1 ring-line"
-                                >
-                                  تواصل واتساب
-                                </a>
+                                </div>
                               )}
                             </div>
                           </div>
