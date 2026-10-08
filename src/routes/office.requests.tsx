@@ -293,6 +293,8 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
       if (error) throw error;
       return data ?? [];
     },
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 
   const setStatus = useMutation({
