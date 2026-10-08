@@ -160,13 +160,12 @@ export function PropertyCard({
           عرض التفاصيل
         </Link>
         {!isOffice && (
-          <Link
-            to="/properties/$propertyId"
-            params={{ propertyId: property.property_number }}
+          <a
+            href={`/properties/${encodeURIComponent(property.property_number)}#property-inquiry`}
             className="flex-1 rounded-xl bg-terracotta-soft py-2.5 text-center text-xs font-bold text-terracotta"
           >
             إرسال طلب
-          </Link>
+          </a>
         )}
       </div>
     </article>
