@@ -151,8 +151,8 @@ function RequestsPage() {
   });
 
   const activeSent = myRequests.filter((request) => request.status === "active").length;
-  const pendingReceived = receivedOffers.filter(
-    (offer) => offer.status === "sent" && offer.requestStatus === "active",
+  const receivedCount = receivedOffers.filter(
+    (offer) => offer.status === "sent",
   ).length;
 
   return (
@@ -167,8 +167,8 @@ function RequestsPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
-          <Tab active={tab === "sent"} label="مرسل" count={activeSent} onClick={() => setTab("sent")} />
-          <Tab active={tab === "received"} label="مستقبل" count={pendingReceived} onClick={() => setTab("received")} />
+          <Tab active={tab === "sent"} label="المرسلة" count={activeSent} onClick={() => setTab("sent")} />
+          <Tab active={tab === "received"} label="مستلم" count={receivedCount} onClick={() => setTab("received")} />
         </div>
 
         {isLoading ? (
