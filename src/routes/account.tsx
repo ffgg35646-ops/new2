@@ -20,8 +20,6 @@ import { BottomNav } from "@/components/BottomNav";
 import { EmptyState } from "@/components/EmptyState";
 import { useAuth, signOut } from "@/lib/auth";
 import { useSelectedGovernorate } from "@/lib/governorate";
-import { BOOKING_STATUS } from "@/lib/constants";
-import { formatDate } from "@/lib/format";
 import { SupportCenter } from "@/components/SupportCenter";
 import { ProfileModal } from "@/components/ProfileModal";
 
@@ -83,35 +81,6 @@ function AccountPage() {
   }
 
   const qc = useQueryClient();
-  const cancelBooking = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("viewing_bookings")
-        .update({ status: "cancelled" })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("تم إلغاء الحجز");
-      void qc.invalidateQueries({ queryKey: ["bookings"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر إلغاء الحجز"),
-  });
-
-  const { data: bookings } = useQuery({
-    queryKey: ["bookings", userId],
-    enabled: !!userId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("viewing_bookings")
-        .select("id,visit_date,visit_time,status,properties(title),offices(name)")
-        .order("visit_date", { ascending: false })
-        .limit(10);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
       <AppHeader showSearch={false} />
@@ -167,7 +136,8 @@ function AccountPage() {
 
             <section className="space-y-2">
               <NavRow to="/favorites" icon={Heart} label="المفضلة" />
-              <NavRow to="/request" icon={CalendarDays} label="طلباتي العقارية" />
+              <NavRow to="/requests" icon={CalendarDays} label="الطلبات" />
+              <NavRow to="/bookings" icon={CalendarDays} label="حجوزات المعاينة" />
               <NavRow to="/offices" icon={Building2} label="المكاتب العقارية" />
               <NavRow
                 to="/offices/following"
