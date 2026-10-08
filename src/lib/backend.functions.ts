@@ -1538,6 +1538,9 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const properties = await getMongoCollection<Record<string, unknown>>("properties");
         const property = await properties.findOne({ id: booking.property_id });
         const now = new Date();
+        const clientName =
+          String(booking.contact_name ?? "العميل").trim() || "العميل";
+        const contactPhone = String(booking.contact_phone ?? "").trim();
 
         await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
           id: randomUUID(),
@@ -1545,12 +1548,14 @@ export const rpcRequest = createServerFn({ method: "POST" })
           user_id: office.owner_id,
           title: "طلب معاينة جديد",
           body:
-            "يوجد طلب معاينة جديد" +
+            clientName +
+            " أرسل طلب معاينة" +
             (property?.title ? " لعقار " + String(property.title) : "") +
-            " بتاريخ " +
+            " · التاريخ " +
             String(booking.visit_date ?? "") +
-            " الساعة " +
-            String(booking.visit_time ?? "").slice(0, 5),
+            " · الساعة " +
+            String(booking.visit_time ?? "").slice(0, 5) +
+            (contactPhone ? " · رقم التواصل: " + contactPhone : ""),
           type: "viewing_booking",
           link: "/office/requests?tab=bookings",
           is_read: false,
