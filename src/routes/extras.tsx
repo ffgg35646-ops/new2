@@ -3,6 +3,7 @@ import {
   Bell,
   Building2,
   ChevronLeft,
+  Crown,
   ClipboardList,
   Heart,
   MessageSquare,
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/extras")({
     ],
   }),
   component: () => (
-    <RoleGuard allow={["individual", "office", "admin"]}>
+    <RoleGuard allow={["office", "admin"]}>
       <ExtrasPage />
     </RoleGuard>
   ),
