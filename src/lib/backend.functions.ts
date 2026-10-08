@@ -248,9 +248,80 @@ async function enrichRows(
           .find({ [rule.foreignField]: localValue })
           .toArray();
 
-        row[relation.output] = related.map((item) =>
+        const mapped = related.map((item) =>
           pickFields(item, relation.fields),
         );
+
+        if (relation.collection === "office_offers") {
+          const offerFields = relation.fields;
+
+          const needOffices = /(?:^|,)\\s*offices\\(/.test(offerFields.join(","));
+          const needProperties = /(?:^|,)\\s*properties\\(/.test(offerFields.join(","));
+
+          const officeIds = needOffices
+            ? [
+                ...new Set(
+                  related
+                    .map((item) => item.office_id)
+                    .filter((id): id is string => typeof id === "string"),
+                ),
+              ]
+            : [];
+
+          const propertyIds = needProperties
+            ? [
+                ...new Set(
+                  related
+                    .map((item) => item.property_id)
+                    .filter((id): id is string => typeof id === "string"),
+                ),
+              ]
+            : [];
+
+          const [offices, properties] = await Promise.all([
+            officeIds.length
+              ? getMongoCollection<Record<string, unknown>>("offices").then((collection) =>
+                  collection.find({ id: { $in: officeIds } }).toArray(),
+                )
+              : Promise.resolve([]),
+            propertyIds.length
+              ? getMongoCollection<Record<string, unknown>>("properties").then((collection) =>
+                  collection.find({ id: { $in: propertyIds } }).toArray(),
+                )
+              : Promise.resolve([]),
+          ]);
+
+          const officeMap = new Map(
+            offices.map((office) => [
+              String(office.id),
+              pickFields(office, ["name", "phone", "whatsapp"]),
+            ]),
+          );
+
+          const propertyMap = new Map(
+            properties.map((property) => [
+              String(property.id),
+              pickFields(property, ["id", "title"]),
+            ]),
+          );
+
+          row[relation.output] = mapped.map((offer, index) => {
+            const source = related[index];
+            const next = { ...offer } as Record<string, unknown>;
+
+            if (needOffices) {
+              next.offices = officeMap.get(String(source.office_id)) ?? null;
+            }
+
+            if (needProperties) {
+              next.properties = propertyMap.get(String(source.property_id)) ?? null;
+            }
+
+            return next;
+          });
+        } else {
+          row[relation.output] = mapped;
+        }
       } else {
         const related = await relatedCollection.findOne({
           [rule.foreignField]: localValue,
