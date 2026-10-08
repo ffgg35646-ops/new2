@@ -151,9 +151,7 @@ function RequestsPage() {
   });
 
   const activeSent = myRequests.filter((request) => request.status === "active").length;
-  const receivedCount = receivedOffers.filter(
-    (offer) => offer.status === "sent",
-  ).length;
+  const receivedCount = receivedOffers.length;
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
