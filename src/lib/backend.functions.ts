@@ -1743,6 +1743,22 @@ export const rpcRequest = createServerFn({ method: "POST" })
         }
 
         if (
+          requestedStatus === "completed" &&
+          !isOfficeOwner &&
+          role !== "individual"
+        ) {
+          throw new Error("not_individual");
+        }
+
+        if (
+          requestedStatus === "completed" &&
+          !isOfficeOwner &&
+          (cancelReason.length < 3 || cancelReason.length > 500)
+        ) {
+          throw new Error("completion_reason_required");
+        }
+
+        if (
           requestedStatus === "cancelled" &&
           !["pending", "accepted"].includes(String(booking.status ?? ""))
         ) {
@@ -1769,7 +1785,15 @@ export const rpcRequest = createServerFn({ method: "POST" })
               ...(requestedStatus === "cancelled"
                 ? { cancel_reason: cancelReason, cancelled_at: now }
                 : requestedStatus === "completed"
-                  ? { completed_at: now }
+                  ? {
+                      completed_at: now,
+                      ...(isOfficeOwner
+                        ? {}
+                        : {
+                            completed_by: userId,
+                            completion_reason: cancelReason,
+                          }),
+                    }
                   : {}),
               updated_at: now,
             },
@@ -1785,31 +1809,53 @@ export const rpcRequest = createServerFn({ method: "POST" })
           ? bookingUserId
           : String(bookingOffice?.owner_id ?? "");
 
-        const title =
-          requestedStatus === "cancelled"
-            ? "تم إلغاء المعاينة من " + actorLabel
-            : requestedStatus === "accepted"
-              ? "تم قبول حجز المعاينة"
-              : requestedStatus === "rejected"
-                ? "تم رفض حجز المعاينة"
-                : "المعاينة انتهت";
-
+        const clientName = String(booking.contact_name ?? "العميل").trim() || "العميل";
+        const propertyLabel = property?.title
+          ? "عقار " + String(property.title)
+          : "العقار";
         const baseBody =
-          (property?.title ? String(property.title) + " · " : "") +
-          "الساعة " +
+          propertyLabel +
+          " · الساعة " +
           String(booking.visit_time ?? "").slice(0, 5);
 
-        const body =
-          requestedStatus === "cancelled"
-            ? baseBody + " · السبب: " + cancelReason
-            : requestedStatus === "completed"
-              ? baseBody + " · تم تسجيل المعاينة كمنتهية."
-              : baseBody;
+        let title: string;
+        let body: string;
+        let notificationRecipients: string[];
 
-        const allRecipients = [
-          userId,
-          recipientId,
-        ].filter((id, index, ids) => Boolean(id) && ids.indexOf(id) === index);
+        if (requestedStatus === "completed" && !isOfficeOwner) {
+          title = "العميل أنهى المعاينة";
+          body =
+            clientName +
+            " أنهى معاينة " +
+            propertyLabel +
+            " · الساعة " +
+            String(booking.visit_time ?? "").slice(0, 5) +
+            " · السبب: " +
+            cancelReason;
+          notificationRecipients = [String(bookingOffice?.owner_id ?? "")];
+        } else {
+          title =
+            requestedStatus === "cancelled"
+              ? "تم إلغاء المعاينة من " + actorLabel
+              : requestedStatus === "accepted"
+                ? "تم قبول حجز المعاينة"
+                : requestedStatus === "rejected"
+                  ? "تم رفض حجز المعاينة"
+                  : "المعاينة انتهت";
+
+          body =
+            requestedStatus === "cancelled"
+              ? baseBody + " · السبب: " + cancelReason
+              : requestedStatus === "completed"
+                ? baseBody + " · تم تسجيل المعاينة كمنتهية."
+                : baseBody;
+
+          notificationRecipients = [userId, recipientId];
+        }
+
+        const allRecipients = notificationRecipients.filter(
+          (id, index, ids) => Boolean(id) && ids.indexOf(id) === index,
+        );
 
         if (allRecipients.length) {
           await notifications.insertMany(
@@ -1829,6 +1875,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
               booking_id: booking.id,
               cancel_reason:
                 requestedStatus === "cancelled" ? cancelReason : null,
+              completion_reason:
+                requestedStatus === "completed" && !isOfficeOwner
+                  ? cancelReason
+                  : null,
             })),
           );
         }
