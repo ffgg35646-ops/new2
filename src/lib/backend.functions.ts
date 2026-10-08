@@ -1672,6 +1672,132 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: sent, error: null };
       }
 
+      if (data.name === "update_viewing_booking") {
+        if (!userId || role !== "individual") throw new Error("not_individual");
+
+        const bookingId = String(data.args?._booking_id ?? "");
+        const visitDate = String(data.args?._visit_date ?? "").slice(0, 10);
+        const visitTime = String(data.args?._visit_time ?? "").slice(0, 5);
+        const contactPhone = String(data.args?._contact_phone ?? "").trim();
+
+        if (!bookingId || !visitDate || !visitTime) {
+          throw new Error("booking_update_invalid");
+        }
+
+        if (!contactPhone || contactPhone.length < 3 || contactPhone.length > 100) {
+          throw new Error("contact_required");
+        }
+
+        const appointment = saudiAppointmentDateTime(visitDate, visitTime);
+        if (!Number.isFinite(appointment.getTime()) || appointment.getTime() <= Date.now()) {
+          throw new Error("appointment_must_be_future");
+        }
+
+        const bookings = await getMongoCollection<Record<string, unknown>>(
+          "viewing_bookings",
+        );
+        const booking = await bookings.findOne({
+          id: bookingId,
+          user_id: userId,
+        });
+
+        if (!booking) throw new Error("booking_not_found");
+
+        if (!["pending", "accepted"].includes(String(booking.status ?? ""))) {
+          throw new Error("booking_not_editable");
+        }
+
+        const currentAppointment = saudiAppointmentDateTime(
+          String(booking.visit_date ?? ""),
+          String(booking.visit_time ?? ""),
+        );
+
+        if (
+          Number.isFinite(currentAppointment.getTime()) &&
+          currentAppointment.getTime() <= Date.now()
+        ) {
+          throw new Error("appointment_already_started");
+        }
+
+        const duplicate = await bookings.findOne({
+          _id: { $ne: booking._id },
+          user_id: userId,
+          property_id: booking.property_id,
+          visit_date: visitDate,
+          visit_time: visitTime,
+          status: { $nin: ["rejected", "cancelled", "completed"] },
+        });
+
+        if (duplicate) {
+          throw new Error("duplicate_booking_time");
+        }
+
+        const now = new Date();
+
+        await bookings.updateOne(
+          { id: bookingId, user_id: userId },
+          {
+            $set: {
+              visit_date: visitDate,
+              visit_time: visitTime,
+              contact_phone: contactPhone,
+              updated_at: now,
+            },
+          },
+        );
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          id: booking.office_id,
+          is_deleted: { $ne: true },
+        });
+
+        const properties = await getMongoCollection<Record<string, unknown>>("properties");
+        const property = await properties.findOne({ id: booking.property_id });
+
+        if (office?.owner_id) {
+          const clientName =
+            String(booking.contact_name ?? "العميل").trim() || "العميل";
+          const propertyText = property?.title
+            ? " لعقار " + String(property.title)
+            : "";
+
+          await getMongoCollection<Record<string, unknown>>(
+            "notifications",
+          ).insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: String(office.owner_id),
+            title: "تم تعديل حجز المعاينة",
+            body:
+              clientName +
+              " عدّل حجز المعاينة" +
+              propertyText +
+              " · الموعد الجديد " +
+              visitDate +
+              " الساعة " +
+              visitTime +
+              " · وسيلة الاتصال: " +
+              contactPhone,
+            type: "viewing_booking_updated",
+            link: "/office/requests?tab=bookings",
+            is_read: false,
+            created_at: now,
+            booking_id: booking.id,
+          });
+        }
+
+        return {
+          data: {
+            id: bookingId,
+            visit_date: visitDate,
+            visit_time: visitTime,
+            contact_phone: contactPhone,
+          },
+          error: null,
+        };
+      }
+
       if (data.name === "set_viewing_booking_status") {
         if (!userId) throw new Error("not_authenticated");
 
