@@ -17,7 +17,17 @@ export async function uploadMedia(file: File, userId: string, folder: string) {
   });
   if (error) throw error;
 
-  const publicUrl = (data as { publicUrl?: string } | null)?.publicUrl;
+  const uploaded = data as
+    | { path?: string; publicUrl?: string }
+    | null;
+
+  const mediaPath = uploaded?.path;
+  const publicUrl =
+    uploaded?.publicUrl ??
+    (mediaPath
+      ? "/api/media/" + encodeURIComponent(mediaPath)
+      : null);
+
   if (!publicUrl) throw new Error("تعذّر إنشاء رابط المرفق.");
 
   return publicUrl;
