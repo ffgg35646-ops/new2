@@ -14,10 +14,12 @@ export type OfficeCardData = {
   rating_avg?: number | null;
   plan?: string | null;
   plan_expires_at?: string | null;
+  completed_requests_count?: number;
 };
 
 export function OfficeCard({ office }: { office: OfficeCardData }) {
   const isPro = effectivePlan(office) === "pro";
+  const isVerified = isPro && Number(office.completed_requests_count ?? 0) >= 10;
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-surface p-3 ring-1 ring-line animate-rise-in">
       {office.logo_url ? (
@@ -35,7 +37,7 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="truncate font-display text-sm font-bold">{office.name}</span>
-          {office.verification_status === "verified" && (
+          {isVerified && (
             <ShieldCheck className="size-4 shrink-0 text-forest" />
           )}
           {isPro && (
