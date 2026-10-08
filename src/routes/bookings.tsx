@@ -23,6 +23,7 @@ import { formatArea, formatDate, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CancelReasonModal } from "@/components/CancelReasonModal";
 import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
+import { EditViewingBookingModal } from "@/components/EditViewingBookingModal";
 import { isSaudiAppointmentStarted, formatBookingTime } from "@/lib/saudi-time";
 
 export const Route = createFileRoute("/bookings")({
@@ -44,6 +45,7 @@ function BookingsPage() {
   const qc = useQueryClient();
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [finishId, setFinishId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["bookings", userId],
@@ -81,6 +83,45 @@ function BookingsPage() {
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر إلغاء الحجز"),
+  });
+
+  const edit = useMutation({
+    mutationFn: async (vars: {
+      id: string;
+      visitDate: string;
+      visitTime: string;
+      contactPhone: string;
+    }) => {
+      const { error } = await supabase.rpc(
+        "update_viewing_booking" as never,
+        {
+          _booking_id: vars.id,
+          _visit_date: vars.visitDate,
+          _visit_time: vars.visitTime,
+          _contact_phone: vars.contactPhone,
+        } as never,
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setEditId(null);
+      toast.success("تم تعديل حجز المعاينة وإشعار المكتب");
+      void qc.invalidateQueries({ queryKey: ["bookings"] });
+      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
+      void qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error
+          ? error.message === "duplicate_booking_time"
+            ? "يوجد لديك حجز آخر لنفس العقار في هذا الموعد"
+            : error.message === "appointment_must_be_future"
+              ? "اختر موعدًا مستقبليًا"
+              : error.message === "appointment_already_started"
+                ? "لا يمكن تعديل المعاينة بعد بدء موعدها"
+                : error.message
+          : "تعذّر تعديل حجز المعاينة",
+      ),
   });
 
   const finish = useMutation({
@@ -257,23 +298,45 @@ function BookingsPage() {
                       </div>
                     )}
 
-                    {booking.status === "accepted" && (
-                      <div className="mt-3">
+                    {(booking.status === "pending" || booking.status === "accepted") && !started && (
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditId(booking.id)}
+                          disabled={edit.isPending}
+                          className="flex items-center justify-center gap-2 rounded-2xl bg-sand py-3.5 text-xs font-bold disabled:opacity-50"
+                        >
+                          تعديل المعاينة
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => setFinishId(booking.id)}
-                          disabled={finish.isPending || !started}
-                          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-xs font-bold text-background disabled:opacity-50"
+                          disabled
+                          className="flex items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-xs font-bold text-background opacity-40"
+                          title="يصبح متاحًا عند بدء موعد المعاينة"
                         >
                           <CheckCircle2 className="size-4" />
-                          {started ? "إنهاء المعاينة" : "إنهاء المعاينة بعد الموعد"}
+                          إنهاء المعاينة
                         </button>
-                        {!started && (
-                          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-                            سيصبح زر الإنهاء فعالًا تلقائيًا عند بدء الموعد.
-                          </p>
-                        )}
                       </div>
+                    )}
+
+                    {booking.status === "accepted" && started && (
+                      <button
+                        type="button"
+                        onClick={() => setFinishId(booking.id)}
+                        disabled={finish.isPending}
+                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-xs font-bold text-background disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="size-4" /> إنهاء المعاينة
+                      </button>
+                    )}
+
+                    {booking.status === "pending" && !started && (
+                      <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                        يمكنك تعديل الموعد أو وسيلة الاتصال حتى يبدأ موعد المعاينة.
+                      </p>
                     )}
 
                     {booking.status === "pending" || booking.status === "accepted" ? (
@@ -319,6 +382,30 @@ function BookingsPage() {
           if (cancelId) cancel.mutate({ id: cancelId, reason });
         }}
       />
+
+      {(() => {
+        const selected = data.find((booking: any) => booking.id === editId) ?? null;
+        if (!selected) return null;
+
+        return (
+          <EditViewingBookingModal
+            open={!!editId}
+            pending={edit.isPending}
+            visitDate={String(selected.visit_date ?? "")}
+            visitTime={String(selected.visit_time ?? "")}
+            contactPhone={String(selected.contact_phone ?? "")}
+            onClose={() => {
+              if (!edit.isPending) setEditId(null);
+            }}
+            onConfirm={(values) => {
+              edit.mutate({
+                id: selected.id,
+                ...values,
+              });
+            }}
+          />
+        );
+      })()}
 
       <CompleteViewingReasonModal
         open={!!finishId}
