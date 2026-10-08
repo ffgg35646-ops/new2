@@ -1,7 +1,7 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Building2,
   CalendarDays,
@@ -46,6 +46,12 @@ function BookingsPage() {
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [finishId, setFinishId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["bookings", userId],
@@ -189,7 +195,7 @@ function BookingsPage() {
                 phone: string | null;
                 whatsapp: string | null;
               } | null;
-              const started = isSaudiAppointmentStarted(booking.visit_date, booking.visit_time);
+              const started = isSaudiAppointmentStarted(booking.visit_date, booking.visit_time, now);
 
               return (
                 <article key={booking.id} className="overflow-hidden rounded-[28px] bg-surface ring-1 ring-line">
@@ -298,45 +304,47 @@ function BookingsPage() {
                       </div>
                     )}
 
-                    {(booking.status === "pending" || booking.status === "accepted") && !started && (
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setEditId(booking.id)}
-                          disabled={edit.isPending}
-                          className="flex items-center justify-center gap-2 rounded-2xl bg-sand py-3.5 text-xs font-bold disabled:opacity-50"
-                        >
-                          تعديل المعاينة
-                        </button>
+                    {(booking.status === "pending" || booking.status === "accepted") && (
+                      <div className="mt-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditId(booking.id)}
+                            disabled={edit.isPending || started}
+                            className="flex items-center justify-center gap-2 rounded-2xl bg-sand py-3.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45"
+                            title={started ? "لا يمكن تعديل المعاينة بعد بدء الموعد" : "تعديل التاريخ أو الوقت أو وسيلة الاتصال"}
+                          >
+                            تعديل المعاينة
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => setFinishId(booking.id)}
-                          disabled
-                          className="flex items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-xs font-bold text-background opacity-40"
-                          title="يصبح متاحًا عند بدء موعد المعاينة"
-                        >
-                          <CheckCircle2 className="size-4" />
-                          إنهاء المعاينة
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (booking.status === "accepted" && started) setFinishId(booking.id);
+                            }}
+                            disabled={finish.isPending || booking.status !== "accepted" || !started}
+                            className="flex items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-xs font-bold text-background disabled:cursor-not-allowed disabled:opacity-40"
+                            title={
+                              booking.status !== "accepted"
+                                ? "تنتظر قبول المكتب للمعاينة"
+                                : !started
+                                  ? "يصبح متاحًا تلقائيًا عند بدء موعد المعاينة"
+                                  : "إنهاء المعاينة"
+                            }
+                          >
+                            <CheckCircle2 className="size-4" />
+                            إنهاء المعاينة
+                          </button>
+                        </div>
+
+                        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                          {!started
+                            ? "يمكنك تعديل التاريخ أو الوقت أو وسيلة الاتصال قبل بدء الموعد. سيصبح إنهاء المعاينة متاحًا تلقائيًا عند بدء الموعد بعد قبول المكتب."
+                            : booking.status === "accepted"
+                              ? "يمكنك الآن إنهاء المعاينة وكتابة السبب لإرساله للمكتب."
+                              : "انتظر قبول المكتب قبل إنهاء المعاينة."}
+                        </p>
                       </div>
-                    )}
-
-                    {booking.status === "accepted" && started && (
-                      <button
-                        type="button"
-                        onClick={() => setFinishId(booking.id)}
-                        disabled={finish.isPending}
-                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-xs font-bold text-background disabled:opacity-50"
-                      >
-                        <CheckCircle2 className="size-4" /> إنهاء المعاينة
-                      </button>
-                    )}
-
-                    {booking.status === "pending" && !started && (
-                      <p className="mt-2 text-center text-[11px] text-muted-foreground">
-                        يمكنك تعديل الموعد أو وسيلة الاتصال حتى يبدأ موعد المعاينة.
-                      </p>
                     )}
 
                     {booking.status === "pending" || booking.status === "accepted" ? (
