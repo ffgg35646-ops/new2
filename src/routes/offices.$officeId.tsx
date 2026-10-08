@@ -280,14 +280,11 @@ function OfficePage() {
                       </span>
                     )}
                   </div>
-                  <span
-                    className={cn(
-                      "mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                      verified ? "bg-forest-soft text-forest" : "bg-sand text-muted-foreground",
-                    )}
-                  >
-                    {VERIFICATION_STATUS[office.verification_status] ?? "قيد المراجعة"}
-                  </span>
+                  {verified && (
+                    <span className="mt-1 inline-block rounded-full bg-forest-soft px-2 py-0.5 text-[10px] font-semibold text-forest">
+                      موثق
+                    </span>
+                  )}
                 </div>
               </div>
 
