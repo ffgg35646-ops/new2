@@ -355,6 +355,16 @@ async function enrichRows(
           [rule.foreignField]: localValue,
         });
 
+        if (related && relation.collection === "offices") {
+          const bookings = await getMongoCollection<Record<string, unknown>>(
+            "viewing_bookings",
+          );
+          related.completed_requests_count = await bookings.countDocuments({
+            office_id: String(related.id ?? related._id ?? ""),
+            status: "completed",
+          });
+        }
+
         row[relation.output] = related
           ? pickFields(related, relation.fields)
           : null;
