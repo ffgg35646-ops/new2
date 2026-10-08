@@ -49,9 +49,13 @@ function OfficesPage() {
             : 0,
       }));
 
-      return offices.sort(
-        (a, b) => (effectivePlan(b) === "pro" ? 1 : 0) - (effectivePlan(a) === "pro" ? 1 : 0),
-      );
+      return offices.sort((a, b) => {
+        const aPro = effectivePlan(a) === "pro";
+        const bPro = effectivePlan(b) === "pro";
+        const aVerified = aPro && Number(a.completed_requests_count ?? 0) >= 10;
+        const bVerified = bPro && Number(b.completed_requests_count ?? 0) >= 10;
+        return Number(bVerified) - Number(aVerified) || Number(bPro) - Number(aPro);
+      });
     },
   });
 
