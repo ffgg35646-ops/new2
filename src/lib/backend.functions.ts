@@ -356,13 +356,47 @@ async function enrichRows(
         });
 
         if (related && relation.collection === "offices") {
-          const bookings = await getMongoCollection<Record<string, unknown>>(
-            "viewing_bookings",
+          const relatedId = String(related.id ?? related._id ?? "");
+          const offers = await getMongoCollection<Record<string, unknown>>(
+            "office_offers",
           );
-          related.completed_requests_count = await bookings.countDocuments({
-            office_id: String(related.id ?? related._id ?? ""),
-            status: "completed",
-          });
+          const packages = await getMongoCollection<Record<string, unknown>>(
+            "package_catalog",
+          );
+
+          const completedOffers = await offers
+            .find({
+              office_id: relatedId,
+              status: "completed",
+            })
+            .project({ request_id: 1 })
+            .toArray();
+
+          related.completed_requests_count = new Set(
+            completedOffers
+              .map((row) => String(row.request_id ?? ""))
+              .filter(Boolean),
+          ).size;
+
+          const packageRow = related.package_id
+            ? await packages.findOne({ id: String(related.package_id) })
+            : null;
+
+          const packageIsPro =
+            String(packageRow?.code ?? "") === "pro" ||
+            Number(packageRow?.price ?? 0) > 0;
+
+          const packageExpired =
+            !!related.plan_expires_at &&
+            new Date(String(related.plan_expires_at)).getTime() <= Date.now();
+
+          const isProCurrent = packageRow
+            ? packageIsPro && !packageExpired
+            : related.plan === "pro" && !packageExpired;
+
+          related.is_pro_current = isProCurrent;
+          related.verification_badge =
+            isProCurrent && Number(related.completed_requests_count ?? 0) >= 10;
         }
 
         row[relation.output] = related
@@ -492,17 +526,48 @@ async function runDb(input: DbInput) {
     if (input.head) return { data: null, count, error: null };
 
     if (input.collection === "offices") {
-      const bookings = await getMongoCollection<Record<string, unknown>>("viewing_bookings");
+      const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
+      const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
+
       await Promise.all(
         rows.map(async (office) => {
           const officeId = String(office.id ?? office._id ?? "");
           if (!officeId) return;
 
-          office.completed_requests_count = await bookings.countDocuments({
-            office_id: officeId,
-            status: "completed",
-          });
-        }),
+          const completedOffers = await offers
+            .find({
+              office_id: officeId,
+              status: "completed",
+            })
+            .project({ request_id: 1 })
+            .toArray();
+
+          office.completed_requests_count = new Set(
+            completedOffers
+              .map((row) => String(row.request_id ?? ""))
+              .filter(Boolean),
+          ).size;
+
+          const packageRow = office.package_id
+            ? await packages.findOne({ id: String(office.package_id) })
+            : null;
+
+          const packageIsPro =
+            String(packageRow?.code ?? "") === "pro" ||
+            Number(packageRow?.price ?? 0) > 0;
+
+          const packageExpired =
+            !!office.plan_expires_at &&
+            new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+
+          const isProCurrent = packageRow
+            ? packageIsPro && !packageExpired
+            : office.plan === "pro" && !packageExpired;
+
+          office.is_pro_current = isProCurrent;
+          office.verification_badge =
+            isProCurrent && Number(office.completed_requests_count ?? 0) >= 10;
+        });
       );
     }
 
