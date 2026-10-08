@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import {
   Bell,
   Building2,
-  Crown,
   Sparkles,
   CalendarDays,
   ChevronLeft,
@@ -188,7 +187,6 @@ function AccountPage() {
                 <ChevronLeft className="ms-auto size-4 text-muted-foreground" />
               </button>
 
-              <NavRow to="/plans" icon={Crown} label="الباقات" />
 
               {isOffice && <NavRow to="/office" icon={Building2} label="لوحة مكتبي" />}
               {isAdmin && <NavRow to="/admin" icon={ShieldCheck} label="لوحة الإدارة" />}
