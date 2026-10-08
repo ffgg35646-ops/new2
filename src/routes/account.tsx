@@ -1,6 +1,5 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Bell,
@@ -14,7 +13,6 @@ import {
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { EmptyState } from "@/components/EmptyState";
@@ -80,7 +78,6 @@ function AccountPage() {
     document.documentElement.classList.toggle("dark", next);
   }
 
-  const qc = useQueryClient();
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
       <AppHeader showSearch={false} />
