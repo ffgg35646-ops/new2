@@ -174,25 +174,73 @@ function RequestsPage() {
         {isLoading ? (
           <ListSkeleton />
         ) : tab === "sent" ? (
-          myRequests.length ? (
-            <div className="space-y-3">
-              {myRequests.map((request) => (
-                <RequestCard
-                  key={request.id}
-                  request={request}
-                  highlighted={search.request === request.id}
-                  pending={setRequestStatus.isPending}
-                  onStatus={(status) => setRequestStatus.mutate({ id: request.id, status })}
+          (() => {
+            const activeRequests = myRequests.filter((request) => request.status === "active");
+            const historyRequests = myRequests.filter((request) => request.status !== "active");
+
+            if (!myRequests.length) {
+              return (
+                <EmptyState
+                  icon={ClipboardList}
+                  title="لا توجد طلبات مرسلة"
+                  description="ابدأ بنشر طلب عقاري ليصل إلى المكاتب الموثقة."
                 />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon={ClipboardList}
-              title="لا توجد طلبات مرسلة"
-              description="ابدأ بنشر طلب عقاري ليصل إلى المكاتب الموثقة."
-            />
-          )
+              );
+            }
+
+            return (
+              <div className="space-y-5">
+                {activeRequests.length > 0 && (
+                  <section>
+                    <div className="mb-2 flex items-center justify-between">
+                      <h2 className="font-display text-sm font-extrabold">الطلبات النشطة</h2>
+                      <span className="text-[11px] text-muted-foreground">
+                        {activeRequests.length} طلب
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {activeRequests.map((request) => (
+                        <RequestCard
+                          key={request.id}
+                          request={request}
+                          highlighted={search.request === request.id}
+                          pending={setRequestStatus.isPending}
+                          onStatus={(status) => setRequestStatus.mutate({ id: request.id, status })}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {historyRequests.length > 0 && (
+                  <section className="border-t border-line pt-5">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div>
+                        <h2 className="font-display text-sm font-extrabold">سجل الطلبات</h2>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          الطلبات المنتهية والمكتملة والملغاة
+                        </p>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">
+                        {historyRequests.length} طلب
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {historyRequests.map((request) => (
+                        <RequestCard
+                          key={request.id}
+                          request={request}
+                          highlighted={search.request === request.id}
+                          pending={setRequestStatus.isPending}
+                          onStatus={(status) => setRequestStatus.mutate({ id: request.id, status })}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            );
+          })()
         ) : receivedOffers.length ? (
           <div className="space-y-3">
             {receivedOffers.map((offer) => (
