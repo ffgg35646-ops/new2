@@ -1703,8 +1703,8 @@ export const rpcRequest = createServerFn({ method: "POST" })
           throw new Error("booking_update_invalid");
         }
 
-        if (!contactPhone || contactPhone.length < 3 || contactPhone.length > 100) {
-          throw new Error("contact_required");
+        if (contactPhone.length > 100) {
+          throw new Error("contact_invalid");
         }
 
         const appointment = saudiAppointmentDateTime(visitDate, visitTime);
@@ -1756,17 +1756,24 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         const now = new Date();
 
-        await bookings.updateOne(
+        const updateFields: Record<string, unknown> = {
+          visit_date: visitDate,
+          visit_time: visitTime,
+          updated_at: now,
+        };
+
+        if (contactPhone) {
+          updateFields.contact_phone = contactPhone;
+        }
+
+        const updateResult = await bookings.updateOne(
           { id: bookingId, user_id: userId },
-          {
-            $set: {
-              visit_date: visitDate,
-              visit_time: visitTime,
-              contact_phone: contactPhone,
-              updated_at: now,
-            },
-          },
+          { $set: updateFields },
         );
+
+        if (updateResult.matchedCount !== 1) {
+          throw new Error("booking_not_found");
+        }
 
         const offices = await getMongoCollection<Record<string, unknown>>("offices");
         const office = await offices.findOne({
@@ -1777,7 +1784,11 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const properties = await getMongoCollection<Record<string, unknown>>("properties");
         const property = await properties.findOne({ id: booking.property_id });
 
-        if (office?.owner_id) {
+        const officeOwnerId = String(
+          office?.owner_id ?? office?.user_id ?? bookingOfficeId ?? "",
+        ).trim();
+
+        if (officeOwnerId) {
           const clientName =
             String(booking.contact_name ?? "العميل").trim() || "العميل";
           const propertyText = property?.title
@@ -1789,7 +1800,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           ).insertOne({
             id: randomUUID(),
             _id: randomUUID(),
-            user_id: String(office.owner_id),
+            user_id: officeOwnerId,
             title: "تم تعديل حجز المعاينة",
             body:
               clientName +
@@ -1958,7 +1969,12 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const actorLabel = isOfficeOwner ? "المكتب" : "العميل";
         const recipientId = isOfficeOwner
           ? bookingUserId
-          : String(bookingOffice?.owner_id ?? "");
+          : String(
+              bookingOffice?.owner_id ??
+                bookingOffice?.user_id ??
+                bookingOfficeId ??
+                "",
+            );
 
         const clientName = String(booking.contact_name ?? "العميل").trim() || "العميل";
         const propertyLabel = property?.title
@@ -1985,7 +2001,14 @@ export const rpcRequest = createServerFn({ method: "POST" })
             String(booking.visit_time ?? "").slice(0, 5) +
             " · السبب: " +
             cancelReason;
-          notificationRecipients = [String(bookingOffice?.owner_id ?? "")];
+          notificationRecipients = [
+            String(
+              bookingOffice?.owner_id ??
+                bookingOffice?.user_id ??
+                bookingOfficeId ??
+                "",
+            ),
+          ];
         } else {
           title =
             requestedStatus === "cancelled"
