@@ -152,7 +152,15 @@ function BookingsPage() {
               ? "اختر موعدًا مستقبليًا"
               : error.message === "appointment_already_started"
                 ? "لا يمكن تعديل المعاينة بعد بدء موعدها"
-                : error.message
+                : error.message === "booking_not_editable"
+                  ? "لا يمكن تعديل هذه المعاينة بعد انتهائها أو إلغائها"
+                  : error.message === "booking_not_found"
+                    ? "حجز المعاينة غير موجود"
+                    : error.message === "contact_invalid"
+                      ? "رقم التواصل طويل جدًا"
+                      : error.message === "not_individual"
+                        ? "تعديل المعاينة متاح للمستخدم الفردي فقط"
+                        : error.message
           : "تعذّر تعديل حجز المعاينة",
       ),
   });
