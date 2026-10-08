@@ -62,7 +62,7 @@ export function PropertyCard({
   return (
     <article className="overflow-hidden rounded-3xl bg-surface ring-1 ring-line animate-rise-in">
       <div className="relative">
-        <Link to="/properties/$propertyId" params={{ propertyId: property.property_number }}>
+        <Link to="/properties/$propertyId" params={{ propertyId: property.id }}>
           {property.cover_url ? (
             <img
               src={property.cover_url}
@@ -112,7 +112,7 @@ export function PropertyCard({
 
       <Link
         to="/properties/$propertyId"
-        params={{ propertyId: property.property_number }}
+        params={{ propertyId: property.id }}
         className="block p-3.5"
       >
         <div className="flex items-start justify-between gap-2">
@@ -153,14 +153,14 @@ export function PropertyCard({
 
       <div className="relative z-20 flex gap-2 border-t border-line bg-surface p-3 pointer-events-auto">
         <a
-          href={`/properties/${encodeURIComponent(property.property_number)}`}
+          href={`/properties/${encodeURIComponent(property.id)}`}
           className="relative z-20 flex-1 cursor-pointer rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"
         >
           عرض التفاصيل
         </a>
         {!isOffice && (
           <a
-            href={`/properties/${encodeURIComponent(property.property_number)}#property-inquiry`}
+            href={`/properties/${encodeURIComponent(property.id)}#property-inquiry`}
             className="relative z-20 flex-1 cursor-pointer rounded-xl bg-terracotta-soft py-2.5 text-center text-xs font-bold text-terracotta"
           >
             إرسال طلب
