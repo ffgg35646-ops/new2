@@ -83,6 +83,8 @@ export function useNewInquiriesCount(officeId?: string | null) {
       if (error) throw error;
       return count ?? 0;
     },
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 }
 
