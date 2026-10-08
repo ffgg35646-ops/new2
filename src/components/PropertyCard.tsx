@@ -3,6 +3,7 @@ import { Camera, Heart, ShieldCheck } from "lucide-react";
 import { formatArea, formatPrice, timeAgo } from "@/lib/format";
 import { kindLabel, listingLabel, rentPeriodLabel } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 export type PropertyCardData = {
   id: string;
@@ -55,6 +56,7 @@ export function PropertyCard({
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
 }) {
+  const { isOffice } = useAuth();
   const photos = Math.max(property.images_count ?? 0, property.cover_url ? 1 : 0);
 
   return (
@@ -148,6 +150,25 @@ export function PropertyCard({
           </span>
         </div>
       </Link>
+
+      <div className="flex gap-2 border-t border-line p-3">
+        <Link
+          to="/properties/$propertyId"
+          params={{ propertyId: property.property_number }}
+          className="flex-1 rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"
+        >
+          عرض التفاصيل
+        </Link>
+        {!isOffice && (
+          <Link
+            to="/properties/$propertyId"
+            params={{ propertyId: property.property_number }}
+            className="flex-1 rounded-xl bg-terracotta-soft py-2.5 text-center text-xs font-bold text-terracotta"
+          >
+            إرسال طلب
+          </Link>
+        )}
+      </div>
     </article>
   );
 }
