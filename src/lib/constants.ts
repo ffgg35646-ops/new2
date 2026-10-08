@@ -29,6 +29,7 @@ export const BOOKING_STATUS: Record<string, string> = {
   accepted: "مقبول",
   rejected: "مرفوض",
   completed: "المعاينة انتهت",
+  appointment_ended: "انتهى موعد المعاينة",
   cancelled: "ملغي",
 };
 
