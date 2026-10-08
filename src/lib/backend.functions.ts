@@ -985,6 +985,105 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: null, error: null };
       }
 
+      if (data.name === "office_market_requests") {
+        if (role !== "office" || !userId) throw new Error("not_office_member");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          owner_id: userId,
+          is_deleted: { $ne: true },
+        });
+
+        if (!office) throw new Error("office_not_found");
+        if (!office.governorate_id) return { data: [], error: null };
+
+        const requestsCollection =
+          await getMongoCollection<Record<string, unknown>>("property_requests");
+        const offersCollection =
+          await getMongoCollection<Record<string, unknown>>("office_offers");
+        const profilesCollection =
+          await getMongoCollection<Record<string, unknown>>("profiles");
+
+        const requests = await requestsCollection
+          .find({
+            governorate_id: office.governorate_id,
+            status: "active",
+            expires_at: { $gt: new Date() },
+            user_id: { $ne: userId },
+          })
+          .sort({ created_at: -1 })
+          .limit(100)
+          .toArray();
+
+        if (!requests.length) return { data: [], error: null };
+
+        const requestIds = requests.map((request) => String(request.id ?? ""));
+        const userIds = [
+          ...new Set(
+            requests
+              .map((request) => request.user_id)
+              .filter((id): id is string => typeof id === "string"),
+          ),
+        ];
+
+        const [offers, profiles] = await Promise.all([
+          offersCollection
+            .find({
+              office_id: office.id,
+              request_id: { $in: requestIds },
+            })
+            .project({ request_id: 1 })
+            .toArray(),
+          profilesCollection
+            .find({ id: { $in: userIds } })
+            .project({ id: 1, full_name: 1, phone: 1 })
+            .toArray(),
+        ]);
+
+        const offeredRequests = new Set(
+          offers
+            .map((offer) => offer.request_id)
+            .filter((id): id is string => typeof id === "string"),
+        );
+
+        const profileMap = new Map(
+          profiles.map((profile) => [
+            String(profile.id),
+            {
+              full_name: String(profile.full_name ?? "عميل"),
+              phone: profile.phone ? String(profile.phone) : null,
+            },
+          ]),
+        );
+
+        return {
+          data: requests.map((request) => {
+            const ownerId = String(request.user_id ?? "");
+            const profile = profileMap.get(ownerId);
+
+            return {
+              id: String(request.id ?? request._id ?? ""),
+              user_id: ownerId,
+              kind: request.kind ?? null,
+              listing: request.listing ?? null,
+              neighborhood: request.neighborhood ?? null,
+              budget_min: request.budget_min ?? null,
+              budget_max: request.budget_max ?? null,
+              area_min: request.area_min ?? null,
+              description: request.description ?? "",
+              attachment_url: request.attachment_url ?? null,
+              views_count: Number(request.views_count ?? 0),
+              created_at: request.created_at ?? null,
+              expires_at: request.expires_at ?? null,
+              offer_sent: offeredRequests.has(String(request.id ?? request._id ?? "")),
+              client_name: profile?.full_name ?? "عميل",
+              client_phone: profile?.phone ?? null,
+            };
+          }),
+          error: null,
+        };
+      }
+
       if (data.name === "notify_new_property_offer") {
         if (!userId) throw new Error("not_authenticated");
 
