@@ -151,18 +151,17 @@ export function PropertyCard({
         </div>
       </Link>
 
-      <div className="flex gap-2 border-t border-line p-3">
-        <Link
-          to="/properties/$propertyId"
-          params={{ propertyId: property.property_number }}
-          className="flex-1 rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"
+      <div className="relative z-20 flex gap-2 border-t border-line bg-surface p-3 pointer-events-auto">
+        <a
+          href={`/properties/${encodeURIComponent(property.property_number)}`}
+          className="relative z-20 flex-1 cursor-pointer rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"
         >
           عرض التفاصيل
-        </Link>
+        </a>
         {!isOffice && (
           <a
             href={`/properties/${encodeURIComponent(property.property_number)}#property-inquiry`}
-            className="flex-1 rounded-xl bg-terracotta-soft py-2.5 text-center text-xs font-bold text-terracotta"
+            className="relative z-20 flex-1 cursor-pointer rounded-xl bg-terracotta-soft py-2.5 text-center text-xs font-bold text-terracotta"
           >
             إرسال طلب
           </a>
