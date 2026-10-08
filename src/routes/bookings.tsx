@@ -196,7 +196,6 @@ function BookingsPage() {
                 now,
               );
               const canEdit = !history && !isToday && ["pending", "accepted"].includes(String(booking.status ?? ""));
-              const canFinish = !history && booking.status === "accepted" && started;
 
               return (
                 <article
