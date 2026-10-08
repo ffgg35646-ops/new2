@@ -1039,7 +1039,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               user_id: recipientId,
               title: "عميل يريد التواصل معك",
               body:
-                "هناك عميل يريد التواصل معك بخصوص طلب عقاري: "
+                "هناك عميل يريد التواصل معك بخصوص طلب عقاري: " +
                 String(request.kind ?? "عقار") +
                 " · " +
                 String(request.listing ?? "") +
@@ -1355,7 +1355,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           title: "شخص يريد التواصل معك",
           body:
             String(inquiry.contact_name ?? "عميل") +
-            " يريد التواصل معك بخصوص "
+            " يريد التواصل معك بخصوص " +
             String(typeLabel[String(inquiry.type ?? "")] ?? "تواصل") +
             " على " +
             String(property?.title ?? "عقار") +
