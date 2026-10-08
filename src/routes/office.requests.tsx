@@ -2,7 +2,21 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ClipboardList, Loader2, MessageCircle, Phone, Send, Trash2, X } from "lucide-react";
+import {
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Clock3,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Ruler,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -134,12 +148,25 @@ type BookingRow = {
   cancel_reason?: string | null;
   contact_phone?: string | null;
   created_at: string;
-  properties: { title: string } | null;
+  properties: {
+    id: string;
+    property_number: string;
+    title: string;
+    price: number | string;
+    area: number | string;
+    kind: string;
+    listing: string;
+    neighborhood: string | null;
+    cover_url: string | null;
+    images_count?: number | null;
+    governorates?: { name_ar: string } | null;
+  } | null;
   client?: {
     full_name: string;
     phone: string | null;
     governorate_name: string | null;
   } | null;
+  completion_reason?: string | null;
 };
 
 function BookingsInbox({ officeId }: { officeId: string | null }) {
@@ -155,7 +182,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
       const { data: rows, error } = await supabase
         .from("viewing_bookings")
         .select(
-          "id,user_id,visit_date,visit_time,status,office_note,cancel_reason,contact_phone,contact_name,contact_governorate_id,created_at,properties(title)",
+          "id,user_id,visit_date,visit_time,status,office_note,cancel_reason,completion_reason,contact_phone,contact_name,contact_governorate_id,created_at,properties(id,property_number,title,price,area,kind,listing,neighborhood,cover_url,images_count,governorates(name_ar))",
         )
         .eq("office_id", officeId!)
         .order("visit_date", { ascending: true })
@@ -279,160 +306,256 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
   return (
     <>
       <div className="space-y-2.5">
-        {data.map((booking) => (
-          <div
-            key={booking.id}
-            className="rounded-3xl bg-surface p-4 ring-1 ring-line"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate font-display text-sm font-extrabold">
-                  {booking.properties?.title ?? "عقار"}
+        {data.map((booking) => {
+          const property = booking.properties as {
+            id: string;
+            property_number: string;
+            title: string;
+            price: number | string;
+            area: number | string;
+            kind: string;
+            listing: string;
+            neighborhood: string | null;
+            cover_url: string | null;
+            images_count?: number | null;
+            governorates?: { name_ar: string } | null;
+          } | null;
+          return (
+            <article
+              key={booking.id}
+              className="overflow-hidden rounded-[28px] bg-surface ring-1 ring-line"
+            >
+              {property?.id ? (
+                <a href={"/properties/" + encodeURIComponent(property.id)} className="block">
+                  {property.cover_url ? (
+                    <img
+                      src={property.cover_url}
+                      alt={property.title}
+                      className="aspect-[16/9] w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="grid aspect-[16/9] w-full place-items-center bg-sand text-xs text-muted-foreground">
+                      لا توجد صورة للعقار
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <div className="text-[10px] font-semibold text-muted-foreground">
+                      العقار المرتبط بالمعاينة
+                    </div>
+                    <div className="mt-1 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="font-display text-base font-extrabold leading-6">
+                          {property.title || "عقار"}
+                        </h2>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                          <span>{property.property_number || "—"}</span>
+                          {property.governorates?.name_ar && <span>· {property.governorates.name_ar}</span>}
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-bold text-background">
+                        {listingLabel(property.listing)}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <div className="font-display text-lg font-extrabold text-forest">
+                        {formatPrice(property.price)} <span className="text-xs">ر.س</span>
+                      </div>
+                      <span className="rounded-full bg-sand px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
+                        {kindLabel(property.kind)}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+                        <div className="text-[10px] text-muted-foreground">الحي</div>
+                        <div className="mt-1 flex items-center gap-1.5 text-xs font-bold">
+                          <MapPin className="size-3.5 text-terracotta" />
+                          {property.neighborhood || "—"}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+                        <div className="text-[10px] text-muted-foreground">المساحة</div>
+                        <div className="mt-1 flex items-center gap-1.5 text-xs font-bold">
+                          <Ruler className="size-3.5 text-terracotta" />
+                          {property.area != null ? formatArea(property.area) : "—"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              ) : (
+                <div className="p-4">
+                  <div className="font-display text-base font-extrabold">العقار</div>
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {formatDate(booking.visit_date)} · الساعة {formatBookingTime(booking.visit_time)}
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-1.5">
-                {isSaudiAppointmentToday(booking.visit_date) &&
-                  booking.status === "accepted" && (
-                    <span className="rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-bold text-background">
-                      معاينة اليوم
+              )}
+
+              <div className="border-t border-line p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] font-semibold text-muted-foreground">موعد المعاينة</div>
+                    <div className="mt-1 flex items-center gap-1.5 text-sm font-extrabold">
+                      <CalendarDays className="size-4 text-terracotta" />
+                      {formatDate(booking.visit_date)}
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Clock3 className="size-3.5" /> الساعة {formatBookingTime(booking.visit_time)}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    {isSaudiAppointmentToday(booking.visit_date) && booking.status === "accepted" && (
+                      <span className="rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-bold text-background">
+                        معاينة اليوم
+                      </span>
+                    )}
+                    <span
+                      className={cn(
+                        "rounded-full px-2.5 py-1 text-[10px] font-semibold",
+                        booking.status === "accepted" || booking.status === "completed"
+                          ? "bg-forest-soft text-forest"
+                          : booking.status === "rejected" || booking.status === "cancelled"
+                            ? "bg-terracotta-soft text-terracotta"
+                            : "bg-sand text-muted-foreground",
+                      )}
+                    >
+                      {booking.status === "completed"
+                        ? "المعاينة انتهت"
+                        : BOOKING_STATUS[booking.status] ?? booking.status}
                     </span>
-                  )}
-                <span
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-[10px] font-semibold",
-                    booking.status === "accepted" || booking.status === "completed"
-                      ? "bg-forest-soft text-forest"
-                      : booking.status === "rejected" || booking.status === "cancelled"
-                        ? "bg-terracotta-soft text-terracotta"
-                        : "bg-sand text-muted-foreground",
-                  )}
-                >
-                  {booking.status === "completed"
-                    ? "المعاينة انتهت"
-                    : BOOKING_STATUS[booking.status] ?? booking.status}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-3 rounded-2xl bg-background p-3.5 ring-1 ring-line">
-              <div className="text-[10px] font-semibold text-muted-foreground">بيانات العميل المتاحة</div>
-              <div className="mt-1 text-sm font-extrabold">
-                {booking.client?.full_name || "عميل"}
-              </div>
-              {booking.contact_phone && (
-                <a
-                  href={"tel:" + booking.contact_phone}
-                  dir="ltr"
-                  className="mt-1 block text-sm font-bold text-forest"
-                >
-                  {booking.contact_phone}
-                </a>
-              )}
-              {!booking.contact_phone && booking.client?.phone && (
-                <a
-                  href={"tel:" + booking.client.phone}
-                  dir="ltr"
-                  className="mt-1 block text-sm font-bold text-forest"
-                >
-                  {booking.client.phone}
-                </a>
-              )}
-              {booking.client?.governorate_name && (
-                <div className="mt-1 text-xs text-muted-foreground">
-                  المحافظة: {booking.client.governorate_name}
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {booking.office_note && (
-              <p className="mt-2 rounded-2xl bg-sand p-3 text-[11px] leading-6 text-muted-foreground">
-                ملاحظتك: {booking.office_note}
-              </p>
-            )}
+                <div className="mt-3 rounded-2xl bg-background p-3.5 ring-1 ring-line">
+                  <div className="flex items-start gap-3">
+                    <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-forest-soft text-forest">
+                      <Building2 className="size-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold text-muted-foreground">بيانات العميل المتاحة</div>
+                      <div className="mt-1 text-sm font-extrabold">{booking.client?.full_name || "عميل"}</div>
+                      {booking.contact_phone && (
+                        <a
+                          href={"tel:" + booking.contact_phone}
+                          dir="ltr"
+                          className="mt-1 block text-sm font-bold text-forest"
+                        >
+                          {booking.contact_phone}
+                        </a>
+                      )}
+                      {!booking.contact_phone && booking.client?.phone && (
+                        <a
+                          href={"tel:" + booking.client.phone}
+                          dir="ltr"
+                          className="mt-1 block text-sm font-bold text-forest"
+                        >
+                          {booking.client.phone}
+                        </a>
+                      )}
+                      {booking.client?.governorate_name && (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          المحافظة: {booking.client.governorate_name}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-            {booking.cancel_reason && booking.status === "cancelled" && (
-              <p className="mt-2 rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
-                سبب الإلغاء: {booking.cancel_reason}
-              </p>
-            )}
-
-            {booking.status === "pending" && (
-              <>
-                {noteFor === booking.id && (
-                  <input
-                    value={note}
-                    onChange={(event) => setNote(event.target.value)}
-                    placeholder="ملاحظة للعميل (اختياري)"
-                    className="mt-3 w-full rounded-xl bg-background px-3 py-2.5 text-xs ring-1 ring-line outline-none focus:ring-forest"
-                  />
+                {booking.office_note && (
+                  <p className="mt-2 rounded-2xl bg-sand p-3 text-[11px] leading-6 text-muted-foreground">
+                    ملاحظتك: {booking.office_note}
+                  </p>
                 )}
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      noteFor === booking.id
-                        ? setStatus.mutate({
+
+                {booking.cancel_reason && booking.status === "cancelled" && (
+                  <p className="mt-2 rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
+                    سبب الإلغاء: {booking.cancel_reason}
+                  </p>
+                )}
+
+                {booking.completion_reason && booking.status === "completed" && (
+                  <p className="mt-2 rounded-2xl bg-forest-soft p-3 text-xs leading-6 text-forest">
+                    <span className="font-bold">سبب إنهاء المعاينة:</span>{" "}
+                    {booking.completion_reason}
+                  </p>
+                )}
+
+                {booking.status === "pending" && (
+                  <>
+                    {noteFor === booking.id && (
+                      <input
+                        value={note}
+                        onChange={(event) => setNote(event.target.value)}
+                        placeholder="ملاحظة للعميل (اختياري)"
+                        className="mt-3 w-full rounded-xl bg-background px-3 py-2.5 text-xs ring-1 ring-line outline-none focus:ring-forest"
+                      />
+                    )}
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          noteFor === booking.id
+                            ? setStatus.mutate({
+                                id: booking.id,
+                                status: "accepted",
+                                note,
+                              })
+                            : setNoteFor(booking.id)
+                        }
+                        disabled={setStatus.isPending}
+                        className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+                      >
+                        {noteFor === booking.id ? "تأكيد القبول" : "قبول"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStatus.mutate({
                             id: booking.id,
-                            status: "accepted",
+                            status: "rejected",
                             note,
                           })
-                        : setNoteFor(booking.id)
-                    }
-                    disabled={setStatus.isPending}
-                    className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
-                  >
-                    {noteFor === booking.id ? "تأكيد القبول" : "قبول"}
-                  </button>
+                        }
+                        disabled={setStatus.isPending}
+                        className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+                      >
+                        رفض
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {(booking.status === "pending" || booking.status === "accepted") && (
                   <button
                     type="button"
-                    onClick={() =>
-                      setStatus.mutate({
-                        id: booking.id,
-                        status: "rejected",
-                        note,
-                      })
-                    }
+                    onClick={() => setCancelId(booking.id)}
                     disabled={setStatus.isPending}
-                    className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
                   >
-                    رفض
+                    <XCircle className="size-4" /> إلغاء المعاينة
                   </button>
-                </div>
-              </>
-            )}
+                )}
 
-            {(booking.status === "pending" || booking.status === "accepted") && (
-              <button
-                type="button"
-                onClick={() => setCancelId(booking.id)}
-                disabled={setStatus.isPending}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
-              >
-                <XCircle className="size-4" /> إلغاء المعاينة
-              </button>
-            )}
-
-            {booking.status === "accepted" &&
-              isSaudiAppointmentStarted(booking.visit_date, booking.visit_time) && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setStatus.mutate({
-                      id: booking.id,
-                      status: "completed",
-                    })
-                  }
-                  disabled={setStatus.isPending}
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
-                >
-                  <CheckCircle2 className="size-4" /> إنهاء المعاينة
-                </button>
-              )}
-          </div>
-        ))}
+                {booking.status === "accepted" &&
+                  isSaudiAppointmentStarted(booking.visit_date, booking.visit_time) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setStatus.mutate({
+                          id: booking.id,
+                          status: "completed",
+                        })
+                      }
+                      disabled={setStatus.isPending}
+                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="size-4" /> إنهاء المعاينة
+                    </button>
+                  )}
+              </div>
+            </article>
+          );
+        })}
       </div>
 
       <CancelReasonModal
