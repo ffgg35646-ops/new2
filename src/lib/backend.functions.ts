@@ -373,11 +373,12 @@ async function roleFor(userId: string) {
 
 async function authorize(input: DbInput) {
   const userId = getSessionUserId();
-  const role = userId ? await roleFor(userId) : null;
 
   if (input.operation === "select" && publicReads.has(input.collection)) {
-    return { userId, role };
+    return { userId, role: null };
   }
+
+  const role = userId ? await roleFor(userId) : null;
 
   if (!userId) throw new Error("يجب تسجيل الدخول.");
 
@@ -768,7 +769,7 @@ async function runDb(input: DbInput) {
 }
 
 export const dbRequest = createServerFn({ method: "POST" })
-  .inputValidator((value: unknown) => value as DbInput)
+  .validator((value: unknown) => value as DbInput)
   .handler(async ({ data }) => {
     try {
       return await runDb(data);
@@ -784,7 +785,7 @@ export const dbRequest = createServerFn({ method: "POST" })
   });
 
 export const rpcRequest = createServerFn({ method: "POST" })
-  .inputValidator((value: unknown) => value as { name: string; args?: Record<string, unknown> })
+  .validator((value: unknown) => value as { name: string; args?: Record<string, unknown> })
   .handler(async ({ data }) => {
     try {
       const userId = getSessionUserId();
@@ -1911,7 +1912,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
   });
 
 export const authSignUp = createServerFn({ method: "POST" })
-  .inputValidator((value: unknown) => value as {
+  .validator((value: unknown) => value as {
     email: string;
     password: string;
     options?: { data?: { full_name?: string; phone?: string | null; role?: "individual" | "office" } };
@@ -1927,15 +1928,15 @@ export const authSignUp = createServerFn({ method: "POST" })
   );
 
 export const authVerifyOtp = createServerFn({ method: "POST" })
-  .inputValidator((value: unknown) => value as { email: string; token: string })
+  .validator((value: unknown) => value as { email: string; token: string })
   .handler(({ data }) => verifyEmailCode(data.email, data.token));
 
 export const authResend = createServerFn({ method: "POST" })
-  .inputValidator((value: unknown) => value as { email: string })
+  .validator((value: unknown) => value as { email: string })
   .handler(({ data }) => resendVerification(data.email));
 
 export const authSignIn = createServerFn({ method: "POST" })
-  .inputValidator((value: unknown) => value as { email: string; password: string })
+  .validator((value: unknown) => value as { email: string; password: string })
   .handler(({ data }) => signIn(data.email, data.password));
 
 export const authGetSession = createServerFn({ method: "GET" })
@@ -1993,15 +1994,15 @@ export const authSignOut = createServerFn({ method: "POST" })
   .handler(async () => ({ data: await signOut(), error: null }));
 
 export const authUpdateUser = createServerFn({ method: "POST" })
-  .inputValidator((value: unknown) => value as { password?: string; email?: string })
+  .validator((value: unknown) => value as { password?: string; email?: string })
   .handler(async ({ data }) => ({ data: await updateCurrentUser(data), error: null }));
 
 export const authResetPasswordForEmail = createServerFn({ method: "POST" })
-  .inputValidator((value: unknown) => value as { email: string; origin: string })
+  .validator((value: unknown) => value as { email: string; origin: string })
   .handler(async ({ data }) => ({ data: await requestPasswordReset(data.email, data.origin), error: null }));
 
 export const authResetPassword = createServerFn({ method: "POST" })
-  .inputValidator((value: unknown) => value as { email: string; token: string; password: string })
+  .validator((value: unknown) => value as { email: string; token: string; password: string })
   .handler(async ({ data }) => ({ data: await resetPassword(data.email, data.token, data.password), error: null }));
 
 export const uploadMedia = createServerFn({ method: "POST", strict: { input: false } })
@@ -2027,7 +2028,7 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
   });
 
 export const removeMedia = createServerFn({ method: "POST" })
-  .inputValidator((value: unknown) => value as { path: string })
+  .validator((value: unknown) => value as { path: string })
   .handler(async ({ data }) => {
     await deleteMedia(data.path);
     return { data: null, error: null };
