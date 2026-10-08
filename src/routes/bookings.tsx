@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { CancelReasonModal } from "@/components/CancelReasonModal";
 import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
 import { EditViewingBookingModal } from "@/components/EditViewingBookingModal";
-import { isSaudiAppointmentStarted, formatBookingTime } from "@/lib/saudi-time";
+import { isSaudiAppointmentToday, formatBookingTime } from "@/lib/saudi-time";
 
 export const Route = createFileRoute("/bookings")({
   head: () => ({
@@ -195,7 +195,7 @@ function BookingsPage() {
                 phone: string | null;
                 whatsapp: string | null;
               } | null;
-              const started = isSaudiAppointmentStarted(booking.visit_date, booking.visit_time, now);
+              const isToday = isSaudiAppointmentToday(booking.visit_date, now);
 
               return (
                 <article key={booking.id} className="overflow-hidden rounded-[28px] bg-surface ring-1 ring-line">
@@ -304,7 +304,7 @@ function BookingsPage() {
                       </div>
                     )}
 
-                    {(booking.status === "pending" || booking.status === "accepted") && (
+                    {(booking.status === "pending" || booking.status === "accepted") && !isToday && (
                       <div className="mt-3">
                         <div className="grid grid-cols-2 gap-2">
                           <button
