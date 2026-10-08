@@ -496,6 +496,20 @@ async function runDb(input: DbInput) {
       );
     }
 
+    if (input.collection === "properties" && role === "office") {
+      const favorites = await getMongoCollection<Record<string, unknown>>("favorites");
+      await Promise.all(
+        rows.map(async (property) => {
+          const propertyId = String(property.id ?? property._id ?? "");
+          if (!propertyId) return;
+
+          property.favorites_count = await favorites.countDocuments({
+            property_id: propertyId,
+          });
+        }),
+      );
+    }
+
     const relatedRows = await enrichRows(
       input.collection,
       rows,
