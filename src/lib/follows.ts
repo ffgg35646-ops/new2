@@ -45,20 +45,17 @@ export function useToggleFollow() {
   return useMutation({
     mutationFn: async (vars: { officeId: string; following: boolean }) => {
       if (!userId) throw new Error("يجب تسجيل الدخول لمتابعة المكاتب");
-      if (vars.following) {
-        const { error } = await supabase
-          .from("follows")
-          .delete()
-          .eq("office_id", vars.officeId)
-          .eq("user_id", userId);
-        if (error) throw error;
-        return false;
-      }
-      const { error } = await supabase
-        .from("follows")
-        .insert({ office_id: vars.officeId, user_id: userId });
+      const { data, error } = await supabase.rpc(
+        "toggle_office_follow" as never,
+        {
+          _office_id: vars.officeId,
+          _following: vars.following,
+        } as never,
+      );
+
       if (error) throw error;
-      return true;
+
+      return Boolean((data as { following?: boolean } | null)?.following);
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["follow-state"] });
@@ -130,8 +127,14 @@ export function useFollowedOffices() {
         })
         .filter((r) => !!r.office);
 
+      const uniqueRows = Array.from(
+        new Map(
+          rows.map((row) => [String(row.office?.id ?? ""), row]),
+        ).values(),
+      );
+
       return Promise.all(
-        rows.map(async (r) => {
+        uniqueRows.map(async (r) => {
           const office = r.office!;
           const { count } = await supabase
             .from("properties")
@@ -141,7 +144,7 @@ export function useFollowedOffices() {
             .eq("is_deleted", false);
           return { ...office, notify: r.notify, properties_count: count ?? 0 };
         }),
-      );
+      );;
     },
   });
 }
