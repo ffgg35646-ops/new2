@@ -1061,9 +1061,21 @@ export const rpcRequest = createServerFn({ method: "POST" })
                 _id: randomUUID(),
                 user_id: recipientId,
                 title: "طلب عقار جديد",
-                body: "يوجد طلب عقاري مطابق لنوع عقارات مكتبك ومنطقتك.",
+                body:
+                  "يوجد طلب عقاري جديد: " +
+                  String(request.kind ?? "عقار") +
+                  " · " +
+                  String(request.listing ?? "") +
+                  (request.budget_min != null || request.budget_max != null
+                    ? " · الميزانية " +
+                      String(request.budget_min ?? "—") +
+                      " - " +
+                      String(request.budget_max ?? "—")
+                    : "") +
+                  " · " +
+                  String(request.description ?? "").slice(0, 140),
                 type: "property_request",
-                link: "/office/requests",
+                link: "/office/requests?tab=market",
                 is_read: false,
                 created_at: new Date(),
               })),
@@ -1303,6 +1315,64 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: requestedStatus, error: null };
       }
 
+      if (data.name === "notify_new_property_inquiry") {
+        if (!userId) throw new Error("not_authenticated");
+        if (role !== "individual") throw new Error("not_individual");
+
+        const inquiryId = String(data.args?._inquiry_id ?? "");
+        const inquiries = await getMongoCollection<Record<string, unknown>>(
+          "property_inquiries",
+        );
+        const inquiry = await inquiries.findOne({
+          id: inquiryId,
+          user_id: userId,
+        });
+
+        if (!inquiry) throw new Error("inquiry_not_found");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          id: inquiry.office_id,
+          is_deleted: { $ne: true },
+        });
+
+        if (!office || typeof office.owner_id !== "string") {
+          throw new Error("office_not_found");
+        }
+
+        const properties = await getMongoCollection<Record<string, unknown>>("properties");
+        const property = await properties.findOne({ id: inquiry.property_id });
+
+        const typeLabel: Record<string, string> = {
+          viewing: "معاينة",
+          buy: "شراء",
+          rent: "استئجار",
+          question: "استفسار",
+        };
+
+        await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+          id: randomUUID(),
+          _id: randomUUID(),
+          user_id: office.owner_id,
+          title: "طلب جديد على عقارك",
+          body:
+            String(inquiry.contact_name ?? "عميل") +
+            " أرسل طلب " +
+            String(typeLabel[String(inquiry.type ?? "")] ?? "تواصل") +
+            " على " +
+            String(property?.title ?? "عقار") +
+            (inquiry.message
+              ? " · " + String(inquiry.message).slice(0, 140)
+              : ""),
+          type: "property_inquiry",
+          link: "/office/requests?tab=inbox",
+          is_read: false,
+          created_at: new Date(),
+        });
+
+        return { data: null, error: null };
+      }
+
       if (data.name === "notify_new_property_offer") {
         if (!userId) throw new Error("not_authenticated");
 
@@ -1332,6 +1402,18 @@ export const rpcRequest = createServerFn({ method: "POST" })
           throw new Error("request_not_found");
         }
 
+        const properties = await getMongoCollection<Record<string, unknown>>(
+          "properties",
+        );
+        const property = offer.property_id
+          ? await properties.findOne({ id: offer.property_id })
+          : null;
+
+        const priceText =
+          offer.price != null
+            ? " · السعر " + String(offer.price) + " ريال"
+            : "";
+
         await getMongoCollection<Record<string, unknown>>(
           "notifications",
         ).insertOne({
@@ -1339,9 +1421,15 @@ export const rpcRequest = createServerFn({ method: "POST" })
           _id: randomUUID(),
           user_id: request.user_id,
           title: "وصل عرض جديد",
-          body: "أرسل لك " + String(office.name ?? "مكتب عقاري") + " عرضًا على طلبك العقاري.",
+          body:
+            "أرسل لك " +
+            String(office.name ?? "مكتب عقاري") +
+            " عرضًا على طلبك العقاري" +
+            (property?.title ? " · " + String(property.title) : "") +
+            priceText +
+            (offer.message ? " · " + String(offer.message).slice(0, 160) : ""),
           type: "property_offer",
-          link: "/request",
+          link: "/request?request=" + encodeURIComponent(String(request.id)),
           is_read: false,
           created_at: new Date(),
         });
