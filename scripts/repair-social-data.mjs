@@ -14,6 +14,7 @@ try {
   const follows = db.collection("follows");
   const followGroups = await follows
     .aggregate([
+      { $sort: { created_at: -1 } },
       {
         $group: {
           _id: { user_id: "$user_id", office_id: "$office_id" },
@@ -40,6 +41,7 @@ try {
   const reviews = db.collection("office_reviews");
   const reviewGroups = await reviews
     .aggregate([
+      { $sort: { created_at: -1 } },
       {
         $group: {
           _id: { user_id: "$user_id", office_id: "$office_id" },
@@ -62,6 +64,30 @@ try {
     });
     deletedReviews += result.deletedCount;
   }
+
+  await follows.createIndex(
+    { user_id: 1, office_id: 1 },
+    {
+      unique: true,
+      name: "uniq_follows_user_office",
+      partialFilterExpression: {
+        user_id: { $type: "string" },
+        office_id: { $type: "string" },
+      },
+    },
+  );
+
+  await reviews.createIndex(
+    { user_id: 1, office_id: 1 },
+    {
+      unique: true,
+      name: "uniq_office_reviews_user_office",
+      partialFilterExpression: {
+        user_id: { $type: "string" },
+        office_id: { $type: "string" },
+      },
+    },
+  );
 
   const offices = db.collection("offices");
   const officeRows = await offices.find({}, { projection: { id: 1 } }).toArray();
