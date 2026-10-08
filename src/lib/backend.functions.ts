@@ -605,6 +605,33 @@ async function runDb(input: DbInput) {
       }
     }
 
+    if (input.collection === "favorites") {
+      if (!userId) throw new Error("يجب تسجيل الدخول لحفظ العقار.");
+      if (role !== "individual") throw new Error("not_individual");
+
+      const properties = await getMongoCollection<Record<string, unknown>>("properties");
+      for (const doc of docs) {
+        const propertyId = String(doc.property_id ?? "");
+        if (!propertyId) throw new Error("favorite_invalid");
+
+        const property = await properties.findOne({
+          id: propertyId,
+          is_deleted: { $ne: true },
+        });
+        if (!property) throw new Error("property_not_found");
+
+        doc.user_id = userId;
+        const existing = await collection.findOne({
+          property_id: propertyId,
+          user_id: userId,
+        });
+
+        if (existing) {
+          throw new Error("العقار موجود بالفعل في المفضلة.");
+        }
+      }
+    }
+
     if (input.collection === "profiles" && userId) {
       for (const doc of docs) {
         doc.id = userId;
@@ -644,6 +671,22 @@ async function runDb(input: DbInput) {
         ),
       );
     }
+
+    if (input.collection === "favorites") {
+      const properties = await getMongoCollection<Record<string, unknown>>("properties");
+      await Promise.all(
+        docs.map((doc) =>
+          properties.updateOne(
+            { id: String(doc.property_id) },
+            {
+              $inc: { favorites_count: 1 },
+              $set: { updated_at: new Date() },
+            },
+          ),
+        ),
+      );
+    }
+
 
     try {
       if (input.collection === "reports") {
@@ -865,7 +908,40 @@ async function runDb(input: DbInput) {
   }
 
   if (input.operation === "delete") {
+    let affectedPropertyIds: string[] = [];
+
+    if (input.collection === "favorites") {
+      if (role !== "individual") throw new Error("not_individual");
+      const matching = await collection
+        .find(mongoQuery)
+        .project({ property_id: 1 })
+        .toArray();
+      affectedPropertyIds = [
+        ...new Set(
+          matching
+            .map((row) => String(row.property_id ?? ""))
+            .filter(Boolean),
+        ),
+      ];
+    }
+
     const result = await collection.deleteMany(mongoQuery);
+
+    if (input.collection === "favorites" && result.deletedCount > 0) {
+      const properties = await getMongoCollection<Record<string, unknown>>("properties");
+      await Promise.all(
+        affectedPropertyIds.map((propertyId) =>
+          properties.updateOne(
+            { id: propertyId },
+            {
+              $inc: { favorites_count: -1 },
+              $set: { updated_at: new Date() },
+            },
+          ),
+        ),
+      );
+    }
+
     return { data: null, count: result.deletedCount, error: null };
   }
 
