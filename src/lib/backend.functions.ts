@@ -1406,16 +1406,14 @@ export const rpcRequest = createServerFn({ method: "POST" })
           throw new Error("not_conversation_member");
         }
 
-        if (userId !== clientId) {
-          const expiresAt = office.plan_expires_at
-            ? new Date(String(office.plan_expires_at))
-            : null;
-          const chatEnabled =
-            office.plan === "pro" &&
-            (!expiresAt || expiresAt.getTime() > Date.now());
+        const expiresAt = office.plan_expires_at
+          ? new Date(String(office.plan_expires_at))
+          : null;
+        const chatEnabled =
+          office.plan === "pro" &&
+          (!expiresAt || expiresAt.getTime() > Date.now());
 
-          if (!chatEnabled) throw new Error("chat_not_available");
-        }
+        if (!chatEnabled) throw new Error("chat_not_available");
 
         const blocks = await getMongoCollection<Record<string, unknown>>(
           "conversation_blocks",
