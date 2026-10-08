@@ -1591,9 +1591,8 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const candidates = await bookings
           .find({
             ...userBookingFilter,
-            status: { $in: ["pending", "accepted"] },
-            visit_date: { $lte: today },
-            appointment_ended_at: { $exists: false },
+            status: "accepted",
+            visit_date: today,
           })
           .limit(100)
           .toArray();
@@ -1955,6 +1954,8 @@ export const rpcRequest = createServerFn({ method: "POST" })
           : "العقار";
         const baseBody =
           propertyLabel +
+          " · العميل: " +
+          clientName +
           " · الساعة " +
           String(booking.visit_time ?? "").slice(0, 5);
 
@@ -1985,7 +1986,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
           body =
             requestedStatus === "cancelled"
-              ? baseBody + " · السبب: " + cancelReason
+              ? baseBody + " · سبب الإلغاء: " + cancelReason
               : requestedStatus === "completed"
                 ? baseBody + " · تم تسجيل المعاينة كمنتهية."
                 : baseBody;
