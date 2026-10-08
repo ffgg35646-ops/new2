@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Loader2, MessageCircle, Phone, Send, X } from "lucide-react";
+import { CheckCircle2, ClipboardList, Loader2, MessageCircle, Phone, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -26,7 +26,8 @@ export const Route = createFileRoute("/office/requests")({
     tab:
       search.tab === "inbox" ||
       search.tab === "bookings" ||
-      search.tab === "market"
+      search.tab === "market" ||
+      search.tab === "sent"
         ? search.tab
         : undefined,
   }),
@@ -50,7 +51,7 @@ export const Route = createFileRoute("/office/requests")({
 
 function OfficeRequests() {
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"inbox" | "bookings" | "market">(
+  const [tab, setTab] = useState<"inbox" | "bookings" | "market" | "sent">(
     search.tab ?? "inbox",
   );
 
@@ -99,14 +100,21 @@ function OfficeRequests() {
             label="طلبات العملاء"
             count={marketRequests.length}
           />
+          <TabButton
+            active={tab === "sent"}
+            onClick={() => setTab("sent")}
+            label="العروض المرسلة"
+          />
         </div>
 
         {tab === "inbox" ? (
           <InquiriesInbox officeId={officeId} />
         ) : tab === "bookings" ? (
           <BookingsInbox officeId={officeId} />
-        ) : (
+        ) : tab === "market" ? (
           <MarketRequests officeId={officeId} />
+        ) : (
+          <SentOffers officeId={officeId} />
         )}
       </main>
       <BottomNav />
@@ -158,11 +166,22 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
 
   const setStatus = useMutation({
     mutationFn: async (vars: { id: string; status: string; note?: string }) => {
-      const { error } = await supabase
-        .from("viewing_bookings")
-        .update({ status: vars.status as never, office_note: vars.note?.trim() || null })
-        .eq("id", vars.id);
+      const { error } = await supabase.rpc(
+        "set_viewing_booking_status" as never,
+        {
+          _booking_id: vars.id,
+          _status: vars.status,
+        } as never,
+      );
       if (error) throw error;
+      if (vars.note?.trim()) {
+        const { error: noteError } = await supabase
+          .from("viewing_bookings")
+          .update({ office_note: vars.note.trim() })
+          .eq("id", vars.id)
+          .eq("office_id", officeId!);
+        if (noteError) throw noteError;
+      }
       return vars;
     },
     onSuccess: (vars) => {
@@ -170,7 +189,8 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
       setNoteFor(null);
       setNote("");
       toast.success("تم تحديث حالة الحجز");
-      qc.invalidateQueries({ queryKey: ["office-bookings"] });
+      void qc.invalidateQueries({ queryKey: ["office-bookings"] });
+      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر تحديث الحجز"),
   });
@@ -454,6 +474,174 @@ function FilterChip({
         )}
       </span>
     </button>
+  );
+}
+
+
+function SentOffers({ officeId }: { officeId: string | null }) {
+  const qc = useQueryClient();
+
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["office-sent-offers", officeId],
+    enabled: !!officeId,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
+      const { data: offers, error } = await supabase
+        .from("office_offers")
+        .select("id,request_id,message,price,status,created_at")
+        .eq("office_id", officeId!)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      const rows = (offers ?? []) as Array<{
+        id: string;
+        request_id: string;
+        message: string | null;
+        price: number | null;
+        status: string;
+        created_at: string;
+      }>;
+
+      const requestIds = [...new Set(rows.map((row) => row.request_id).filter(Boolean))];
+      if (!requestIds.length) return rows.map((row) => ({ ...row, request: null }));
+
+      const { data: requests, error: requestError } = await supabase
+        .from("property_requests")
+        .select("id,user_id,kind,listing,neighborhood,budget_min,budget_max,description,status")
+        .in("id", requestIds);
+
+      if (requestError) throw requestError;
+
+      const requestById = new Map(
+        (requests ?? []).map((request) => [String(request.id), request]),
+      );
+
+      return rows.map((row) => ({
+        ...row,
+        request: requestById.get(row.request_id) ?? null,
+      }));
+    },
+  });
+
+  const action = useMutation({
+    mutationFn: async (vars: { offerId: string; status: "completed" | "deleted" }) => {
+      const { error } = await supabase.rpc(
+        "set_office_offer_status" as never,
+        { _offer_id: vars.offerId, _status: vars.status } as never,
+      );
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      toast.success(vars.status === "completed" ? "تم تسجيل العرض كطلب مكتمل" : "تم حذف العرض");
+      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
+      void qc.invalidateQueries({ queryKey: ["open-requests"] });
+      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث العرض"),
+  });
+
+  if (isLoading) return <ListSkeleton />;
+  if (!data.length) {
+    return (
+      <EmptyState
+        icon={Send}
+        title="لا توجد عروض مرسلة"
+        description="العروض التي ترسلها للمستخدمين ستظهر هنا."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {data.map((row) => {
+        const request = row.request as {
+          kind: string;
+          listing: string;
+          neighborhood: string | null;
+          budget_min: number | null;
+          budget_max: number | null;
+          description: string;
+          status: string;
+        } | null;
+
+        return (
+          <div key={row.id} className="rounded-3xl bg-surface p-4 ring-1 ring-line">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-display text-sm font-extrabold">
+                  {request ? kindLabel(request.kind) + " · " + listingLabel(request.listing) : "طلب عقاري"}
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  {formatDate(row.created_at)}
+                </div>
+              </div>
+              <span className={cn(
+                "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
+                row.status === "completed"
+                  ? "bg-forest-soft text-forest"
+                  : row.status === "rejected"
+                    ? "bg-terracotta-soft text-terracotta"
+                    : "bg-sand text-muted-foreground",
+              )}>
+                {row.status === "sent" ? "مرسل" : row.status === "accepted" ? "مقبول" : row.status === "completed" ? "مكتمل" : row.status === "rejected" ? "مرفوض" : row.status}
+              </span>
+            </div>
+
+            {request && (
+              <div className="mt-3 rounded-2xl bg-background p-3 ring-1 ring-line">
+                <div className="text-xs font-bold">
+                  {request.neighborhood || "أي حي"}
+                </div>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {request.description}
+                </p>
+                {(request.budget_min != null || request.budget_max != null) && (
+                  <div className="mt-1 text-[11px] text-forest">
+                    الميزانية: {formatPrice(request.budget_min)} - {formatPrice(request.budget_max)} ر.س
+                  </div>
+                )}
+              </div>
+            )}
+
+            {row.message && (
+              <p className="mt-3 rounded-2xl bg-sand p-3 text-xs leading-6 text-muted-foreground">
+                عرضك: {row.message}
+              </p>
+            )}
+
+            {row.price != null && (
+              <div className="mt-2 text-sm font-display font-extrabold text-forest">
+                السعر المقترح: {formatPrice(row.price)} ر.س
+              </div>
+            )}
+
+            {row.status === "sent" && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => action.mutate({ offerId: row.id, status: "completed" })}
+                  disabled={action.isPending}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-[11px] font-bold text-background disabled:opacity-50"
+                >
+                  <CheckCircle2 className="size-4" /> طلب مكتمل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => action.mutate({ offerId: row.id, status: "deleted" })}
+                  disabled={action.isPending}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
+                >
+                  <Trash2 className="size-4" /> حذف العرض
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
