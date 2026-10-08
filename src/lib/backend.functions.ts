@@ -1785,7 +1785,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const property = await properties.findOne({ id: booking.property_id });
 
         const officeOwnerId = String(
-          office?.owner_id ?? office?.user_id ?? bookingOfficeId ?? "",
+          office?.owner_id ?? office?.user_id ?? "",
         ).trim();
 
         if (officeOwnerId) {
@@ -2028,7 +2028,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
                 ? baseBody + " · تم تسجيل المعاينة كمنتهية."
                 : baseBody;
 
-          notificationRecipients = [userId, recipientId];
+          notificationRecipients = [recipientId];
         }
 
         const allRecipients = notificationRecipients.filter(
