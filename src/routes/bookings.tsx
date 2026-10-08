@@ -181,13 +181,7 @@ function BookingsPage() {
 
             const isHistoryBooking = (booking: any) => {
               const status = String(booking.status ?? "");
-              if (historyStatuses.has(status)) return true;
-
-              return isSaudiAppointmentStarted(
-                String(booking.visit_date ?? ""),
-                String(booking.visit_time ?? ""),
-                now,
-              );
+              return historyStatuses.has(status);
             };
 
             const activeBookings = data.filter(
@@ -291,7 +285,12 @@ function BookingsPage() {
                   )}
 
                   {(!history && (canEdit || canFinish)) && (
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div
+                      className={cn(
+                        "mt-3 grid gap-2",
+                        canEdit && canFinish ? "grid-cols-2" : "grid-cols-1",
+                      )}
+                    >
                       {canEdit && (
                         <button
                           type="button"
