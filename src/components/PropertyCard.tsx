@@ -20,7 +20,7 @@ export type PropertyCardData = {
   rent_period?: string | null;
   images_count?: number | null;
   governorates?: { name_ar: string } | null;
-  offices?: { name: string; verification_status: string } | null;
+  offices?: {\n    name: string;\n    verification_status: string;\n    plan?: string | null;\n    plan_expires_at?: string | null;\n    completed_requests_count?: number;\n  } | null;
 };
 
 export function PriceLine({
@@ -57,7 +57,7 @@ export function PropertyCard({
   onToggleFavorite?: (id: string) => void;
 }) {
   const { isOffice } = useAuth();
-  const photos = Math.max(property.images_count ?? 0, property.cover_url ? 1 : 0);
+  const photos = Math.max(property.images_count ?? 0, property.cover_url ? 1 : 0);\n  const officeIsPro = property.offices?.plan === "pro" && (!property.offices.plan_expires_at || new Date(property.offices.plan_expires_at).getTime() > Date.now());\n  const officeIsVerified = officeIsPro && Number(property.offices?.completed_requests_count ?? 0) >= 10;
 
   return (
     <article className="overflow-hidden rounded-3xl bg-surface ring-1 ring-line animate-rise-in">
@@ -134,7 +134,7 @@ export function PropertyCard({
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span>{formatArea(property.area)}</span>
           {property.created_at && <span>· {timeAgo(property.created_at)}</span>}
-          {property.offices?.verification_status === "verified" && (
+          {officeIsVerified && (
             <span className="flex items-center gap-1 text-forest">
               <ShieldCheck className="size-3.5" /> مكتب موثق
             </span>
