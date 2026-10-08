@@ -38,7 +38,9 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
         <div className="flex items-center gap-1.5">
           <span className="truncate font-display text-sm font-bold">{office.name}</span>
           {isVerified && (
-            <ShieldCheck className="size-4 shrink-0 text-forest" />
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-forest-soft px-1.5 py-0.5 text-[10px] font-bold text-forest">
+              <ShieldCheck className="size-3" /> موثق
+            </span>
           )}
           {isPro && (
             <span className="flex shrink-0 items-center gap-1 rounded-full bg-terracotta/10 px-1.5 py-0.5 text-[10px] font-bold text-terracotta">
