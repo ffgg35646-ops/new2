@@ -1513,10 +1513,18 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const properties = await getMongoCollection<Record<string, unknown>>("properties");
 
         const today = saudiDateKey();
-        const userBookingFilter =
-          role === "office"
-            ? { office_id: { $exists: true } }
-            : { user_id: userId };
+        let userBookingFilter: Record<string, unknown> = { user_id: userId };
+
+        if (role === "office") {
+          const office = await offices.findOne({
+            owner_id: userId,
+            is_deleted: { $ne: true },
+          });
+
+          if (!office) return { data: 0, error: null };
+
+          userBookingFilter = { office_id: office.id };
+        }
 
         const candidates = await bookings
           .find({
