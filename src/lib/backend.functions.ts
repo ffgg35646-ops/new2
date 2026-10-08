@@ -1828,7 +1828,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             priceText +
             (offer.message ? " · " + String(offer.message).slice(0, 160) : ""),
           type: "property_offer",
-          link: "/request?request=" + encodeURIComponent(String(request.id)),
+          link: "/requests?tab=received&request=" + encodeURIComponent(String(request.id)),
           is_read: false,
           created_at: new Date(),
         });
