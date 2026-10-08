@@ -113,12 +113,16 @@ function OfficePage() {
   const { data: followersCount } = useQuery({
     queryKey: ["office-followers-count", officeId],
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from("follows")
-        .select("id", { count: "exact", head: true })
+        .select("user_id")
         .eq("office_id", officeId);
       if (error) throw error;
-      return count ?? 0;
+      return new Set(
+        (data ?? [])
+          .map((row) => (row as { user_id?: string | null }).user_id)
+          .filter((id): id is string => !!id),
+      ).size;
     },
   });
 
@@ -571,12 +575,14 @@ function ReviewForm({ officeId }: { officeId: string }) {
     mutationFn: async () => {
       if (!userId) throw new Error("سجّل الدخول لتقييم المكتب");
       if (rating < 1) throw new Error("اختر عدد النجوم أولًا");
-      const { error } = await supabase
-        .from("office_reviews")
-        .upsert(
-          { office_id: officeId, user_id: userId, rating, comment: comment.trim() || null },
-          { onConflict: "office_id,user_id" },
-        );
+      const { error } = await supabase.rpc(
+        "submit_office_review" as never,
+        {
+          _office_id: officeId,
+          _rating: rating,
+          _comment: comment.trim() || null,
+        } as never,
+      );
       if (error) throw error;
     },
     onSuccess: () => {
