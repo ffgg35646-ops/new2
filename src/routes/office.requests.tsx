@@ -20,6 +20,8 @@ import { formatArea, formatDate, formatPrice, timeAgo } from "@/lib/format";
 import { notifyWhatsApp } from "@/lib/notify-whatsapp";
 import { useMyOffice, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
+import { CancelReasonModal } from "@/components/CancelReasonModal";
+import { formatBookingTime, isSaudiAppointmentStarted, isSaudiAppointmentToday } from "@/lib/saudi-time";
 
 export const Route = createFileRoute("/office/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -129,51 +131,111 @@ type BookingRow = {
   visit_time: string;
   status: string;
   office_note: string | null;
+  cancel_reason?: string | null;
+  contact_phone?: string | null;
   created_at: string;
   properties: { title: string } | null;
-  client?: { full_name: string; phone: string | null } | null;
+  client?: {
+    full_name: string;
+    phone: string | null;
+    governorate_name: string | null;
+  } | null;
 };
 
 function BookingsInbox({ officeId }: { officeId: string | null }) {
   const qc = useQueryClient();
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [cancelId, setCancelId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data = [], isLoading } = useQuery({
     queryKey: ["office-bookings", officeId],
     enabled: !!officeId,
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from("viewing_bookings")
-        .select("id,user_id,visit_date,visit_time,status,office_note,created_at,properties(title)")
+        .select(
+          "id,user_id,visit_date,visit_time,status,office_note,cancel_reason,contact_phone,created_at,properties(title)",
+        )
         .eq("office_id", officeId!)
-        .order("created_at", { ascending: false })
-        .limit(60);
+        .order("visit_date", { ascending: true })
+        .order("visit_time", { ascending: true })
+        .limit(100);
+
       if (error) throw error;
+
       const bookings = (rows ?? []) as unknown as BookingRow[];
-      const ids = [...new Set(bookings.map((b) => b.user_id))];
-      if (ids.length) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id,full_name,phone")
-          .in("id", ids);
-        const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
-        for (const b of bookings) b.client = byId.get(b.user_id) ?? null;
+      const ids = [...new Set(bookings.map((booking) => booking.user_id).filter(Boolean))];
+
+      if (!ids.length) return bookings;
+
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("id,full_name,phone,governorate_id")
+        .in("id", ids);
+
+      if (profileError) throw profileError;
+
+      const governorateIds = [
+        ...new Set(
+          (profiles ?? [])
+            .map((profile) => profile.governorate_id)
+            .filter((id): id is string => typeof id === "string" && !!id),
+        ),
+      ];
+
+      const { data: governorates, error: governorateError } = governorateIds.length
+        ? await supabase
+            .from("governorates")
+            .select("id,name_ar")
+            .in("id", governorateIds)
+        : { data: [], error: null };
+
+      if (governorateError) throw governorateError;
+
+      const governorateMap = new Map(
+        (governorates ?? []).map((row) => [String(row.id), String(row.name_ar ?? "")]),
+      );
+      const profileMap = new Map(
+        (profiles ?? []).map((profile) => [
+          String(profile.id),
+          {
+            full_name: String(profile.full_name ?? "عميل"),
+            phone: profile.phone ? String(profile.phone) : null,
+            governorate_name: profile.governorate_id
+              ? governorateMap.get(String(profile.governorate_id)) ?? null
+              : null,
+          },
+        ]),
+      );
+
+      for (const booking of bookings) {
+        booking.client = profileMap.get(booking.user_id) ?? null;
       }
+
       return bookings;
     },
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 
   const setStatus = useMutation({
-    mutationFn: async (vars: { id: string; status: string; note?: string }) => {
+    mutationFn: async (vars: {
+      id: string;
+      status: "accepted" | "rejected" | "completed" | "cancelled";
+      reason?: string;
+      note?: string;
+    }) => {
       const { error } = await supabase.rpc(
         "set_viewing_booking_status" as never,
         {
           _booking_id: vars.id,
           _status: vars.status,
+          _reason: vars.reason ?? "",
         } as never,
       );
       if (error) throw error;
+
       if (vars.note?.trim()) {
         const { error: noteError } = await supabase
           .from("viewing_bookings")
@@ -182,111 +244,218 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
           .eq("office_id", officeId!);
         if (noteError) throw noteError;
       }
+
       return vars;
     },
     onSuccess: (vars) => {
-      notifyWhatsApp("booking_status", vars.id);
+      if (vars.status === "cancelled") setCancelId(null);
       setNoteFor(null);
       setNote("");
-      toast.success("تم تحديث حالة الحجز");
+      toast.success(
+        vars.status === "cancelled"
+          ? "تم إلغاء المعاينة"
+          : vars.status === "completed"
+            ? "المعاينة انتهت"
+            : "تم تحديث حالة الحجز",
+      );
       void qc.invalidateQueries({ queryKey: ["office-bookings"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر تحديث الحجز"),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "تعذّر تحديث الحجز"),
   });
 
   if (isLoading) return <ListSkeleton />;
-  if (!data?.length)
+
+  if (!data.length) {
     return (
       <EmptyState
         icon={ClipboardList}
         title="لا توجد حجوزات معاينة"
-        description="ستظهر هنا طلبات معاينة العملاء لعقاراتك."
+        description="ستظهر هنا مواعيد العملاء لعقارات مكتبك."
       />
     );
+  }
 
   return (
-    <div className="space-y-2.5">
-      {data.map((b) => (
-        <div key={b.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-bold">{b.properties?.title ?? "عقار"}</span>
-            <span
-              className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                b.status === "accepted"
-                  ? "bg-forest-soft text-forest"
-                  : b.status === "rejected" || b.status === "cancelled"
-                    ? "bg-terracotta-soft text-terracotta"
-                    : "bg-sand text-muted-foreground",
-              )}
-            >
-              {BOOKING_STATUS[b.status] ?? b.status}
-            </span>
-          </div>
+    <>
+      <div className="space-y-2.5">
+        {data.map((booking) => (
+          <div
+            key={booking.id}
+            className="rounded-3xl bg-surface p-4 ring-1 ring-line"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate font-display text-sm font-extrabold">
+                  {booking.properties?.title ?? "عقار"}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {formatDate(booking.visit_date)} · الساعة {formatBookingTime(booking.visit_time)}
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                {isSaudiAppointmentToday(booking.visit_date) &&
+                  booking.status === "accepted" && (
+                    <span className="rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-bold text-background">
+                      معاينة اليوم
+                    </span>
+                  )}
+                <span
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-[10px] font-semibold",
+                    booking.status === "accepted" || booking.status === "completed"
+                      ? "bg-forest-soft text-forest"
+                      : booking.status === "rejected" || booking.status === "cancelled"
+                        ? "bg-terracotta-soft text-terracotta"
+                        : "bg-sand text-muted-foreground",
+                  )}
+                >
+                  {booking.status === "completed"
+                    ? "المعاينة انتهت"
+                    : BOOKING_STATUS[booking.status] ?? booking.status}
+                </span>
+              </div>
+            </div>
 
-          <div className="mt-1 text-xs text-muted-foreground">
-            {b.client?.full_name || "عميل"} · {formatDate(b.visit_date)} ·{" "}
-            {String(b.visit_time).slice(0, 5)}
-          </div>
-          {b.client?.phone && (
-            <a dir="ltr" href={`tel:${b.client.phone}`} className="mt-1 block text-xs text-forest">
-              {b.client.phone}
-            </a>
-          )}
-          {b.office_note && (
-            <p className="mt-1.5 rounded-xl bg-sand p-2 text-[11px] text-muted-foreground">
-              ملاحظتك: {b.office_note}
-            </p>
-          )}
-
-          {b.status === "pending" && (
-            <>
-              {noteFor === b.id && (
-                <input
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="ملاحظة للعميل (اختياري)"
-                  className="mt-2 w-full rounded-xl bg-background px-3 py-2 text-xs ring-1 ring-line"
-                />
+            <div className="mt-3 rounded-2xl bg-background p-3.5 ring-1 ring-line">
+              <div className="text-[10px] font-semibold text-muted-foreground">بيانات العميل المتاحة</div>
+              <div className="mt-1 text-sm font-extrabold">
+                {booking.client?.full_name || "عميل"}
+              </div>
+              {booking.contact_phone && (
+                <a
+                  href={"tel:" + booking.contact_phone}
+                  dir="ltr"
+                  className="mt-1 block text-sm font-bold text-forest"
+                >
+                  {booking.contact_phone}
+                </a>
               )}
-              <div className="mt-2 flex gap-2">
+              {!booking.contact_phone && booking.client?.phone && (
+                <a
+                  href={"tel:" + booking.client.phone}
+                  dir="ltr"
+                  className="mt-1 block text-sm font-bold text-forest"
+                >
+                  {booking.client.phone}
+                </a>
+              )}
+              {booking.client?.governorate_name && (
+                <div className="mt-1 text-xs text-muted-foreground">
+                  المحافظة: {booking.client.governorate_name}
+                </div>
+              )}
+            </div>
+
+            {booking.office_note && (
+              <p className="mt-2 rounded-2xl bg-sand p-3 text-[11px] leading-6 text-muted-foreground">
+                ملاحظتك: {booking.office_note}
+              </p>
+            )}
+
+            {booking.cancel_reason && booking.status === "cancelled" && (
+              <p className="mt-2 rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
+                سبب الإلغاء: {booking.cancel_reason}
+              </p>
+            )}
+
+            {booking.status === "pending" && (
+              <>
+                {noteFor === booking.id && (
+                  <input
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="ملاحظة للعميل (اختياري)"
+                    className="mt-3 w-full rounded-xl bg-background px-3 py-2.5 text-xs ring-1 ring-line outline-none focus:ring-forest"
+                  />
+                )}
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      noteFor === booking.id
+                        ? setStatus.mutate({
+                            id: booking.id,
+                            status: "accepted",
+                            note,
+                          })
+                        : setNoteFor(booking.id)
+                    }
+                    disabled={setStatus.isPending}
+                    className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+                  >
+                    {noteFor === booking.id ? "تأكيد القبول" : "قبول"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setStatus.mutate({
+                        id: booking.id,
+                        status: "rejected",
+                        note,
+                      })
+                    }
+                    disabled={setStatus.isPending}
+                    className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+                  >
+                    رفض
+                  </button>
+                </div>
+              </>
+            )}
+
+            {(booking.status === "pending" || booking.status === "accepted") && (
+              <button
+                type="button"
+                onClick={() => setCancelId(booking.id)}
+                disabled={setStatus.isPending}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+              >
+                <XCircle className="size-4" /> إلغاء المعاينة
+              </button>
+            )}
+
+            {booking.status === "accepted" &&
+              isSaudiAppointmentStarted(booking.visit_date, booking.visit_time) && (
                 <button
+                  type="button"
                   onClick={() =>
-                    noteFor === b.id
-                      ? setStatus.mutate({ id: b.id, status: "accepted", note })
-                      : setNoteFor(b.id)
+                    setStatus.mutate({
+                      id: booking.id,
+                      status: "completed",
+                    })
                   }
                   disabled={setStatus.isPending}
-                  className="flex-1 rounded-xl bg-forest py-2 text-xs font-bold text-background disabled:opacity-50"
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
                 >
-                  {noteFor === b.id ? "تأكيد القبول" : "قبول"}
+                  <CheckCircle2 className="size-4" /> إنهاء المعاينة
                 </button>
-                <button
-                  onClick={() => setStatus.mutate({ id: b.id, status: "rejected", note })}
-                  disabled={setStatus.isPending}
-                  className="flex-1 rounded-xl bg-terracotta-soft py-2 text-xs font-bold text-terracotta disabled:opacity-50"
-                >
-                  رفض
-                </button>
-              </div>
-            </>
-          )}
+              )}
+          </div>
+        ))}
+      </div>
 
-          {b.status === "accepted" && (
-            <button
-              onClick={() => setStatus.mutate({ id: b.id, status: "completed" })}
-              disabled={setStatus.isPending}
-              className="mt-2 w-full rounded-xl bg-sand py-2 text-xs font-bold text-forest disabled:opacity-50"
-            >
-              تمت المعاينة ✓
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
+      <CancelReasonModal
+        open={!!cancelId}
+        pending={setStatus.isPending}
+        onClose={() => {
+          if (!setStatus.isPending) setCancelId(null);
+        }}
+        onConfirm={(reason) => {
+          if (cancelId) {
+            setStatus.mutate({
+              id: cancelId,
+              status: "cancelled",
+              reason,
+            });
+          }
+        }}
+      />
+    </>
   );
 }
+
 
 function TabButton({
   label,
