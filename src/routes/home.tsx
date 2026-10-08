@@ -53,7 +53,7 @@ function HomePage() {
       const { data, error } = await supabase
         .from("offices")
         .select(
-          "id,name,logo_url,verification_status,updated_at,plan,plan_expires_at,rating_avg,properties(count)",
+          "id,name,logo_url,verification_status,updated_at,plan,plan_expires_at,rating_avg,package_id,completed_requests_count,is_pro_current,verification_badge,properties(count)",
         )
         .eq("governorate_id", governorateId!)
         .eq("verification_status", "verified")
