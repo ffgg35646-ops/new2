@@ -183,6 +183,12 @@ function OfficeDashboard() {
           >
             الباقات
           </Link>
+          <Link
+            to="/extras"
+            className="col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
+          >
+            الإضافات
+          </Link>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
