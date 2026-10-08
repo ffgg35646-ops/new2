@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
 
 export function CancelReasonModal({
@@ -13,9 +14,9 @@ export function CancelReasonModal({
   onClose: () => void;
   onConfirm: (reason: string) => void;
 }) {
-  const [reason, setReason] = React.useState("");
+  const [reason, setReason] = useState("");
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) setReason("");
   }, [open]);
 
@@ -78,4 +79,3 @@ export function CancelReasonModal({
   );
 }
 
-import * as React from "react";
