@@ -81,7 +81,8 @@ export function AppHeader({
 
       return count ?? 0;
     },
-    refetchInterval: 60_000,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 
   useEffect(() => {
