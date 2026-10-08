@@ -208,7 +208,8 @@ function BookingsPage() {
                 booking.visit_time,
                 now,
               );
-              const status = String(booking.status ?? "");
+              const status =
+                String(booking.status ?? "").trim() || "pending";
               const canEdit =
                 !history &&
                 !started &&
@@ -237,11 +238,9 @@ function BookingsPage() {
                     </div>
                     <StatusBadge
                       status={
-                        history &&
-                        ["pending", "accepted"].includes(String(booking.status ?? "")) &&
-                        started
+                        history && started && ["pending", "accepted"].includes(status)
                           ? "appointment_ended"
-                          : booking.status
+                          : status
                       }
                     />
                   </div>

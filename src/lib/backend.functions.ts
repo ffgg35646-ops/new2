@@ -581,6 +581,12 @@ async function runDb(input: DbInput) {
       }
     }
 
+    if (input.collection === "viewing_bookings") {
+      for (const doc of docs) {
+        doc.status ??= "pending";
+      }
+    }
+
     if (input.collection === "profiles" && userId) {
       for (const doc of docs) {
         doc.id = userId;
@@ -1716,7 +1722,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         if (!booking) throw new Error("booking_not_found");
 
-        if (!["pending", "accepted"].includes(String(booking.status ?? ""))) {
+        const currentStatus =
+          String(booking.status ?? "").trim() || "pending";
+
+        if (!["pending", "accepted"].includes(currentStatus)) {
           throw new Error("booking_not_editable");
         }
 
@@ -1860,23 +1869,26 @@ export const rpcRequest = createServerFn({ method: "POST" })
           // Allowed: either side can cancel an active/pending appointment.
         }
 
+        const currentStatus =
+          String(booking.status ?? "").trim() || "pending";
+
         if (
           requestedStatus === "accepted" &&
-          String(booking.status ?? "") !== "pending"
+          currentStatus !== "pending"
         ) {
           throw new Error("booking_not_pending");
         }
 
         if (
           requestedStatus === "rejected" &&
-          String(booking.status ?? "") !== "pending"
+          currentStatus !== "pending"
         ) {
           throw new Error("booking_not_pending");
         }
 
         if (
           requestedStatus === "completed" &&
-          String(booking.status ?? "") !== "accepted"
+          currentStatus !== "accepted"
         ) {
           throw new Error("booking_not_accepted");
         }
@@ -1899,7 +1911,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         if (
           requestedStatus === "cancelled" &&
-          !["pending", "accepted"].includes(String(booking.status ?? ""))
+          !["pending", "accepted"].includes(currentStatus)
         ) {
           throw new Error("booking_not_active");
         }
