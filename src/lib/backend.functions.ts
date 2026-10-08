@@ -481,6 +481,21 @@ async function runDb(input: DbInput) {
 
     if (input.head) return { data: null, count, error: null };
 
+    if (input.collection === "offices") {
+      const bookings = await getMongoCollection<Record<string, unknown>>("viewing_bookings");
+      await Promise.all(
+        rows.map(async (office) => {
+          const officeId = String(office.id ?? office._id ?? "");
+          if (!officeId) return;
+
+          office.completed_requests_count = await bookings.countDocuments({
+            office_id: officeId,
+            status: "completed",
+          });
+        }),
+      );
+    }
+
     const relatedRows = await enrichRows(
       input.collection,
       rows,
@@ -675,14 +690,19 @@ async function runDb(input: DbInput) {
     if (input.collection === "favorites") {
       const properties = await getMongoCollection<Record<string, unknown>>("properties");
       await Promise.all(
-        docs.map((doc) =>
-          properties.updateOne(
-            { id: String(doc.property_id) },
-            {
-              $inc: { favorites_count: 1 },
-              $set: { updated_at: new Date() },
-            },
-          ),
+        [...new Set(docs.map((doc) => String(doc.property_id ?? "")).filter(Boolean))].map(
+          async (propertyId) => {
+            const count = await collection.countDocuments({ property_id: propertyId });
+            await properties.updateOne(
+              { id: propertyId },
+              {
+                $set: {
+                  favorites_count: count,
+                  updated_at: new Date(),
+                },
+              },
+            );
+          },
         ),
       );
     }
@@ -930,15 +950,18 @@ async function runDb(input: DbInput) {
     if (input.collection === "favorites" && result.deletedCount > 0) {
       const properties = await getMongoCollection<Record<string, unknown>>("properties");
       await Promise.all(
-        affectedPropertyIds.map((propertyId) =>
-          properties.updateOne(
+        affectedPropertyIds.map(async (propertyId) => {
+          const count = await collection.countDocuments({ property_id: propertyId });
+          await properties.updateOne(
             { id: propertyId },
             {
-              $inc: { favorites_count: -1 },
-              $set: { updated_at: new Date() },
+              $set: {
+                favorites_count: count,
+                updated_at: new Date(),
+              },
             },
-          ),
-        ),
+          );
+        }),
       );
     }
 
