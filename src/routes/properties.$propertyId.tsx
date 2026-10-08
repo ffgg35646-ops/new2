@@ -133,6 +133,15 @@ function PropertyDetail() {
   useEffect(() => {
     if (!data?.id) return;
     void supabase.from("property_views").insert({ property_id: data.id, user_id: userId ?? null });
+
+    if (typeof window !== "undefined" && window.location.hash === "#property-inquiry") {
+      window.setTimeout(() => {
+        document.getElementById("property-inquiry")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 0);
+    }
   }, [data?.id, userId]);
 
   const book = useMutation({
@@ -176,6 +185,7 @@ function PropertyDetail() {
           contact_name: profile?.full_name || "عميل",
           contact_phone: phone,
           message: inquiryMessage.trim() || null,
+          status: "new",
         })
         .select("id")
         .single();
@@ -185,7 +195,9 @@ function PropertyDetail() {
     onSuccess: () => {
       toast.success("تم إرسال طلبك للمكتب");
       setInquiryMessage("");
+      setInquiryPhone("");
       qc.invalidateQueries({ queryKey: ["office-inquiries"] });
+      qc.invalidateQueries({ queryKey: ["new-inquiries-count"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر إرسال الطلب"),
   });
