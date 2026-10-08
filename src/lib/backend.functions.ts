@@ -1249,7 +1249,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               office_id: office.id,
               request_id: { $in: requestIds },
             })
-            .project({ request_id: 1 })
+            .project({ id: 1, request_id: 1 })
             .toArray(),
           profilesCollection
             .find({ id: { $in: userIds } })
@@ -1261,10 +1261,13 @@ export const rpcRequest = createServerFn({ method: "POST" })
           ),
         ]);
 
-        const offeredRequests = new Set(
+        const offerByRequest = new Map(
           offers
-            .map((offer) => offer.request_id)
-            .filter((id): id is string => typeof id === "string"),
+            .filter(
+              (offer): offer is { id: string; request_id: string } =>
+                typeof offer.id === "string" && typeof offer.request_id === "string",
+            )
+            .map((offer) => [offer.request_id, offer.id]),
         );
 
         const profileMap = new Map(
@@ -1297,7 +1300,8 @@ export const rpcRequest = createServerFn({ method: "POST" })
               views_count: Number(request.views_count ?? 0),
               created_at: request.created_at ?? null,
               expires_at: request.expires_at ?? null,
-              offer_sent: offeredRequests.has(String(request.id ?? request._id ?? "")),
+              offer_sent: offerByRequest.has(String(request.id ?? request._id ?? "")),
+              offer_id: offerByRequest.get(String(request.id ?? request._id ?? "")) ?? null,
               client_name: profile?.full_name ?? "عميل",
               client_phone: profile?.phone ?? null,
             };
