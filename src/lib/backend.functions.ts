@@ -525,6 +525,61 @@ async function runDb(input: DbInput) {
       return item;
     });
 
+    if (
+      userId &&
+      (input.collection === "property_inquiries" ||
+        input.collection === "viewing_bookings")
+    ) {
+      for (const doc of docs) {
+        if (role !== "individual") {
+          throw new Error("not_individual");
+        }
+
+        // Never trust a client-supplied owner id for individual-only submissions.
+        doc.user_id = userId;
+
+        if (input.collection === "property_inquiries") {
+          const propertyId = String(doc.property_id ?? "");
+          const inquiryType = String(doc.type ?? "");
+
+          if (!propertyId || !inquiryType) {
+            throw new Error("inquiry_invalid");
+          }
+
+          const existing = await collection.findOne({
+            user_id: userId,
+            property_id: propertyId,
+            type: inquiryType,
+            status: { $nin: ["completed", "closed"] },
+          });
+
+          if (existing) {
+            throw new Error("سبق وأرسلت هذا الطلب لهذا العقار.");
+          }
+        } else {
+          const propertyId = String(doc.property_id ?? "");
+          const visitDate = String(doc.visit_date ?? "");
+          const visitTime = String(doc.visit_time ?? "").slice(0, 5);
+
+          if (!propertyId || !visitDate || !visitTime) {
+            throw new Error("booking_invalid");
+          }
+
+          const existing = await collection.findOne({
+            user_id: userId,
+            property_id: propertyId,
+            visit_date: visitDate,
+            visit_time: visitTime,
+            status: { $nin: ["rejected", "cancelled", "completed"] },
+          });
+
+          if (existing) {
+            throw new Error("يوجد لديك بالفعل حجز معاينة لنفس الموعد على هذا العقار.");
+          }
+        }
+      }
+    }
+
     if (input.collection === "profiles" && userId) {
       for (const doc of docs) {
         doc.id = userId;
