@@ -1564,6 +1564,164 @@ export const rpcRequest = createServerFn({ method: "POST" })
         };
       }
 
+      if (data.name === "submit_office_review") {
+        if (!userId) throw new Error("not_authenticated");
+        if (role !== "individual") throw new Error("not_individual");
+
+        const officeId = String(data.args?._office_id ?? "");
+        const rating = Number(data.args?._rating ?? 0);
+        const comment =
+          data.args?._comment == null
+            ? null
+            : String(data.args._comment).trim() || null;
+
+        if (!officeId) throw new Error("office_not_found");
+        if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+          throw new Error("invalid_rating");
+        }
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          id: officeId,
+          is_deleted: { $ne: true },
+        });
+
+        if (!office) throw new Error("office_not_found");
+
+        if (office.owner_id === userId) {
+          throw new Error("cannot_review_own_office");
+        }
+
+        const reviews = await getMongoCollection<Record<string, unknown>>(
+          "office_reviews",
+        );
+
+        const existing = await reviews.findOne({
+          office_id: officeId,
+          user_id: userId,
+        });
+
+        const now = new Date();
+
+        if (existing) {
+          await reviews.updateOne(
+            { id: existing.id },
+            {
+              $set: {
+                rating,
+                comment,
+                updated_at: now,
+              },
+            },
+          );
+        } else {
+          const id = randomUUID();
+
+          await reviews.insertOne({
+            id,
+            _id: id,
+            office_id: officeId,
+            user_id: userId,
+            rating,
+            comment,
+            created_at: now,
+            updated_at: now,
+          });
+        }
+
+        const allReviews = await reviews
+          .find({ office_id: officeId })
+          .project({ rating: 1 })
+          .toArray();
+
+        const count = allReviews.length;
+        const average = count
+          ? Math.round(
+              (allReviews.reduce(
+                (sum, item) => sum + Number(item.rating ?? 0),
+                0,
+              ) /
+                count) *
+                10,
+            ) / 10
+          : 0;
+
+        await offices.updateOne(
+          { id: officeId },
+          {
+            $set: {
+              rating_avg: average,
+              reviews_count: count,
+              updated_at: now,
+            },
+          },
+        );
+
+        return {
+          data: {
+            rating,
+            comment,
+            rating_avg: average,
+            reviews_count: count,
+          },
+          error: null,
+        };
+      }
+
+      if (data.name === "toggle_office_follow") {
+        if (!userId) throw new Error("not_authenticated");
+
+        const officeId = String(data.args?._office_id ?? "");
+        const following = Boolean(data.args?._following);
+
+        if (!officeId) throw new Error("office_not_found");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          id: officeId,
+          is_deleted: { $ne: true },
+        });
+
+        if (!office) throw new Error("office_not_found");
+
+        const follows = await getMongoCollection<Record<string, unknown>>("follows");
+        const existing = await follows
+          .find({
+            office_id: officeId,
+            user_id: userId,
+          })
+          .sort({ created_at: 1 })
+          .toArray();
+
+        if (following) {
+          if (existing.length > 1) {
+            await follows.deleteMany({
+              _id: { $in: existing.slice(1).map((row) => row._id) },
+            });
+          }
+
+          if (existing.length === 0) {
+            const id = randomUUID();
+
+            await follows.insertOne({
+              id,
+              _id: id,
+              office_id: officeId,
+              user_id: userId,
+              notify: false,
+              created_at: new Date(),
+              updated_at: new Date(),
+            });
+          }
+        } else if (existing.length) {
+          await follows.deleteMany({
+            _id: { $in: existing.map((row) => row._id) },
+          });
+        }
+
+        return { data: { following }, error: null };
+      }
+
       if (data.name === "request_pro_upgrade") {
         if (!userId) throw new Error("يجب تسجيل الدخول.");
 
