@@ -1596,16 +1596,20 @@ export const rpcRequest = createServerFn({ method: "POST" })
           "office_reviews",
         );
 
-        const existing = await reviews.findOne({
-          office_id: officeId,
-          user_id: userId,
-        });
+        const existingReviews = await reviews
+          .find({
+            office_id: officeId,
+            user_id: userId,
+          })
+          .sort({ created_at: -1 })
+          .toArray();
 
         const now = new Date();
+        const existing = existingReviews[0];
 
         if (existing) {
           await reviews.updateOne(
-            { id: existing.id },
+            { _id: existing._id },
             {
               $set: {
                 rating,
@@ -1614,6 +1618,14 @@ export const rpcRequest = createServerFn({ method: "POST" })
               },
             },
           );
+
+          if (existingReviews.length > 1) {
+            await reviews.deleteMany({
+              _id: {
+                $in: existingReviews.slice(1).map((row) => row._id),
+              },
+            });
+          }
         } else {
           const id = randomUUID();
 
