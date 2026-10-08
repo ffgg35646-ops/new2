@@ -1703,8 +1703,8 @@ export const rpcRequest = createServerFn({ method: "POST" })
           throw new Error("booking_update_invalid");
         }
 
-        if (!contactPhone || contactPhone.length < 3 || contactPhone.length > 100) {
-          throw new Error("contact_required");
+        if (contactPhone.length > 100) {
+          throw new Error("contact_invalid");
         }
 
         const appointment = saudiAppointmentDateTime(visitDate, visitTime);
@@ -1756,17 +1756,24 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         const now = new Date();
 
-        await bookings.updateOne(
+        const updateFields: Record<string, unknown> = {
+          visit_date: visitDate,
+          visit_time: visitTime,
+          updated_at: now,
+        };
+
+        if (contactPhone) {
+          updateFields.contact_phone = contactPhone;
+        }
+
+        const updateResult = await bookings.updateOne(
           { id: bookingId, user_id: userId },
-          {
-            $set: {
-              visit_date: visitDate,
-              visit_time: visitTime,
-              contact_phone: contactPhone,
-              updated_at: now,
-            },
-          },
+          { $set: updateFields },
         );
+
+        if (updateResult.matchedCount !== 1) {
+          throw new Error("booking_not_found");
+        }
 
         const offices = await getMongoCollection<Record<string, unknown>>("offices");
         const office = await offices.findOne({
@@ -1777,36 +1784,44 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const properties = await getMongoCollection<Record<string, unknown>>("properties");
         const property = await properties.findOne({ id: booking.property_id });
 
-        if (office?.owner_id) {
+        const officeOwnerId = String(
+          office?.owner_id ?? office?.user_id ?? bookingOfficeId ?? "",
+        ).trim();
+
+        if (officeOwnerId) {
           const clientName =
             String(booking.contact_name ?? "العميل").trim() || "العميل";
           const propertyText = property?.title
             ? " لعقار " + String(property.title)
             : "";
 
-          await getMongoCollection<Record<string, unknown>>(
-            "notifications",
-          ).insertOne({
-            id: randomUUID(),
-            _id: randomUUID(),
-            user_id: String(office.owner_id),
-            title: "تم تعديل حجز المعاينة",
-            body:
-              clientName +
-              " عدّل حجز المعاينة" +
-              propertyText +
-              " · الموعد الجديد " +
-              visitDate +
-              " الساعة " +
-              visitTime +
-              " · وسيلة الاتصال: " +
-              contactPhone,
-            type: "viewing_booking_updated",
-            link: "/office/requests?tab=bookings",
-            is_read: false,
-            created_at: now,
-            booking_id: booking.id,
-          });
+          try {
+            await getMongoCollection<Record<string, unknown>>(
+              "notifications",
+            ).insertOne({
+              id: randomUUID(),
+              _id: randomUUID(),
+              user_id: officeOwnerId,
+              title: "تم تعديل حجز المعاينة",
+              body:
+                clientName +
+                " عدّل حجز المعاينة" +
+                propertyText +
+                " · الموعد الجديد " +
+                visitDate +
+                " الساعة " +
+                visitTime +
+                " · وسيلة الاتصال: " +
+                (contactPhone || "كما هي"),
+              type: "viewing_booking_updated",
+              link: "/office/requests?tab=bookings",
+              is_read: false,
+              created_at: now,
+              booking_id: booking.id,
+            });
+          } catch (notificationError) {
+            console.error("[viewing-booking-update-notification]", notificationError);
+          }
         }
 
         return {
@@ -1958,7 +1973,11 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const actorLabel = isOfficeOwner ? "المكتب" : "العميل";
         const recipientId = isOfficeOwner
           ? bookingUserId
-          : String(bookingOffice?.owner_id ?? "");
+          : String(
+              bookingOffice?.owner_id ??
+                bookingOffice?.user_id ??
+                "",
+            );
 
         const clientName = String(booking.contact_name ?? "العميل").trim() || "العميل";
         const propertyLabel = property?.title
@@ -1985,7 +2004,13 @@ export const rpcRequest = createServerFn({ method: "POST" })
             String(booking.visit_time ?? "").slice(0, 5) +
             " · السبب: " +
             cancelReason;
-          notificationRecipients = [String(bookingOffice?.owner_id ?? "")];
+          notificationRecipients = [
+            String(
+              bookingOffice?.owner_id ??
+                bookingOffice?.user_id ??
+                "",
+            ),
+          ];
         } else {
           title =
             requestedStatus === "cancelled"
@@ -2011,29 +2036,33 @@ export const rpcRequest = createServerFn({ method: "POST" })
         );
 
         if (allRecipients.length) {
-          await notifications.insertMany(
-            allRecipients.map((recipient) => ({
-              id: randomUUID(),
-              _id: randomUUID(),
-              user_id: recipient,
-              title,
-              body,
-              type: "viewing_booking",
-              link:
-                recipient === bookingUserId
-                  ? "/bookings"
-                  : "/office/requests?tab=bookings",
-              is_read: false,
-              created_at: now,
-              booking_id: booking.id,
-              cancel_reason:
-                requestedStatus === "cancelled" ? cancelReason : null,
-              completion_reason:
-                requestedStatus === "completed" && !isOfficeOwner
-                  ? cancelReason
-                  : null,
-            })),
-          );
+          try {
+            await notifications.insertMany(
+              allRecipients.map((recipient) => ({
+                id: randomUUID(),
+                _id: randomUUID(),
+                user_id: recipient,
+                title,
+                body,
+                type: "viewing_booking",
+                link:
+                  recipient === bookingUserId
+                    ? "/bookings"
+                    : "/office/requests?tab=bookings",
+                is_read: false,
+                created_at: now,
+                booking_id: booking.id,
+                cancel_reason:
+                  requestedStatus === "cancelled" ? cancelReason : null,
+                completion_reason:
+                  requestedStatus === "completed" && !isOfficeOwner
+                    ? cancelReason
+                    : null,
+              })),
+            );
+          } catch (notificationError) {
+            console.error("[viewing-booking-notifications]", notificationError);
+          }
         }
 
         return { data: requestedStatus, error: null };

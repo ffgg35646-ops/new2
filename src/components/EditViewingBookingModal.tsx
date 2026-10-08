@@ -45,7 +45,7 @@ export function EditViewingBookingModal({
     const date = dateTime.slice(0, 10);
     const time = dateTime.slice(11, 16);
 
-    if (!date || !time || value.length < 3) return;
+    if (!date || !time) return;
 
     const appointment = saudiAppointmentDateTime(date, time);
     if (!Number.isFinite(appointment.getTime()) || appointment.getTime() <= Date.now()) return;
@@ -110,7 +110,7 @@ export function EditViewingBookingModal({
             type="text"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
-            placeholder="رقم الهاتف أو وسيلة الاتصال"
+            placeholder="رقم الهاتف أو وسيلة الاتصال (اختياري)"
             className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
           />
         </label>
@@ -118,7 +118,7 @@ export function EditViewingBookingModal({
         <button
           type="button"
           onClick={submit}
-          disabled={pending || !dateTime || phone.trim().length < 3}
+          disabled={pending || !dateTime}
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-sm font-bold text-background disabled:opacity-50"
         >
           {pending && <Loader2 className="size-4 animate-spin" />}
