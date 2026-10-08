@@ -167,7 +167,12 @@ function BookingsPage() {
         ) : data.length ? (
           (() => {
             const activeBookings = data.filter((booking: any) => {
-              if (!["pending", "accepted"].includes(String(booking.status ?? ""))) return false;
+              const status = String(booking.status ?? "");
+
+              if (!["pending", "accepted"].includes(status)) {
+                return false;
+              }
+
               return !isSaudiAppointmentStarted(
                 String(booking.visit_date ?? ""),
                 String(booking.visit_time ?? ""),
@@ -175,7 +180,23 @@ function BookingsPage() {
               );
             });
 
-            const historyBookings = data.filter((booking: any) => !activeBookings.includes(booking));
+            const historyBookings = data.filter((booking: any) => {
+              const status = String(booking.status ?? "");
+
+              if (["rejected", "completed", "cancelled", "appointment_ended"].includes(status)) {
+                return true;
+              }
+
+              if (status === "pending" || status === "accepted") {
+                return isSaudiAppointmentStarted(
+                  String(booking.visit_date ?? ""),
+                  String(booking.visit_time ?? ""),
+                  now,
+                );
+              }
+
+              return true;
+            });
 
             const renderBooking = (booking: any, history = false) => {
               const property = booking.properties as {
