@@ -668,7 +668,7 @@ function PropertyDetail() {
             className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
           />
           <input
-            type="tel"
+            type="text"
             value={bookingContact || profile?.phone || ""}
             onChange={(e) => setBookingContact(e.target.value)}
             placeholder="رقم الهاتف أو وسيلة الاتصال"
