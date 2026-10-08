@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Loader2, MessageCircle, Phone, Send } from "lucide-react";
+import { ClipboardList, Loader2, MessageCircle, Phone, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -380,6 +380,142 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
         />
       )}
     </div>
+
+    {details && (
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3"
+        role="dialog"
+        aria-modal="true"
+        aria-label="تفاصيل طلب العميل"
+        onClick={() => setDetailsId(null)}
+      >
+        <div
+          className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-[28px] bg-surface p-4 shadow-2xl ring-1 ring-line"
+          onClick={(event) => event.stopPropagation()}
+          dir="rtl"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-semibold text-muted-foreground">
+                تفاصيل طلب العميل
+              </div>
+              <h2 className="mt-1 font-display text-lg font-extrabold">
+                {kindLabel(details.kind)} · {listingLabel(details.listing)}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDetailsId(null)}
+              className="grid size-9 shrink-0 place-items-center rounded-full bg-background ring-1 ring-line"
+              aria-label="إغلاق"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <section className="rounded-2xl bg-background p-3.5 ring-1 ring-line">
+              <div className="text-[10px] font-semibold text-muted-foreground">العميل</div>
+              <div className="mt-1 text-sm font-extrabold">{details.client_name}</div>
+              {details.client_phone && (
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {details.client_phone}
+                </div>
+              )}
+            </section>
+
+            <section className="grid grid-cols-2 gap-2">
+              <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+                <div className="text-[10px] text-muted-foreground">نوع العقار</div>
+                <div className="mt-1 text-sm font-bold">{kindLabel(details.kind)}</div>
+              </div>
+              <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+                <div className="text-[10px] text-muted-foreground">نوع الطلب</div>
+                <div className="mt-1 text-sm font-bold">{listingLabel(details.listing)}</div>
+              </div>
+              <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+                <div className="text-[10px] text-muted-foreground">المحافظة</div>
+                <div className="mt-1 text-sm font-bold">{officeGovernorateId ? "محافظة المكتب" : "—"}</div>
+              </div>
+              <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+                <div className="text-[10px] text-muted-foreground">الحي</div>
+                <div className="mt-1 text-sm font-bold">{details.neighborhood || "أي حي"}</div>
+              </div>
+              <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+                <div className="text-[10px] text-muted-foreground">الميزانية</div>
+                <div className="mt-1 text-sm font-bold">
+                  {details.budget_min || details.budget_max
+                    ? formatPrice(details.budget_min) + " - " + formatPrice(details.budget_max) + " ر.س"
+                    : "غير محددة"}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+                <div className="text-[10px] text-muted-foreground">المساحة</div>
+                <div className="mt-1 text-sm font-bold">
+                  {details.area_min ? "من " + formatArea(details.area_min) : "غير محددة"}
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl bg-background p-3.5 ring-1 ring-line">
+              <div className="text-[10px] font-semibold text-muted-foreground">وصف الطلب</div>
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-7">
+                {details.description || "لا يوجد وصف إضافي."}
+              </p>
+            </section>
+
+            {details.attachment_url && (
+              <a
+                href={details.attachment_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex w-full items-center justify-center rounded-2xl bg-sand py-3 text-sm font-bold text-forest"
+              >
+                فتح المرفق المضاف
+              </a>
+            )}
+
+            <div className="text-[11px] leading-6 text-muted-foreground">
+              نُشر الطلب: {formatDate(details.created_at)} · آخر موعد: {details.expires_at ? formatDate(details.expires_at) : "غير محدد"} · {details.views_count} مشاهدة
+            </div>
+
+            {details.client_phone && (
+              <div className="flex gap-2">
+                <a
+                  href={"tel:" + details.client_phone}
+                  className="flex-1 rounded-2xl bg-forest py-3.5 text-center text-sm font-bold text-background"
+                >
+                  <Phone className="mx-auto mb-1 size-4" />
+                  اتصال
+                </a>
+                <a
+                  href={whatsappHref(details.client_phone, "مرحبًا " + details.client_name + "، بخصوص طلب العقار")}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 rounded-2xl bg-sand py-3.5 text-center text-sm font-bold"
+                >
+                  <MessageCircle className="mx-auto mb-1 size-4" />
+                  واتساب
+                </a>
+              </div>
+            )}
+
+            {!details.offer_sent && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDetailsId(null);
+                  setOpenId(details.id);
+                }}
+                className="w-full rounded-2xl bg-terracotta py-3.5 text-sm font-bold text-background"
+              >
+                إرسال عرض للعميل
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
   );
 }
 
@@ -412,6 +548,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   const { data: membership } = useMyOffice();
   const officeGovernorateId = membership?.office?.governorate_id ?? null;
   const [openId, setOpenId] = useState<string | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [price, setPrice] = useState("");
   const viewed = useRef(new Set<string>());
@@ -490,6 +627,8 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   if (isLoading) return <ListSkeleton />;
   if (!data?.length) return <EmptyState icon={ClipboardList} title="لا توجد طلبات نشطة حاليًا" />;
 
+  const details = data.find((request) => request.id === detailsId) ?? null;
+
   return (
     <div className="space-y-2.5">
       {data.map((r) => {
@@ -511,7 +650,16 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               )}
             </div>
 
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{r.description}</p>
+            <button
+              type="button"
+              onClick={() => setDetailsId(r.id)}
+              className="mt-2.5 flex w-full items-center justify-between rounded-xl bg-forest-soft px-3 py-2.5 text-xs font-bold text-forest"
+            >
+              <span>عرض تفاصيل الطلب كاملة</span>
+              <span>‹</span>
+            </button>
+
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2">{r.description}</p>
             <div className="mt-1.5 text-[11px] text-muted-foreground">
               {r.neighborhood ? r.neighborhood + " · " : ""}
               {r.area_min ? "من " + formatArea(r.area_min) + " · " : ""}
