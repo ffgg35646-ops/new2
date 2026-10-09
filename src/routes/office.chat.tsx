@@ -104,17 +104,19 @@ function OfficeChatPage() {
       const ids = [...new Set(rows.map((c) => c.user_id))];
 
       if (ids.length) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id,full_name")
-          .in("id", ids);
-
-        const byId = new Map(
-          (profiles ?? []).map((p) => [p.id, p])
+        const { data: clientData, error: clientError } = await supabase.rpc(
+          "office_chat_clients" as never,
+          { _office_id: officeId! } as never,
         );
+        if (clientError) throw clientError;
+
+        const clients = Array.isArray(clientData)
+          ? clientData as Array<{ id: string; full_name: string }>
+          : [];
+        const byId = new Map(clients.map((client) => [client.id, client]));
 
         for (const c of rows) {
-          c.client = byId.get(c.user_id) ?? null;
+          c.client = byId.get(c.user_id) ?? { full_name: "عميل" };
 
           const { data: latest } = await supabase
             .from("messages")
