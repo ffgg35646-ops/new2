@@ -123,6 +123,33 @@ export function BottomNav({
     },
   });
 
+  const { data: officeUnreadMessages = 0 } = useQuery({
+    queryKey: ["office-bottom-nav-chat-count", officeId, userId],
+    enabled: resolved === "office" && !!officeId && !!userId,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
+      const { data: conversations, error: conversationError } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("office_id", officeId!)
+        .limit(500);
+      if (conversationError) throw conversationError;
+
+      const conversationIds = (conversations ?? []).map((row) => row.id).filter(Boolean);
+      if (!conversationIds.length) return 0;
+
+      const { count, error } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .in("conversation_id", conversationIds)
+        .neq("sender_id", userId!)
+        .is("read_at", null);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   const { data: officeRequestsCount = 0 } = useQuery({
     queryKey: ["office-bottom-nav-request-count", officeId, officeGovernorateId],
     enabled: !!officeId,
@@ -197,6 +224,11 @@ export function BottomNav({
               {item.to === "/office/requests" && officeRequestsCount > 0 && (
                 <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
                   {officeRequestsCount > 99 ? "99+" : officeRequestsCount}
+                </span>
+              )}
+              {item.to === "/office/chat" && officeUnreadMessages > 0 && (
+                <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
+                  {officeUnreadMessages > 99 ? "99+" : officeUnreadMessages}
                 </span>
               )}
               {item.to === "/requests" && individualRequestsCount > 0 && (
