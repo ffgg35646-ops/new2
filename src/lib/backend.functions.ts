@@ -1795,6 +1795,94 @@ export const rpcRequest = createServerFn({ method: "POST" })
       }
 
 
+      if (data.name === "office_property_request_history") {
+        if (!userId || role !== "office") throw new Error("not_office_member");
+        const office = await getMongoCollection<Record<string, unknown>>("offices")
+          .then((offices) => offices.findOne({ owner_id: userId, is_deleted: { $ne: true } }));
+        if (!office) throw new Error("office_not_found");
+        const officeId = String(office.id ?? "");
+        const offersCollection = await getMongoCollection<Record<string, unknown>>("office_offers");
+        const requestsCollection = await getMongoCollection<Record<string, unknown>>("property_requests");
+        const [offerRows, officePropertyRows] = await Promise.all([
+          offersCollection.find({ office_id: officeId }).sort({ updated_at: -1, created_at: -1 }).limit(300).toArray(),
+          getMongoCollection<Record<string, unknown>>("properties")
+            .then((properties) => properties.find({ office_id: officeId }).project({ id: 1, title: 1 }).toArray()),
+        ]);
+
+        const requestIds = [...new Set(offerRows.map((offer) => String(offer.request_id ?? "")).filter(Boolean))];
+        const requestRows = requestIds.length
+          ? await requestsCollection.find({ id: { $in: requestIds } }).toArray()
+          : [];
+        const requestById = new Map(requestRows.map((request) => [String(request.id ?? ""), request]));
+        const userIds = [...new Set(requestRows.map((request) => String(request.user_id ?? "")).filter(Boolean))];
+        const propertyIds = [...new Set(offerRows.map((offer) => String(offer.property_id ?? "")).filter(Boolean))];
+        const [profiles, properties] = await Promise.all([
+          userIds.length
+            ? getMongoCollection<Record<string, unknown>>("profiles")
+                .then((collection) => collection.find({ id: { $in: userIds } }).project({ id: 1, full_name: 1 }).toArray())
+            : Promise.resolve([]),
+          propertyIds.length
+            ? getMongoCollection<Record<string, unknown>>("properties")
+                .then((collection) => collection.find({ id: { $in: propertyIds } }).project({ id: 1, title: 1 }).toArray())
+            : Promise.resolve([]),
+        ]);
+        const profileById = new Map(profiles.map((profile) => [String(profile.id ?? ""), profile]));
+        const propertyById = new Map(properties.map((property) => [String(property.id ?? ""), property]));
+        const officePropertyById = new Map(officePropertyRows.map((property) => [String(property.id ?? ""), property]));
+
+        const history = offerRows.map((offer) => {
+          const offerId = String(offer.id ?? "");
+          const requestId = String(offer.request_id ?? "");
+          const request = requestById.get(requestId);
+          const profile = request ? profileById.get(String(request.user_id ?? "")) : null;
+          const propertyId = String(offer.property_id ?? "");
+          const property = propertyById.get(propertyId) ?? officePropertyById.get(propertyId) ?? null;
+          const offerStatus = String(offer.status ?? "");
+          const requestStatus = String(request?.status ?? "");
+          const visibleInHistory =
+            ["completed", "ended", "deleted", "rejected", "awaiting_confirmation"].includes(offerStatus) ||
+            ["fulfilled", "cancelled", "ended", "expired"].includes(requestStatus);
+          if (!visibleInHistory) return null;
+
+          const fallbackTitle = [
+            String(request?.kind ?? offer.completed_request_kind ?? "طلب عقاري"),
+            String(request?.neighborhood ?? offer.completed_neighborhood ?? ""),
+          ].filter(Boolean).join(" — ");
+          const title =
+            String(offer.completed_property_title ?? "").trim() ||
+            String(property?.title ?? "").trim() ||
+            fallbackTitle ||
+            "طلب عقاري";
+
+          return {
+            id: offerId,
+            request_id: requestId,
+            message: offer.message == null ? null : String(offer.message),
+            price: offer.price == null ? null : Number(offer.price),
+            status: offerStatus,
+            end_reason: offer.end_reason == null ? null : String(offer.end_reason),
+            created_at: offer.completed_at ?? offer.ended_at ?? offer.updated_at ?? offer.created_at ?? new Date(),
+            property_title: title,
+            client_name: String(offer.completed_client_name ?? profile?.full_name ?? "عميل"),
+            kind: request?.kind ?? offer.completed_request_kind ?? null,
+            listing: request?.listing ?? offer.completed_request_listing ?? null,
+            neighborhood: request?.neighborhood ?? offer.completed_neighborhood ?? null,
+            budget_min: request?.budget_min ?? null,
+            budget_max: request?.budget_max ?? null,
+            area_min: request?.area_min ?? null,
+            description: String(offer.completed_request_description ?? request?.description ?? ""),
+            request_status: requestStatus,
+          };
+        }).filter(Boolean);
+
+        history.sort((a, b) => {
+          const left = new Date(String(a?.created_at ?? 0)).getTime() || 0;
+          const right = new Date(String(b?.created_at ?? 0)).getTime() || 0;
+          return right - left;
+        });
+        return { data: history, error: null };
+      }
+
       if (data.name === "office_accepted_property_requests") {
         if (!userId || role !== "office") throw new Error("not_office_member");
         const offices = await getMongoCollection<Record<string, unknown>>("offices");
@@ -3156,6 +3244,30 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const profile = await getMongoCollection<Record<string, unknown>>("profiles")
           .then((profiles) => profiles.findOne({ id: userId }, { projection: { full_name: 1 } }));
         const clientName = String(profile?.full_name ?? "العميل");
+        const completedProperty = selectedOffer.property_id
+          ? await getMongoCollection<Record<string, unknown>>("properties")
+              .then((properties) => properties.findOne({ id: String(selectedOffer.property_id) }))
+          : null;
+        const propertyTitle =
+          String(completedProperty?.title ?? "").trim() ||
+          [String(request.kind ?? "طلب عقاري"), request.neighborhood ? String(request.neighborhood) : ""]
+            .filter(Boolean)
+            .join(" — ");
+        await offers.updateOne(
+          { id: offerId, request_id: requestId, status: "completed" },
+          {
+            $set: {
+              completed_property_title: propertyTitle,
+              completed_client_name: clientName,
+              completed_request_description: String(request.description ?? ""),
+              completed_neighborhood: request.neighborhood ?? null,
+              completed_request_kind: request.kind ?? null,
+              completed_request_listing: request.listing ?? null,
+              completed_at: now,
+              updated_at: now,
+            },
+          },
+        );
         const allOffers = await offers.find({ request_id: requestId }).project({ office_id: 1 }).toArray();
         const officeIds = [...new Set(allOffers.map((item) => String(item.office_id ?? "")).filter(Boolean))];
         const offices = await getMongoCollection<Record<string, unknown>>("offices");
@@ -3171,9 +3283,14 @@ export const rpcRequest = createServerFn({ method: "POST" })
             id: randomUUID(),
             _id: randomUUID(),
             user_id: recipientId,
-            title: isCompletedOffice ? "الطلب مكتمل — اختارك العميل" : "الطلب مكتمل من خلال مكتب آخر",
+            title: isCompletedOffice
+              ? "نهنئكم على " + (String(request.listing ?? "") === "rent" ? "تأجير العقار: " : "بيع العقار: ") + propertyTitle
+              : "الطلب مكتمل من خلال مكتب آخر",
             body: isCompletedOffice
-              ? "أكد العميل " + clientName + " أن الطلب اكتمل من خلال مكتبكم."
+              ? "نهنئ مكتبكم على إتمام " +
+                (String(request.listing ?? "") === "rent" ? "تأجير" : "بيع") +
+                " " + propertyTitle + " للعميل " + clientName +
+                (request.description ? ". تفاصيل الطلب: " + String(request.description).slice(0, 600) : "")
               : "أكد العميل " + clientName + " اكتمال الطلب من خلال مكتب آخر. تم إغلاق الطلب وعروضه.",
             type: "property_offer_completed",
             link: "/office/requests?tab=" + (isCompletedOffice ? "inbox" : "sent") +
