@@ -141,11 +141,6 @@ function AccountPage() {
               <NavRow to="/requests" icon={CalendarDays} label="الطلبات" />
               <NavRow to="/bookings" icon={CalendarDays} label="حجوزات المعاينة" />
               <NavRow to="/offices" icon={Building2} label="المكاتب العقارية" />
-              <NavRow
-                to="/offices/following"
-                icon={Bell}
-                label="المكاتب التي أتابعها · إشعارات المكاتب"
-              />
               <NavRow to="/properties" icon={Building2} label="جميع العقارات" />
               <button
                 type="button"

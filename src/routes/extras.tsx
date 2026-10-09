@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  Bell,
   Building2,
   ChevronLeft,
   Crown,
@@ -23,7 +22,7 @@ export const Route = createFileRoute("/extras")({
       {
         name: "description",
         content:
-          "المميزات والخدمات الإضافية في عقار البطين: إشعارات المكاتب، المفضلة، الطلبات، الدردشة، والباقات.",
+          "المميزات والخدمات الإضافية في عقار البطين: المفضلة، الطلبات، والدردشة.",
       },
       { property: "og:title", content: "الإضافات | عقار البطين" },
       {
@@ -60,7 +59,6 @@ function ExtrasPage() {
         <section className="space-y-2">
           <h2 className="px-1 font-display text-sm font-extrabold">متاحة لك</h2>
           <Row to="/chats" icon={MessageSquare} label="محادثاتي مع المكاتب" />
-          <Row to="/offices/following" icon={Bell} label="إشعارات المكاتب التي أتابعها" />
           <Row to="/properties" icon={Building2} label="جميع العقارات" />
           <Row to="/favorites" icon={Heart} label="المفضلة" />
           <Row to="/request" icon={ClipboardList} label="طلباتي العقارية" />
