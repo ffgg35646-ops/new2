@@ -83,6 +83,8 @@ export function inquiryTypeLabel(value?: string | null) {
 
 export const INQUIRY_STATUSES = [
   { value: "new", label: "جديد" },
+  { value: "accepted", label: "مقبول" },
+  { value: "rejected", label: "مرفوض" },
   { value: "contacted", label: "تم التواصل" },
   { value: "scheduled", label: "موعد معاينة" },
   { value: "completed", label: "مكتمل" },
