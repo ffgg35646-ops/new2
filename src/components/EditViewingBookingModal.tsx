@@ -23,28 +23,26 @@ export function EditViewingBookingModal({
     contactPhone: string;
   }) => void;
 }) {
-  const [dateTime, setDateTime] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
   const [phone, setPhone] = useState("");
 
   useEffect(() => {
     if (!open) return;
-    setDateTime(
-      visitDate && visitTime
-        ? String(visitDate).slice(0, 10) + "T" + String(visitTime).slice(0, 5)
-        : saudiInputDateTime(new Date(Date.now() + 60_000)),
-    );
+    const minimumSaudi = saudiInputDateTime(new Date(Date.now() + 60_000));
+    setDate(visitDate ? String(visitDate).slice(0, 10) : minimumSaudi.slice(0, 10));
+    setTime(visitTime ? String(visitTime).slice(0, 5) : minimumSaudi.slice(11, 16));
     setPhone(contactPhone ?? "");
   }, [open, visitDate, visitTime, contactPhone]);
 
   if (!open) return null;
 
-  const minimum = saudiInputDateTime(new Date(Date.now() + 60_000));
+  const minimumSaudi = saudiInputDateTime(new Date(Date.now() + 60_000));
+  const minimumDate = minimumSaudi.slice(0, 10);
+  const minimumTime = minimumSaudi.slice(11, 16);
 
   const submit = () => {
     const value = phone.trim();
-    const date = dateTime.slice(0, 10);
-    const time = dateTime.slice(11, 16);
-
     if (!date || !time) return;
 
     const appointment = saudiAppointmentDateTime(date, time);
@@ -91,15 +89,31 @@ export function EditViewingBookingModal({
 
         <label className="mt-4 block">
           <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <CalendarDays className="size-3.5" /> تاريخ ووقت المعاينة
+            <CalendarDays className="size-3.5" /> موعد المعاينة بتوقيت السعودية (UTC+3)
           </span>
-          <input
-            type="datetime-local"
-            value={dateTime}
-            min={minimum}
-            onChange={(event) => setDateTime(event.target.value)}
-            className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
-          />
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-xs font-semibold text-muted-foreground">
+              التاريخ السعودي
+              <input
+                type="date"
+                value={date}
+                min={minimumDate}
+                onChange={(event) => setDate(event.target.value)}
+                className="mt-1.5 w-full min-w-0 rounded-2xl bg-sand px-3 py-3 text-sm font-normal text-foreground outline-none focus:ring-2 focus:ring-forest"
+              />
+            </label>
+            <label className="block text-xs font-semibold text-muted-foreground">
+              الساعة السعودية
+              <input
+                type="time"
+                value={time}
+                min={date === minimumDate ? minimumTime : undefined}
+                step={60}
+                onChange={(event) => setTime(event.target.value)}
+                className="mt-1.5 w-full min-w-0 rounded-2xl bg-sand px-3 py-3 text-sm font-normal text-foreground outline-none focus:ring-2 focus:ring-forest"
+              />
+            </label>
+          </div>
         </label>
 
         <label className="mt-3 block">
@@ -118,7 +132,7 @@ export function EditViewingBookingModal({
         <button
           type="button"
           onClick={submit}
-          disabled={pending || !dateTime}
+          disabled={pending || !date || !time}
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-sm font-bold text-background disabled:opacity-50"
         >
           {pending && <Loader2 className="size-4 animate-spin" />}
