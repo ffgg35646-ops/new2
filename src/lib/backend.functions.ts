@@ -487,7 +487,10 @@ async function runDb(input: DbInput) {
   if (input.collection === "property_requests") {
     if (input.operation === "update") {
       const payload = (input.payload ?? {}) as Record<string, unknown>;
-      if (Object.prototype.hasOwnProperty.call(payload, "status")) {
+      if (
+        role !== "admin" &&
+        Object.prototype.hasOwnProperty.call(payload, "status")
+      ) {
         throw new Error("تغيير حالة الطلب يجب أن يتم من خلال الإجراء المخصص لصاحب الطلب.");
       }
       if (role !== "admin") {
