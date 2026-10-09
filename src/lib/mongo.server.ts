@@ -98,7 +98,11 @@ export async function readMedia(id: string) {
     stream.on("end", () =>
       resolve({
         body: Buffer.concat(chunks),
-        contentType: typeof files[0]?.contentType === "string" ? files[0].contentType : "application/octet-stream",
+        contentType:
+          typeof files[0]?.contentType === "string" &&
+          ["image/jpeg", "image/png", "image/webp"].includes(files[0].contentType)
+            ? files[0].contentType
+            : "application/octet-stream",
         fileName: typeof files[0]?.filename === "string" ? files[0].filename : "file",
       }),
     );
