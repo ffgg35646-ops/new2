@@ -61,8 +61,12 @@ export const Route = createFileRoute("/api/payment-checkout")({
             "true",
           );
 
-          // لا نرسل testMode مع بيانات LIVE إلا إذا ضُبط صراحةً في البيئة.
-          const testMode = String(process.env["HYPERPAY_TEST_MODE"] ?? "").trim();
+          // بوابة LIVE لا تستقبل وضع الاختبار، حتى لو بقي المتغير مضبوطًا محليًا.
+          const isLiveGateway =
+            new URL(baseUrl).hostname.toLowerCase() === "eu-prod.oppwa.com";
+          const testMode = isLiveGateway
+            ? ""
+            : String(process.env["HYPERPAY_TEST_MODE"] ?? "").trim();
 
           if (testMode) params.set("testMode", testMode);
 
