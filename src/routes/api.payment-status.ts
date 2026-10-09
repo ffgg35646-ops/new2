@@ -187,7 +187,7 @@ export const Route = createFileRoute("/api/payment-status")({
                   { session },
                 );
 
-                await db.collection("office_plan_events").insertOne(
+                await db.collection<any>("office_plan_events").insertOne(
                   {
                     id: randomUUID(),
                     _id: randomUUID(),
@@ -204,7 +204,7 @@ export const Route = createFileRoute("/api/payment-status")({
                 );
 
                 if (office.owner_id) {
-                  await db.collection("notifications").insertOne(
+                  await db.collection<any>("notifications").insertOne(
                     {
                       id: randomUUID(),
                       _id: randomUUID(),
