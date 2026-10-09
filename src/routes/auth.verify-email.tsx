@@ -74,7 +74,7 @@ function getResendState(email: string): ResendState {
       typeof parsed.email === "string"
     ) {
       const old = parsed as Partial<ResendState>;
-      const oldEmail = normalizePendingEmail(old.email);
+      const oldEmail = normalizePendingEmail(old.email ?? "");
       const migrated: StoredResendStates = {
         [oldEmail]: {
           count:
