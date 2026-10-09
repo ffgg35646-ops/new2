@@ -76,13 +76,29 @@ export function useNewInquiriesCount(officeId?: string | null) {
     queryKey: ["new-inquiries-count", officeId],
     enabled: !!officeId,
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("property_inquiries")
-        .select("id", { count: "exact", head: true })
-        .eq("office_id", officeId!)
-        .eq("status", "new");
-      if (error) throw error;
-      return count ?? 0;
+      const [received, acceptedInquiries, acceptedRequests] = await Promise.all([
+        supabase
+          .from("property_inquiries")
+          .select("id", { count: "exact", head: true })
+          .eq("office_id", officeId!)
+          .eq("status", "new"),
+        supabase
+          .from("property_inquiries")
+          .select("id", { count: "exact", head: true })
+          .eq("office_id", officeId!)
+          .eq("status", "accepted"),
+        supabase.rpc("office_accepted_property_requests" as never),
+      ]);
+
+      if (received.error) throw received.error;
+      if (acceptedInquiries.error) throw acceptedInquiries.error;
+      if (acceptedRequests.error) throw acceptedRequests.error;
+
+      const acceptedMarketCount = Array.isArray(acceptedRequests.data)
+        ? acceptedRequests.data.length
+        : 0;
+
+      return (received.count ?? 0) + (acceptedInquiries.count ?? 0) + acceptedMarketCount;
     },
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
