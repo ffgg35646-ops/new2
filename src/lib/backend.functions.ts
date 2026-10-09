@@ -1889,12 +1889,67 @@ export const rpcRequest = createServerFn({ method: "POST" })
           };
         }).filter(Boolean);
 
-        history.sort((a, b) => {
-          const left = new Date(String(a?.created_at ?? 0)).getTime() || 0;
-          const right = new Date(String(b?.created_at ?? 0)).getTime() || 0;
+        const inquiries = await getMongoCollection<Record<string, unknown>>("property_inquiries")
+          .then((collection) => collection.find({
+            office_id: officeId,
+            status: { $in: ["rejected", "ended", "completed"] },
+          }).sort({ updated_at: -1, responded_at: -1, created_at: -1 }).limit(300).toArray());
+
+        const inquiryPropertyIds = [...new Set(
+          inquiries.map((inquiry) => String(inquiry.property_id ?? "")).filter(Boolean),
+        )];
+        const inquiryProperties = inquiryPropertyIds.length
+          ? await getMongoCollection<Record<string, unknown>>("properties")
+              .then((collection) => collection.find({ id: { $in: inquiryPropertyIds } })
+                .project({ id: 1, title: 1, property_number: 1, kind: 1, listing: 1, neighborhood: 1 })
+                .toArray())
+          : [];
+        const inquiryPropertyById = new Map(
+          inquiryProperties.map((property) => [String(property.id ?? ""), property]),
+        );
+
+        const inquiryHistory = inquiries.map((inquiry) => {
+          const inquiryId = String(inquiry.id ?? "");
+          const status = String(inquiry.status ?? "");
+          const property = inquiryPropertyById.get(String(inquiry.property_id ?? ""));
+          const inquiryTypes: Record<string, string> = {
+            viewing: "طلب معاينة",
+            buy: "طلب شراء",
+            rent: "طلب استئجار",
+            question: "استفسار",
+          };
+          return {
+            id: "inquiry:" + inquiryId,
+            request_id: "inquiry:" + inquiryId,
+            message: null,
+            price: null,
+            status,
+            end_reason: inquiry.end_reason == null ? null : String(inquiry.end_reason),
+            created_at: inquiry.updated_at ?? inquiry.responded_at ?? inquiry.created_at ?? new Date(),
+            property_title: String(property?.title ?? "طلب تواصل على عقار"),
+            client_name: String(inquiry.contact_name ?? "عميل"),
+            kind: property?.kind == null ? null : String(property.kind),
+            listing: property?.listing == null ? null : String(property.listing),
+            neighborhood: property?.neighborhood == null ? null : String(property.neighborhood),
+            budget_min: null,
+            budget_max: null,
+            area_min: null,
+            description: String(inquiry.message ?? inquiryTypes[String(inquiry.type ?? "")] ?? "طلب تواصل"),
+            request_status: status,
+            history_type: "inquiry",
+          };
+        });
+
+        const combinedHistory = [
+          ...history.filter((row) => row !== null),
+          ...inquiryHistory,
+        ] as Array<Record<string, unknown>>;
+        combinedHistory.sort((a, b) => {
+          const left = new Date(String(a.created_at ?? 0)).getTime() || 0;
+          const right = new Date(String(b.created_at ?? 0)).getTime() || 0;
           return right - left;
         });
-        return { data: history, error: null };
+        return { data: combinedHistory, error: null };
       }
 
       if (data.name === "office_accepted_property_requests") {
