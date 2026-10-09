@@ -116,16 +116,13 @@ function OfficeRequests() {
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
     queryFn: async () => {
-      const [{ count, error }, { data: acceptedRequests, error: acceptedError }] = await Promise.all([
-        supabase.from("property_inquiries")
-          .select("id", { count: "exact", head: true })
-          .eq("office_id", officeId!)
-          .eq("status", "new"),
-        supabase.rpc("office_accepted_property_requests" as never),
-      ]);
+      const { count, error } = await supabase
+        .from("property_inquiries")
+        .select("id", { count: "exact", head: true })
+        .eq("office_id", officeId!)
+        .eq("status", "new");
       if (error) throw error;
-      if (acceptedError) throw acceptedError;
-      return (count ?? 0) + (Array.isArray(acceptedRequests) ? acceptedRequests.length : 0);
+      return count ?? 0;
     },
   });
 
@@ -792,7 +789,9 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
     <section className="space-y-2" aria-label="طلبات مقبولة">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-sm font-extrabold">طلبات مقبولة</h2>
-        <span className="min-w-6 rounded-full bg-forest-soft px-2 py-1 text-center text-[10px] font-extrabold text-forest">{acceptedTotal}</span>
+        {acceptedTotal > 0 && (
+          <span className="min-w-6 rounded-full bg-forest-soft px-2 py-1 text-center text-[10px] font-extrabold text-forest" aria-label={String(acceptedTotal) + " طلب مقبول"}>{acceptedTotal > 99 ? "99+" : acceptedTotal}</span>
+        )}
       </div>
       {data.length ? data.map((request) => {
         const phone = String(request.client_phone ?? "").trim();
