@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, ImagePlus, Loader2, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSelectedGovernorate } from "@/lib/governorate";
 import { LegalPolicyModal } from "@/components/LegalPolicyModal";
+import { uploadMedia } from "@/components/MediaUploader";
 
 const PENDING_KEY = "ufuq.pending-signup";
 const PENDING_EMAIL_KEY = "ufuq.pending-email";
@@ -65,6 +66,9 @@ export function AuthForm({
   const [officeAddress, setOfficeAddress] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
   const [commercialRegister, setCommercialRegister] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [govId, setGovId] = useState("");
   const [isRegister, setIsRegister] = useState(startAsRegister);
   const [busy, setBusy] = useState(false);
@@ -75,6 +79,29 @@ export function AuthForm({
 
   const destination = role === "office" ? "/office" : "/home";
   const selectedGov = govId || governorates[0]?.id || "";
+
+  async function handleAvatarFile(file: File | null) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("صورة البروفايل لازم تكون JPG أو PNG أو WEBP.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("حجم صورة البروفايل يجب ألا يتجاوز 8 ميجابايت.");
+      return;
+    }
+    setAvatarBusy(true);
+    try {
+      const url = await uploadMedia(file, "pending-signup", "profile-avatar");
+      setAvatarUrl(url);
+      toast.success("تم رفع صورة البروفايل");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذّر رفع صورة البروفايل");
+    } finally {
+      setAvatarBusy(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  }
 
   function validateRegisterFields() {
     if (!fullName.trim()) throw new Error("الرجاء إدخال الاسم الكامل.");
@@ -90,6 +117,7 @@ export function AuthForm({
     return {
       _role: role,
       _full_name: fullName.trim(),
+      _avatar_url: avatarUrl.trim() || null,
       _governorate_id: selectedGov,
       _office:
         role === "office"
@@ -159,6 +187,7 @@ export function AuthForm({
             data: {
               full_name: fullName.trim(),
               role,
+              avatar_url: avatarUrl.trim() || null,
             },
           },
         });
@@ -232,6 +261,56 @@ export function AuthForm({
             onChange={setFullName}
             placeholder="مثال: محمد العتيبي"
           />
+        )}
+        {isRegister && (
+          <div className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+            <div className="text-xs font-semibold text-muted-foreground">
+              {role === "office" ? "صورة البروفايل / شعار المكتب (اختياري)" : "صورة البروفايل (اختياري)"}
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full bg-forest-soft text-forest ring-1 ring-line">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="معاينة صورة البروفايل" className="size-full object-cover" />
+                ) : (
+                  <User className="size-7" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs leading-5 text-muted-foreground">
+                  الصورة اختيارية، وهتظهر بدل الأيقونة بعد إنشاء الحساب.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={avatarBusy}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-background disabled:opacity-60"
+                  >
+                    {avatarBusy ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+                    {avatarBusy ? "جارٍ رفع الصورة..." : avatarUrl ? "تغيير الصورة" : "اختيار صورة"}
+                  </button>
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setAvatarUrl("")}
+                      disabled={avatarBusy}
+                      className="inline-flex items-center gap-1 rounded-xl bg-background px-3 py-2 text-xs font-bold text-terracotta ring-1 ring-line disabled:opacity-60"
+                    >
+                      <X className="size-3.5" /> إزالة
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(event) => void handleAvatarFile(event.target.files?.[0] ?? null)}
+            />
+            <p className="mt-2 text-[10px] text-muted-foreground">JPG أو PNG أو WEBP · حتى 8 ميجابايت</p>
+          </div>
         )}
         {isRegister && (
           <label className="block">
@@ -358,7 +437,7 @@ export function AuthForm({
           )}
           <Primary
             busy={busy}
-            disabled={isRegister && (!privacyAccepted || !termsAccepted)}
+            disabled={avatarBusy || (isRegister && (!privacyAccepted || !termsAccepted))}
             onClick={emailSubmit}
           >
             {isRegister ? "إنشاء الحساب" : "تسجيل الدخول"}
