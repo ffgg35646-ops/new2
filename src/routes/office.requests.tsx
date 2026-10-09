@@ -26,8 +26,6 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 import {
   BOOKING_STATUS,
-  INQUIRY_STATUSES,
-  inquiryStatusLabel,
   inquiryTypeLabel,
   kindLabel,
   listingLabel,
@@ -37,6 +35,7 @@ import { notifyWhatsApp } from "@/lib/notify-whatsapp";
 import { useMyOffice, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
 import { CancelReasonModal } from "@/components/CancelReasonModal";
+import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
 import { formatBookingTime, isSaudiAppointmentStarted, isSaudiAppointmentToday } from "@/lib/saudi-time";
 
 export const Route = createFileRoute("/office/requests")({
@@ -104,7 +103,8 @@ function OfficeRequests() {
       const { count, error } = await supabase
         .from("viewing_bookings")
         .select("id", { count: "exact", head: true })
-        .eq("office_id", officeId!);
+        .eq("office_id", officeId!)
+        .in("status", ["pending", "accepted"]);
 
       if (error) throw error;
       return count ?? 0;
@@ -120,7 +120,8 @@ function OfficeRequests() {
       const { count, error } = await supabase
         .from("property_inquiries")
         .select("id", { count: "exact", head: true })
-        .eq("office_id", officeId!);
+        .eq("office_id", officeId!)
+        .eq("status", "new");
 
       if (error) throw error;
       return count ?? 0;
@@ -210,6 +211,8 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [finishId, setFinishId] = useState<string | null>(null);
+  const [rejectId, setRejectId] = useState<string | null>(null);
   const [contactOpenId, setContactOpenId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
@@ -225,6 +228,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
           "id,user_id,visit_date,visit_time,status,office_note,cancel_reason,completion_reason,contact_phone,contact_name,contact_governorate_id,created_at,properties(id,property_number,title,price,area,kind,listing,neighborhood,cover_url,images_count,governorates(name_ar))",
         )
         .eq("office_id", officeId!)
+        .in("status", ["pending", "accepted"])
         .order("visit_date", { ascending: true })
         .order("visit_time", { ascending: true })
         .limit(100);
@@ -327,14 +331,18 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
     },
     onSuccess: (vars) => {
       if (vars.status === "cancelled") setCancelId(null);
+      if (vars.status === "completed") setFinishId(null);
+      if (vars.status === "rejected") setRejectId(null);
       setNoteFor(null);
       setNote("");
       toast.success(
         vars.status === "cancelled"
-          ? "تم إلغاء المعاينة"
+          ? "تم إلغاء المعاينة وإرسال السبب"
           : vars.status === "completed"
-            ? "المعاينة انتهت"
-            : "تم تحديث حالة الحجز",
+            ? "تم إنهاء المعاينة وإرسال السبب للفردي"
+            : vars.status === "rejected"
+              ? "تم رفض طلب المعاينة وإرسال السبب للفردي"
+              : "تم قبول طلب المعاينة",
       );
       void qc.invalidateQueries({ queryKey: ["office-bookings"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
@@ -559,9 +567,9 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                   </p>
                 )}
 
-                {booking.cancel_reason && booking.status === "cancelled" && (
+                {booking.cancel_reason && ["cancelled", "rejected"].includes(booking.status) && (
                   <p className="mt-2 rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
-                    سبب الإلغاء: {booking.cancel_reason}
+                    {booking.status === "rejected" ? "سبب الرفض:" : "سبب الإلغاء:"} {booking.cancel_reason}
                   </p>
                 )}
 
@@ -601,17 +609,11 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                       </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          setStatus.mutate({
-                            id: booking.id,
-                            status: "rejected",
-                            note,
-                          })
-                        }
+                        onClick={() => setRejectId(booking.id)}
                         disabled={setStatus.isPending}
                         className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
                       >
-                        رفض
+                        رفض مع ذكر السبب
                       </button>
                     </div>
                   </>
@@ -629,20 +631,14 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                 )}
 
                 {booking.status === "accepted" &&
-                  !isSaudiAppointmentToday(booking.visit_date) &&
                   isSaudiAppointmentStarted(booking.visit_date, booking.visit_time) && (
                     <button
                       type="button"
-                      onClick={() =>
-                        setStatus.mutate({
-                          id: booking.id,
-                          status: "completed",
-                        })
-                      }
+                      onClick={() => setFinishId(booking.id)}
                       disabled={setStatus.isPending}
                       className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
                     >
-                      <CheckCircle2 className="size-4" /> إنهاء المعاينة
+                      <CheckCircle2 className="size-4" /> إنهاء المعاينة مع ذكر السبب
                     </button>
                   )}
               </div>
@@ -660,6 +656,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
       <CancelReasonModal
         open={!!cancelId}
         pending={setStatus.isPending}
+        title="إلغاء المعاينة"
         onClose={() => {
           if (!setStatus.isPending) setCancelId(null);
         }}
@@ -668,6 +665,43 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
             setStatus.mutate({
               id: cancelId,
               status: "cancelled",
+              reason,
+            });
+          }
+        }}
+      />
+      <CompleteViewingReasonModal
+        open={!!finishId}
+        pending={setStatus.isPending}
+        onClose={() => {
+          if (!setStatus.isPending) setFinishId(null);
+        }}
+        onConfirm={(reason) => {
+          if (finishId) {
+            setStatus.mutate({
+              id: finishId,
+              status: "completed",
+              reason,
+            });
+          }
+        }}
+      />
+      <CompleteViewingReasonModal
+        open={!!rejectId}
+        pending={setStatus.isPending}
+        title="رفض طلب المعاينة"
+        heading="لماذا ترفض طلب المعاينة؟"
+        reasonLabel="سبب الرفض"
+        placeholder="اكتب سبب رفض طلب المعاينة ليظهر للفردي"
+        confirmLabel="تأكيد الرفض"
+        onClose={() => {
+          if (!setStatus.isPending) setRejectId(null);
+        }}
+        onConfirm={(reason) => {
+          if (rejectId) {
+            setStatus.mutate({
+              id: rejectId,
+              status: "rejected",
               reason,
             });
           }
@@ -722,6 +756,7 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
         .from("property_inquiries")
         .select("*, properties(title,property_number)")
         .eq("office_id", officeId!)
+        .eq("status", "new")
         .order("created_at", { ascending: false })
         .limit(60);
       if (error) throw error;
@@ -738,18 +773,27 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
   const visibleInquiries = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const setStatus = useMutation({
-    mutationFn: async (vars: { id: string; status: string }) => {
-      const { error } = await supabase
-        .from("property_inquiries")
-        .update({ status: vars.status })
-        .eq("id", vars.id);
+    mutationFn: async (vars: { id: string; status: "accepted" | "rejected" }) => {
+      const { error } = await supabase.rpc(
+        "set_property_inquiry_status" as never,
+        { _inquiry_id: vars.id, _status: vars.status } as never,
+      );
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["office-inquiries"] });
-      qc.invalidateQueries({ queryKey: ["new-inquiries-count"] });
+    onSuccess: (_, vars) => {
+      toast.success(vars.status === "accepted" ? "تم قبول طلب التواصل" : "تم رفض طلب التواصل");
+      void qc.invalidateQueries({ queryKey: ["office-inquiries"] });
+      void qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] });
+      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر تحديث الحالة"),
+    onError: (e) =>
+      toast.error(
+        e instanceof Error && e.message === "inquiry_already_handled"
+          ? "تم التعامل مع هذا الطلب بالفعل"
+          : e instanceof Error
+            ? e.message
+            : "تعذّر تحديث الحالة",
+      ),
   });
 
   return (
@@ -838,17 +882,24 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
                   </div>
                 )}
 
-                <select
-                  value={q.status}
-                  onChange={(e) => setStatus.mutate({ id: q.id, status: e.target.value })}
-                  className="w-full rounded-xl bg-background px-3 py-2 text-xs ring-1 ring-line outline-none focus:ring-forest"
-                >
-                  {INQUIRY_STATUSES.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {inquiryStatusLabel(s.value)}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStatus.mutate({ id: q.id, status: "accepted" })}
+                    disabled={setStatus.isPending}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="size-4" /> قبول الطلب
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatus.mutate({ id: q.id, status: "rejected" })}
+                    disabled={setStatus.isPending}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+                  >
+                    <X className="size-4" /> رفض الطلب
+                  </button>
+                </div>
               </div>
             );
           })}
