@@ -727,11 +727,13 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
   }, [highlightedRequestId, data.length]);
   if (isLoading) return <ListSkeleton />;
   if (error) return <div role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">تعذّر تحميل طلبات التواصل المقبولة: {error instanceof Error ? error.message : "خطأ غير معروف"}</div>;
-  if (!data.length) return null;
   return (
-    <section className="space-y-2">
-      <h2 className="font-display text-sm font-extrabold">طلبات السوق المقبولة — خاصة بمكتبك</h2>
-      {data.map((request) => {
+    <section className="space-y-2" aria-label="طلبات مقبولة">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-display text-sm font-extrabold">طلبات مقبولة</h2>
+        <span className="min-w-6 rounded-full bg-forest-soft px-2 py-1 text-center text-[10px] font-extrabold text-forest">{data.length}</span>
+      </div>
+      {data.length ? data.map((request) => {
         const phone = String(request.client_phone ?? "").trim();
         return (
           <article id={"accepted-request-card-" + request.id} key={request.id}
@@ -763,7 +765,11 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
             </div>
           </article>
         );
-      })}
+      }) : (
+        <div className="rounded-2xl bg-surface p-3 text-xs leading-6 text-muted-foreground ring-1 ring-line">
+          لا توجد طلبات مقبولة حتى الآن. عندما يقبل الفردي عرض مكتبك، سيظهر الطلب هنا بالأولوية.
+        </div>
+      )}
     </section>
   );
 }
@@ -825,7 +831,14 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
   });
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" aria-label="طلبات مستلمة">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="font-display text-sm font-extrabold">طلبات مستلمة</h2>
+          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">طلبات التواصل التي تنتظر قرار المكتب: قبول أو رفض.</p>
+        </div>
+        <span className="min-w-6 rounded-full bg-terracotta-soft px-2 py-1 text-center text-[10px] font-extrabold text-terracotta">{rows.length}</span>
+      </div>
       {isLoading ? (
         <ListSkeleton />
       ) : data?.length ? (
