@@ -130,7 +130,7 @@ function RequestsPage() {
   const setRequestStatus = useMutation({
     mutationFn: async (vars: { id: string; status: "cancelled" | "fulfilled" }) => {
       const { error } = await supabase.rpc(
-        "set_property_request_status" as never,
+        "set_my_property_request_status" as never,
         { _request_id: vars.id, _status: vars.status } as never,
       );
       if (error) throw error;
@@ -147,17 +147,37 @@ function RequestsPage() {
   const setOfferStatus = useMutation({
     mutationFn: async (vars: { id: string; status: "accepted" | "rejected" }) => {
       const { error } = await supabase.rpc(
-        "respond_property_offer" as never,
+        "respond_to_property_offer" as never,
         { _offer_id: vars.id, _status: vars.status } as never,
       );
       if (error) throw error;
     },
     onSuccess: (_, vars) => {
-      toast.success(vars.status === "accepted" ? "تم قبول العرض وإكمال الطلب" : "تم رفض العرض");
+      toast.success(vars.status === "accepted" ? "تم قبول العرض، والصفقة لم تُسجّل كمكتملة بعد" : "تم رفض العرض");
       void qc.invalidateQueries({ queryKey: ["requests-page"] });
+      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث العرض"),
+  });
+
+  const confirmOfferCompletion = useMutation({
+    mutationFn: async (offerId: string) => {
+      const { error } = await supabase.rpc(
+        "confirm_property_offer_completion" as never,
+        { _offer_id: offerId } as never,
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تم تأكيد إتمام الصفقة وإغلاق الطلب كمكتمل");
+      void qc.invalidateQueries({ queryKey: ["requests-page"] });
+      void qc.invalidateQueries({ queryKey: ["open-requests"] });
+      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
+      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "تعذّر تأكيد إتمام الصفقة"),
   });
 
   const activeSent = myRequests.filter((request) => request.status === "active").length;
@@ -286,12 +306,13 @@ function RequestsPage() {
               <OfferCard
                 key={offer.id}
                 offer={offer}
-                pending={setOfferStatus.isPending}
+                pending={setOfferStatus.isPending || confirmOfferCompletion.isPending}
                 contactOpen={openOfferId === offer.id}
                 onContactToggle={() =>
                   setOpenOfferId((current) => (current === offer.id ? null : offer.id))
                 }
                 onStatus={(status) => setOfferStatus.mutate({ id: offer.id, status })}
+                onConfirmCompletion={() => confirmOfferCompletion.mutate(offer.id)}
               />
             ))}
             <PaginationControls
@@ -370,6 +391,9 @@ function RequestCard({
   const status = request.status;
   const isActive = status === "active";
   const offerCount = request.office_offers?.length ?? 0;
+  const hasOfferInProgress = request.office_offers?.some((offer) =>
+    ["accepted", "awaiting_confirmation"].includes(offer.status),
+  ) ?? false;
 
   return (
     <div
@@ -425,21 +449,30 @@ function RequestCard({
 
       {isActive && (
         <div className="mt-2.5 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => onStatus("fulfilled")}
-            disabled={pending}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
-          >
-            <CheckCircle2 className="size-4" /> طلب مكتمل
-          </button>
+          {hasOfferInProgress ? (
+            <div className="col-span-2 rounded-xl bg-sand p-2.5 text-[11px] leading-5 text-muted-foreground">
+              يوجد عرض مقبول أو ينتظر تأكيد الإتمام. أكّد الصفقة من تبويب العروض المستلمة بعد التأكد من إتمامها فعليًا.
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onStatus("fulfilled")}
+              disabled={pending}
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+            >
+              <CheckCircle2 className="size-4" /> طلب مكتمل
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onStatus("cancelled")}
             disabled={pending}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+            className={cn(
+              "flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50",
+              hasOfferInProgress && "col-span-2",
+            )}
           >
-            <Trash2 className="size-4" /> حذف الطلب
+            <Trash2 className="size-4" /> إلغاء الطلب
           </button>
         </div>
       )}
@@ -453,15 +486,19 @@ function OfferCard({
   contactOpen,
   onContactToggle,
   onStatus,
+  onConfirmCompletion,
 }: {
   offer: OfferRow;
   pending: boolean;
   contactOpen: boolean;
   onContactToggle: () => void;
   onStatus: (status: "accepted" | "rejected") => void;
+  onConfirmCompletion: () => void;
 }) {
   const office = offer.offices;
   const canRespond = offer.status === "sent" && offer.requestStatus === "active";
+  const canConfirmCompletion =
+    offer.status === "awaiting_confirmation" && offer.requestStatus === "active";
 
   return (
     <div className="rounded-2xl bg-surface p-3 ring-1 ring-line">
@@ -477,13 +514,11 @@ function OfferCard({
         <span
           className={cn(
             "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
-            offer.status === "accepted"
+            offer.status === "accepted" || offer.status === "completed"
               ? "bg-forest-soft text-forest"
-              : offer.status === "rejected"
+              : offer.status === "rejected" || offer.status === "ended" || offer.status === "deleted"
                 ? "bg-terracotta-soft text-terracotta"
-                : offer.status === "completed"
-                  ? "bg-forest-soft text-forest"
-                  : "bg-sand text-muted-foreground",
+                : "bg-sand text-muted-foreground",
           )}
         >
           {offer.status === "sent"
@@ -492,9 +527,13 @@ function OfferCard({
               ? "مقبول"
               : offer.status === "rejected"
                 ? "مرفوض"
-                : offer.status === "completed"
-                  ? "مكتمل"
-                  : offer.status}
+                : offer.status === "awaiting_confirmation"
+                  ? "بانتظار تأكيدك"
+                  : offer.status === "completed"
+                    ? "مكتمل"
+                    : offer.status === "ended" || offer.status === "deleted"
+                      ? "منتهي"
+                      : offer.status}
         </span>
       </div>
 
@@ -546,6 +585,34 @@ function OfferCard({
             <XCircle className="size-4" /> رفض
           </button>
         </div>
+      )}
+
+      {canConfirmCompletion && (
+        <div className="mt-2.5 space-y-2 rounded-xl bg-forest-soft p-3">
+          <p className="text-xs leading-5 text-forest">
+            المكتب أبلغك بإتمام الصفقة. أكّد فقط إذا كانت الصفقة تمت فعلًا.
+          </p>
+          <button
+            type="button"
+            onClick={onConfirmCompletion}
+            disabled={pending}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+          >
+            <CheckCircle2 className="size-4" /> تأكيد إتمام الصفقة
+          </button>
+        </div>
+      )}
+
+      {offer.status === "ended" && (
+        <p className="mt-2.5 rounded-xl bg-terracotta-soft p-3 text-xs leading-5 text-terracotta">
+          انتهى عرض المكتب دون تأكيد إتمام الصفقة داخل التطبيق.
+        </p>
+      )}
+
+      {offer.status === "completed" && (
+        <p className="mt-2.5 rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">
+          أكّدت إتمام الصفقة، والطلب مسجّل كمكتمل.
+        </p>
       )}
 
       <div className="mt-2.5 grid grid-cols-2 gap-2">
