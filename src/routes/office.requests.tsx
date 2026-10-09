@@ -1236,24 +1236,35 @@ function MarketOfferActions({
         )
       )}
 
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => void changeOffer("request_completion")}
-          disabled={pending || !offerId}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-[11px] font-bold text-background disabled:opacity-50"
-        >
-          <CheckCircle2 className="size-4" /> إبلاغ بإتمام الصفقة
-        </button>
+      {offerStatus === "accepted" ? (
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => void changeOffer("request_completion")}
+            disabled={pending || !offerId}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-[11px] font-bold text-background disabled:opacity-50"
+          >
+            <CheckCircle2 className="size-4" /> إبلاغ بإتمام الصفقة
+          </button>
+          <button
+            type="button"
+            onClick={() => void changeOffer("end")}
+            disabled={pending || !offerId}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
+          >
+            <Trash2 className="size-4" /> إنهاء العرض
+          </button>
+        </div>
+      ) : (
         <button
           type="button"
           onClick={() => void changeOffer("end")}
           disabled={pending || !offerId}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
         >
           <Trash2 className="size-4" /> إنهاء العرض
         </button>
-      </div>
+      )}
     </div>
   );
 }
