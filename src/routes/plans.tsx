@@ -5,7 +5,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { ProLockDialog } from "@/components/ProLock";
 import { useAuth } from "@/lib/auth";
 import { RoleGuard } from "@/lib/role-guard";
-import { useMyPlan, usePackages } from "@/lib/plans";
+import { FREE_PROPERTY_LIMIT, useMyPlan, usePackages } from "@/lib/plans";
 
 export const Route = createFileRoute("/plans")({
   head: () => ({
