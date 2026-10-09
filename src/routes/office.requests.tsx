@@ -1009,13 +1009,13 @@ function SentOffers({ officeId }: { officeId: string | null }) {
               </div>
               <span className={cn(
                 "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
-                row.status === "completed" || request?.status === "fulfilled"
+                row.status === "completed"
                   ? "bg-forest-soft text-forest"
                   : row.status === "awaiting_confirmation"
                     ? "bg-sand text-muted-foreground"
                     : "bg-terracotta-soft text-terracotta",
               )}>
-                {row.status === "completed" || request?.status === "fulfilled"
+                {row.status === "completed"
                   ? "مكتمل"
                   : row.status === "awaiting_confirmation"
                     ? "بانتظار تأكيد الفردي"
@@ -1027,7 +1027,9 @@ function SentOffers({ officeId }: { officeId: string | null }) {
                           ? "الطلب ملغي"
                           : row.status === "accepted"
                             ? "مقبول"
-                            : "منتهي"}
+                            : request?.status === "fulfilled"
+                              ? "الطلب مكتمل"
+                              : "منتهي"}
               </span>
             </div>
 
