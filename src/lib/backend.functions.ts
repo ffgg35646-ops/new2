@@ -2680,7 +2680,9 @@ export const rpcRequest = createServerFn({ method: "POST" })
                 : " لم يتمكن من قبول طلب تواصلك") +
               (property?.title ? " بخصوص " + String(property.title) : " بخصوص العقار"),
             type: "property_inquiry_response",
-            link: "/properties/" + encodeURIComponent(String(inquiry.property_id ?? "")),
+            link: requestedStatus === "accepted"
+              ? "/requests?tab=received"
+              : "/properties/" + encodeURIComponent(String(inquiry.property_id ?? "")),
             is_read: false,
             created_at: now,
             inquiry_id: inquiryId,
