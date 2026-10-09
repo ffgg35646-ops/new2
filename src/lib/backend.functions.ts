@@ -447,7 +447,7 @@ async function enrichRows(
 
 async function roleFor(userId: string) {
   const users = await getMongoCollection<Record<string, unknown>>("users");
-  const user = await users.findOne({ _id: userId });
+  const user = await users.findOne({ _id: userId } as never);
 
   if (user?.role === "admin") return "admin";
 
@@ -1964,7 +1964,7 @@ function validateDbInput(value: unknown): DbInput {
 
 export const dbRequest = createServerFn({ method: "POST" })
   .validator(validateDbInput)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<any> => {
     try {
       return await runDb(data);
     } catch (error) {
@@ -1980,7 +1980,7 @@ export const dbRequest = createServerFn({ method: "POST" })
 
 export const rpcRequest = createServerFn({ method: "POST" })
   .validator((value: unknown) => value as { name: string; args?: Record<string, unknown> })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<any> => {
     try {
       const userId = getSessionUserId();
       const role = userId ? await roleFor(userId) : null;
@@ -1990,7 +1990,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         const args = data.args ?? {};
         const users = await getMongoCollection<Record<string, unknown>>("users");
-        const user = await users.findOne({ _id: userId });
+        const user = await users.findOne({ _id: userId } as never);
 
         if (!user) throw new Error("الحساب غير موجود.");
 
