@@ -727,6 +727,8 @@ async function runDb(input: DbInput) {
             throw new Error("inquiry_invalid");
           }
 
+          doc.status ??= "new";
+
           const existing = await collection.findOne({
             user_id: userId,
             property_id: propertyId,
