@@ -16,7 +16,6 @@ export async function uploadMedia(file: File, userId: string, folder: string) {
   form.append("uploaderId", userId);
 
   const result = await uploadMediaServer({ data: form });
-  if (result.error) throw new Error(result.error.message);
 
   const publicUrl = result.data?.publicUrl;
   if (!publicUrl) throw new Error("تعذّر إنشاء رابط المرفق.");
