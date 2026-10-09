@@ -47,6 +47,7 @@ type IndividualInquiry = {
   created_at: string;
   message: string | null;
   contact_phone: string | null;
+  end_reason?: string | null;
   property: { title: string | null; property_number: string | null } | null;
   office: { id: string; name: string | null; phone: string | null; whatsapp: string | null } | null;
 };
@@ -147,7 +148,7 @@ function RequestsPage() {
     [myRequests],
   );
 
-  const { data: personalInquiries = [] } = useQuery<IndividualInquiry[]>({
+  const { data: personalInquiries = [], isLoading: inquiriesLoading } = useQuery<IndividualInquiry[]>({
     queryKey: ["individual-property-inquiries", userId],
     enabled: !!userId,
     refetchInterval: 5000,
@@ -333,15 +334,17 @@ function RequestsPage() {
           </p>
         </div>
 
-        <AcceptedPrioritySection
-          requests={acceptedMarketRequests}
-          inquiries={acceptedPersonalInquiries}
-          pending={endRequest.isPending || completeRequest.isPending}
-          onEndRequest={(id) => setEndRequestId(id)}
-          onCompleteRequest={(id) => { setCompletionRequestId(id); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
-          onEndInquiry={(id) => setEndInquiryId(id)}
-          onCompleteInquiry={(id) => setCompleteInquiryId(id)}
-        />
+        {!isLoading && !inquiriesLoading && (
+          <AcceptedPrioritySection
+            requests={acceptedMarketRequests}
+            inquiries={acceptedPersonalInquiries}
+            pending={endRequest.isPending || completeRequest.isPending || updateInquiryStatus.isPending}
+            onEndRequest={(id) => setEndRequestId(id)}
+            onCompleteRequest={(id) => { setCompletionRequestId(id); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
+            onEndInquiry={(id) => setEndInquiryId(id)}
+            onCompleteInquiry={(id) => setCompleteInquiryId(id)}
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
           <Tab active={tab === "sent"} label="المرسلة" count={activeSent} onClick={() => setTab("sent")} />
