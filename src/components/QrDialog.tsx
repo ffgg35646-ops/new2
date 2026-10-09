@@ -66,8 +66,16 @@ export function QrDialog({
         >
           <Download className="size-4" /> تنزيل الرمز
         </a>
+        <a
+          href={value}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 block break-all text-[10px] font-semibold text-forest underline"
+        >
+          فتح الرابط لاختباره
+        </a>
         <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-          يفتح الرمز الصفحة مباشرة عند مسحه بكاميرا الجوال.
+          امسح الرمز بكاميرا الجوال أو Google Lens؛ سيفتح رابط المكتب أو العقار في الموقع.
         </p>
       </div>
     </div>
