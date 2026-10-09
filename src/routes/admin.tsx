@@ -29,7 +29,7 @@ type Tab =
   | "terms";
 
 export const Route = createFileRoute("/admin")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { tab?: Tab } => ({
     tab:
       search["tab"] === "offices" ||
       search["tab"] === "geo" ||
