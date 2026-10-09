@@ -1047,66 +1047,40 @@ function FilterChip({
 }
 
 
+type OfficeOfferHistoryRow = {
+  id: string;
+  request_id: string;
+  message: string | null;
+  price: number | null;
+  status: string;
+  end_reason: string | null;
+  created_at: string | Date;
+  property_title: string;
+  client_name: string;
+  kind: string | null;
+  listing: string | null;
+  neighborhood: string | null;
+  budget_min: number | null;
+  budget_max: number | null;
+  area_min: number | null;
+  description: string;
+  request_status: string;
+};
+
 function SentOffers({ officeId }: { officeId: string | null }) {
-  const qc = useQueryClient();
   const [page, setPage] = useState(1);
 
   useEffect(() => setPage(1), [officeId]);
 
-  const { data = [], isLoading } = useQuery({
+  const { data = [], isLoading, error } = useQuery<OfficeOfferHistoryRow[]>({
     queryKey: ["office-sent-offers", officeId],
     enabled: !!officeId,
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
     queryFn: async () => {
-      const { data: offers, error } = await supabase
-        .from("office_offers")
-        .select("id,request_id,message,price,status,created_at")
-        .eq("office_id", officeId!)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
+      const { data, error } = await supabase.rpc("office_property_request_history" as never);
       if (error) throw error;
-
-      const rows = (offers ?? []) as Array<{
-        id: string;
-        request_id: string;
-        message: string | null;
-        price: number | null;
-        status: string;
-        created_at: string;
-      }>;
-
-      const requestIds = [...new Set(rows.map((row) => row.request_id).filter(Boolean))];
-      if (!requestIds.length) {
-        return rows
-          .filter((row) => row.status === "completed")
-          .map((row) => ({ ...row, request: null }));
-      }
-
-      const { data: requests, error: requestError } = await supabase
-        .from("property_requests")
-        .select("id,user_id,kind,listing,neighborhood,budget_min,budget_max,description,status")
-        .in("id", requestIds);
-
-      if (requestError) throw requestError;
-
-      const requestById = new Map(
-        (requests ?? []).map((request) => [String(request.id), request]),
-      );
-
-      const historyRows = rows.map((row) => ({
-        ...row,
-        request: requestById.get(row.request_id) ?? null,
-      }));
-
-      // Include finished offers, offers waiting for the customer's confirmation,
-      // rejected/ended offers, and offers whose customer request has since closed.
-      return historyRows.filter(
-        (row) =>
-          ["awaiting_confirmation", "completed", "ended", "deleted", "rejected"].includes(row.status) ||
-          ["fulfilled", "cancelled"].includes(String(row.request?.status ?? "")),
-      );
+      return (Array.isArray(data) ? data : []) as OfficeOfferHistoryRow[];
     },
   });
 
@@ -1116,98 +1090,98 @@ function SentOffers({ officeId }: { officeId: string | null }) {
   const visibleHistory = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   if (isLoading) return <ListSkeleton />;
+  if (error) {
+    return (
+      <div role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
+        تعذّر تحميل تاريخ الطلبات: {error instanceof Error ? error.message : "خطأ غير معروف"}
+      </div>
+    );
+  }
   if (!data.length) {
     return (
       <EmptyState
         icon={Send}
-        title="لا يوجد سجل طلبات بعد"
-        description="ستظهر هنا الطلبات المكتملة والطلبات التي أنهيت التعامل معها."
+        title="لا يوجد تاريخ طلبات بعد"
+        description="ستظهر هنا الطلبات التي اكتملت من خلال الفردي، والعروض التي أنهيتها أو سحبتها من السوق."
       />
     );
   }
 
   return (
     <div className="space-y-2">
-      {visibleHistory.map((row) => {
-        const request = row.request as {
-          kind: string;
-          listing: string;
-          neighborhood: string | null;
-          budget_min: number | null;
-          budget_max: number | null;
-          description: string;
-          status: string;
-        } | null;
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-display text-sm font-extrabold">تاريخ الطلبات</h2>
+        <span className="min-w-6 rounded-full bg-surface px-2 py-1 text-center text-[10px] font-extrabold ring-1 ring-line">
+          {data.length}
+        </span>
+      </div>
 
+      {visibleHistory.map((row) => {
+        const isCompleted = row.status === "completed";
+        const completedByAnotherOffice = row.request_status === "fulfilled" && !isCompleted;
+        const listingText = listingLabel(row.listing);
+        const kindText = kindLabel(row.kind);
         return (
-          <div key={row.id} className="rounded-2xl bg-surface p-3 ring-1 ring-line">
+          <article key={row.id} className="space-y-3 rounded-2xl bg-surface p-3 ring-1 ring-line">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="font-display text-sm font-extrabold">
-                  {request ? kindLabel(request.kind) + " · " + listingLabel(request.listing) : "طلب عقاري"}
-                </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  {formatDate(row.created_at)}
-                </div>
+                <h3 className="font-display text-sm font-extrabold">{row.property_title || "طلب عقاري"}</h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {[kindText, listingText, row.neighborhood].filter((value) => value && value !== "—").join(" · ")}
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{formatDate(String(row.created_at))}</p>
               </div>
               <span className={cn(
                 "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
-                row.status === "completed"
-                  ? "bg-forest-soft text-forest"
-                  : row.status === "awaiting_confirmation"
-                    ? "bg-sand text-muted-foreground"
-                    : "bg-terracotta-soft text-terracotta",
+                isCompleted ? "bg-forest-soft text-forest" :
+                completedByAnotherOffice ? "bg-sand text-muted-foreground" :
+                "bg-terracotta-soft text-terracotta",
               )}>
-                {row.status === "completed"
-                  ? "مكتمل"
-                  : row.status === "awaiting_confirmation"
-                    ? "بانتظار تأكيد الفردي"
-                    : row.status === "ended" || row.status === "deleted"
-                      ? "منتهي"
-                      : row.status === "rejected"
-                        ? "مرفوض"
-                        : request?.status === "cancelled"
-                          ? "الطلب ملغي"
-                          : row.status === "accepted"
-                            ? "مقبول"
-                            : request?.status === "fulfilled"
-                              ? "الطلب مكتمل"
-                              : "منتهي"}
+                {isCompleted ? "طلب مكتمل" :
+                  completedByAnotherOffice ? "اكتمل مع مكتب آخر" :
+                  row.status === "awaiting_confirmation" ? "بانتظار تأكيد الفردي" :
+                  row.status === "rejected" ? "مرفوض" :
+                  row.end_reason ? "عرض ملغي بسبب" : "عرض منتهي / مسحوب من السوق"}
               </span>
             </div>
 
-            {request && (
-              <div className="mt-3 rounded-2xl bg-background p-3 ring-1 ring-line">
-                <div className="text-xs font-bold">
-                  {request.neighborhood || "أي حي"}
-                </div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {request.description}
-                </p>
-                {(request.budget_min != null || request.budget_max != null) && (
-                  <div className="mt-1 text-[11px] text-forest">
-                    الميزانية: {formatPrice(request.budget_min)} - {formatPrice(request.budget_max)} ر.س
-                  </div>
-                )}
+            <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+              <div className="text-[10px] font-semibold text-muted-foreground">تفاصيل الطلب</div>
+              <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-foreground">
+                {row.description || "لا توجد تفاصيل إضافية محفوظة."}
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Info label="اسم العميل">{row.client_name || "عميل"}</Info>
+                <Info label="المساحة">{row.area_min != null ? "من " + formatArea(row.area_min) : "غير محددة"}</Info>
+                <Info label="الميزانية">
+                  {row.budget_min != null || row.budget_max != null
+                    ? formatPrice(row.budget_min) + " - " + formatPrice(row.budget_max) + " ر.س"
+                    : "غير محددة"}
+                </Info>
+                <Info label="حالة الطلب">{isCompleted ? "مكتمل من خلال مكتبكم" : completedByAnotherOffice ? "أكمله مكتب آخر" : "منتهي أو مسحوب"}</Info>
               </div>
-            )}
+            </div>
 
             {row.message && (
-              <p className="mt-2 rounded-2xl bg-sand p-3 text-xs leading-5 text-muted-foreground">
-                عرضك: {row.message}
-              </p>
+              <div className="rounded-2xl bg-sand p-3 text-xs leading-5 text-muted-foreground">
+                <div className="font-bold text-foreground">تفاصيل عرض مكتبك</div>
+                <p className="mt-1 whitespace-pre-wrap">{row.message}</p>
+              </div>
             )}
-
             {row.price != null && (
-              <div className="mt-2 text-sm font-display font-extrabold text-forest">
+              <div className="text-sm font-display font-extrabold text-forest">
                 السعر المقترح: {formatPrice(row.price)} ر.س
               </div>
             )}
-
-
-          </div>
+            {row.end_reason && (
+              <div className="rounded-xl bg-terracotta-soft p-3 text-xs leading-5 text-terracotta">
+                سبب الإنهاء: {row.end_reason}
+              </div>
+            )}
+          </article>
         );
       })}
+
       <PaginationControls
         page={currentPage}
         total={data.length}
