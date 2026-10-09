@@ -44,10 +44,10 @@ async function processPlanExpirations(request: Request) {
 
     const now = new Date();
     const reminderDeadline = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    // Include legacy Pro rows without an expiry; they must not remain Pro forever.
     const activeProOffices = await offices.find({
       plan: "pro",
       is_deleted: { $ne: true },
-      plan_expires_at: { $exists: true, $ne: null },
     }).toArray();
 
     let remindersSent = 0;
@@ -56,12 +56,10 @@ async function processPlanExpirations(request: Request) {
 
     for (const office of activeProOffices) {
       const expiry = asDate(office.plan_expires_at);
-      if (!expiry) continue;
-
       const officeId = String(office.id ?? "");
       if (!officeId) continue;
 
-      if (expiry.getTime() <= now.getTime()) {
+      if (!expiry || expiry.getTime() <= now.getTime()) {
         const update: Record<string, any> = {
           $set: {
             plan: "free",
