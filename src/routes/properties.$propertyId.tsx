@@ -75,7 +75,7 @@ function PropertyDetail() {
   const { propertyId } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { userId, profile, isOffice } = useAuth();
+  const { userId, profile, session, isOffice } = useAuth();
   const { favoriteIds, toggleFavorite } = useFavorites();
   const [bookingDate, setBookingDate] = useState("");
   const [bookingContact, setBookingContact] = useState("");
@@ -263,7 +263,12 @@ function PropertyDetail() {
           visit_time: bookingDate.slice(11, 16),
           status: "pending",
           contact_phone: contactPhone,
-          contact_name: profile?.full_name || "عميل",
+          contact_name:
+            profile?.full_name?.trim() ||
+            (typeof session?.user?.user_metadata?.full_name === "string"
+              ? session.user.user_metadata.full_name.trim()
+              : "") ||
+            "عميل",
           contact_governorate_id: profile?.governorate_id || null,
         })
         .select("id")
