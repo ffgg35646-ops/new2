@@ -548,11 +548,11 @@ async function enforceOfficePropertyLimit(
     (String(packageRow.code ?? "") === "pro" || Number(packageRow.price ?? 0) > 0);
   const isProCurrent = packageIsPro && !expired;
 
-  const propertyLimit = expired
-    ? FREE_OFFICE_PROPERTY_LIMIT
-    : packageRow?.property_limit == null
-      ? (isProCurrent ? null : FREE_OFFICE_PROPERTY_LIMIT)
-      : Number(packageRow.property_limit);
+  const propertyLimit = isProCurrent
+    ? packageRow?.property_limit == null
+      ? null
+      : Number(packageRow.property_limit)
+    : FREE_OFFICE_PROPERTY_LIMIT;
 
   if (propertyLimit == null) return;
   if (!Number.isFinite(propertyLimit) || propertyLimit < 0) {
