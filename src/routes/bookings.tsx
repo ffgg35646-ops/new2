@@ -179,7 +179,7 @@ function BookingsPage() {
         <div>
           <h1 className="font-display text-xl font-extrabold">حجوزات المعاينة</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            كل مواعيد المعاينة الخاصة بك وحالتها في مكان واحد.
+            المعاينات التي تنتظر الموافقة والمواعيد المؤكدة القادمة فقط.
           </p>
         </div>
 
@@ -380,8 +380,8 @@ function BookingsPage() {
         ) : (
           <EmptyState
             icon={CalendarDays}
-            title="لا توجد حجوزات حتى الآن"
-            description="عندما تطلب معاينة عقار ستظهر جميع الحجوزات هنا."
+            title="لا توجد معاينات نشطة"
+            description="ستظهر هنا طلبات المعاينة التي تنتظر الموافقة أو المواعيد المؤكدة القادمة."
             action={
               <Link
                 to="/properties"
