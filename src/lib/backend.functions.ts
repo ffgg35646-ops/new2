@@ -2184,7 +2184,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         if (office.owner_id) {
           try {
-            await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+            await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
               id: randomUUID(),
               _id: randomUUID(),
               user_id: String(office.owner_id),
@@ -2948,7 +2948,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             const office = await offices.findOne({ id: officeId });
 
             if (office?.owner_id) {
-              await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+              await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
                 id: randomUUID(),
                 _id: randomUUID(),
                 user_id: String(office.owner_id),
@@ -3023,7 +3023,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           String(booking.contact_name ?? "العميل").trim() || "العميل";
         const contactPhone = String(booking.contact_phone ?? "").trim();
 
-        await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+        await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
           id: randomUUID(),
           _id: randomUUID(),
           user_id: office.owner_id,
@@ -3596,7 +3596,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             (property?.title ? " بخصوص " + String(property.title) : " بخصوص العقار") +
             (!isCompleted && reason ? ". سبب الإنهاء: " + reason : "") +
             (isCompleted && reason ? ". ملاحظة العميل: " + reason : "");
-          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+          await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
             id: randomUUID(),
             _id: randomUUID(),
             user_id: recipientId,
@@ -3724,7 +3724,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           question: "استفسار",
         };
 
-        await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+        await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
           id: randomUUID(),
           _id: randomUUID(),
           user_id: office.owner_id,
@@ -3813,7 +3813,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const messageId = randomUUID();
         const now = new Date();
 
-        await getMongoCollection<Record<string, unknown>>("messages").insertOne({
+        await (await getMongoCollection<Record<string, unknown>>("messages")).insertOne({
           id: messageId,
           _id: messageId,
           conversation_id: conversationId,
@@ -3844,7 +3844,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               ? String(profile?.full_name ?? "عميل")
               : String(office.name ?? "مكتب عقاري");
 
-          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+          await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
             id: randomUUID(),
             _id: randomUUID(),
             user_id: recipientId,
