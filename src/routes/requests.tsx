@@ -363,8 +363,7 @@ function RequestsPage() {
               request.status === "active" && !request.accepted_offer_id,
             );
             const historyRequests = myRequests.filter((request) =>
-              request.status !== "active" &&
-              !(request.accepted_offer_id && request.status === "fulfilled"),
+              request.status !== "active",
             );
             const activePageCount = Math.max(1, Math.ceil(activeRequests.length / pageSize));
             const currentActivePage = Math.min(activeRequestsPage, activePageCount);
