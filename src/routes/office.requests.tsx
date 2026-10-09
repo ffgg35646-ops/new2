@@ -948,8 +948,10 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
     onSuccess: (_, vars) => {
       toast.success(vars.status === "accepted" ? "تم قبول طلب التواصل" : "تم رفض طلب التواصل");
       void qc.invalidateQueries({ queryKey: ["office-inquiries"] });
+      void qc.invalidateQueries({ queryKey: ["office-accepted-property-inquiries"] });
       void qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] });
       void qc.invalidateQueries({ queryKey: ["new-inquiries-count"] });
+      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
     onError: (e) =>
@@ -1147,6 +1149,7 @@ type OfficeOfferHistoryRow = {
   area_min: number | null;
   description: string;
   request_status: string;
+  history_type?: "offer" | "inquiry";
 };
 
 function SentOffers({ officeId }: { officeId: string | null }) {
@@ -1223,7 +1226,9 @@ function SentOffers({ officeId }: { officeId: string | null }) {
                   completedByAnotherOffice ? "اكتمل مع مكتب آخر" :
                   row.status === "awaiting_confirmation" ? "بانتظار تأكيد الفردي" :
                   row.status === "rejected" ? "مرفوض" :
-                  row.end_reason ? "تم إلغاء العرض" : "عرض منتهي / مسحوب من السوق"}
+                  row.end_reason ? "تم إلغاء العرض" :
+                  row.history_type === "inquiry" && row.status === "ended" ? "طلب تواصل منتهي" :
+                  "عرض منتهي / مسحوب من السوق"}
               </span>
             </div>
 
