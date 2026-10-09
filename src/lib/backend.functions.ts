@@ -804,6 +804,10 @@ async function runDb(input: DbInput) {
       return item;
     });
 
+    if (input.collection === "properties") {
+      await enforceOfficePropertyLimit(userId, role, docs);
+    }
+
     if (input.collection === "office_offers") {
       if (!userId || role !== "office") {
         throw new Error("فقط المكتب يمكنه إرسال عرض.");
