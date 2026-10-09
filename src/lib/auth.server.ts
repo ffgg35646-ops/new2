@@ -336,8 +336,10 @@ function trustedPasswordResetOrigin(requestedOrigin: string) {
     process.env["PUBLIC_APP_URL"],
     process.env["APP_URL"],
     process.env["VITE_PUBLIC_APP_URL"],
+    process.env["VERCEL_PROJECT_PRODUCTION_URL"]
+      ? "https://" + process.env["VERCEL_PROJECT_PRODUCTION_URL"]
+      : null,
     process.env["VERCEL_URL"] ? "https://" + process.env["VERCEL_URL"] : null,
-    "https://new2-sss22.vercel.app",
   ].filter((value): value is string => typeof value === "string" && !!value.trim());
 
   const allowed = new Set<string>();
@@ -345,7 +347,7 @@ function trustedPasswordResetOrigin(requestedOrigin: string) {
     try {
       allowed.add(new URL(value.startsWith("http") ? value : "https://" + value).origin);
     } catch {
-      // Ignore invalid deployment configuration; the hard-coded production origin remains.
+      // Ignore invalid deployment configuration.
     }
   }
 
@@ -363,7 +365,11 @@ function trustedPasswordResetOrigin(requestedOrigin: string) {
     // Fall back to the configured production origin.
   }
 
-  return [...allowed][0] ?? "https://new2-sss22.vercel.app";
+  const fallback = [...allowed][0];
+  if (!fallback) {
+    throw new Error("إعداد رابط الموقع العام غير مكتمل. اضبط PUBLIC_APP_URL في إعدادات النشر.");
+  }
+  return fallback;
 }
 
 export async function requestPasswordReset(email: string, origin: string) {
