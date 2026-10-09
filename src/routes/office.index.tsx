@@ -190,6 +190,7 @@ function OfficeDashboard() {
                 <Link
                   key={q.id}
                   to="/office/requests"
+                  search={{ tab: "inbox", request: undefined }}
                   className="block rounded-2xl bg-surface p-3.5 ring-1 ring-line"
                 >
                   <div className="flex items-center justify-between">
