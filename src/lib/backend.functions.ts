@@ -2564,6 +2564,73 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: requestedStatus, error: null };
       }
 
+      if (data.name === "individual_update_property_inquiry") {
+        if (!userId || role !== "individual") throw new Error("not_individual");
+
+        const inquiryId = String(data.args?._inquiry_id ?? "");
+        const requestedStatus = String(data.args?._status ?? "");
+        const reason = String(data.args?._reason ?? "").trim().slice(0, 3000);
+        if (!inquiryId || !["ended", "completed"].includes(requestedStatus)) {
+          throw new Error("invalid_inquiry_status");
+        }
+
+        const inquiries = await getMongoCollection<Record<string, unknown>>("property_inquiries");
+        const inquiry = await inquiries.findOne({
+          id: inquiryId,
+          user_id: userId,
+          status: "accepted",
+        });
+        if (!inquiry) throw new Error("طلب التواصل لم يعد مقبولًا أو سبق التعامل معه.");
+
+        const now = new Date();
+        const changed = await inquiries.updateOne(
+          { id: inquiryId, user_id: userId, status: "accepted" },
+          {
+            $set: {
+              status: requestedStatus,
+              updated_at: now,
+              ...(requestedStatus === "ended"
+                ? { end_reason: reason || null, ended_at: now, ended_by_user_id: userId }
+                : { completion_note: reason || null, completed_at: now, completed_by_user_id: userId }),
+            },
+          },
+        );
+        if (!changed.modifiedCount) throw new Error("تم التعامل مع طلب التواصل بالفعل.");
+
+        const [office, property, profile] = await Promise.all([
+          getMongoCollection<Record<string, unknown>>("offices")
+            .then((collection) => collection.findOne({ id: String(inquiry.office_id ?? "") })),
+          getMongoCollection<Record<string, unknown>>("properties")
+            .then((collection) => collection.findOne({ id: String(inquiry.property_id ?? "") })),
+          getMongoCollection<Record<string, unknown>>("profiles")
+            .then((collection) => collection.findOne({ id: userId }, { projection: { full_name: 1 } })),
+        ]);
+        const recipientId = String(office?.owner_id ?? "");
+        if (recipientId) {
+          const isCompleted = requestedStatus === "completed";
+          const message =
+            "العميل " + String(profile?.full_name ?? "العميل") +
+            (isCompleted ? " أكد اكتمال طلب التواصل" : " أنهى طلب التواصل") +
+            (property?.title ? " بخصوص " + String(property.title) : " بخصوص العقار") +
+            (!isCompleted && reason ? ". سبب الإنهاء: " + reason : "") +
+            (isCompleted && reason ? ". ملاحظة العميل: " + reason : "");
+          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: recipientId,
+            title: isCompleted ? "العميل أكد اكتمال طلب التواصل" : "العميل أنهى طلب التواصل",
+            body: message,
+            type: isCompleted ? "property_inquiry_completed" : "property_inquiry_ended",
+            link: "/office/requests?tab=inbox",
+            inquiry_id: inquiryId,
+            is_read: false,
+            created_at: now,
+          });
+        }
+
+        return { data: requestedStatus, error: null };
+      }
+
       if (data.name === "set_property_inquiry_status") {
         if (!userId || role !== "office") throw new Error("not_office_member");
 
