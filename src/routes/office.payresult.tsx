@@ -143,6 +143,7 @@ function ResultPage() {
             </p>
             <Link
               to="/office/pay"
+              search={{ package: undefined }}
               className="mt-6 rounded-2xl bg-forest px-6 py-3 text-sm font-bold text-background"
             >
               إعادة المحاولة
