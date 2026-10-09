@@ -118,6 +118,8 @@ export function useMyPlan() {
     queryKey: ["my-package", packageId, office?.plan],
     enabled: !!office,
     queryFn: async () => {
+      let packageRow: any = null;
+
       if (packageId) {
         const { data, error } = await (supabase as any)
           .from("package_catalog")
@@ -126,29 +128,52 @@ export function useMyPlan() {
           .maybeSingle();
 
         if (error) throw error;
+        packageRow = data;
+      }
+
+      const expiryTime = office?.plan_expires_at
+        ? new Date(office.plan_expires_at).getTime()
+        : Number.NaN;
+      const hasExpiredPaidPlan =
+        Number.isFinite(expiryTime) &&
+        expiryTime <= Date.now() &&
+        (office?.plan === "pro" ||
+          String(packageRow?.code ?? "") === "pro" ||
+          Number(packageRow?.price ?? 0) > 0);
+
+      // حتى لو لم يعمل Cron بعد، اعرض الباقة المجانية بمجرد انتهاء مدة Pro.
+      if (hasExpiredPaidPlan || !packageRow) {
+        const fallbackCode = hasExpiredPaidPlan
+          ? "free"
+          : office?.plan === "pro"
+            ? "pro"
+            : "free";
+
+        const { data, error } = await (supabase as any)
+          .from("package_catalog")
+          .select("*")
+          .eq("code", fallbackCode)
+          .maybeSingle();
+
+        if (error) throw error;
         if (data) return normalizePackage(data);
       }
 
-      const fallbackCode =
-        office?.plan === "pro" ? "pro" : "free";
-
-      const { data, error } = await (supabase as any)
-        .from("package_catalog")
-        .select("*")
-        .eq("code", fallbackCode)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data ? normalizePackage(data) : null;
+      return packageRow ? normalizePackage(packageRow) : null;
     },
   });
 
   const pkg = packageQuery.data;
 
+  const expiryTime = office?.plan_expires_at
+    ? new Date(office.plan_expires_at).getTime()
+    : Number.NaN;
   const expired =
-    !!office?.plan_expires_at &&
-    Number(pkg?.duration_days ?? 0) > 0 &&
-    new Date(office.plan_expires_at).getTime() <= Date.now();
+    Number.isFinite(expiryTime) &&
+    expiryTime <= Date.now() &&
+    (office?.plan === "pro" ||
+      pkg?.code === "pro" ||
+      Number(pkg?.price ?? 0) > 0);
 
   const currentPlan: OfficePlan =
     expired
