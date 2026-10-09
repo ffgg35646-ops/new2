@@ -708,6 +708,8 @@ type AcceptedContactRequest = {
 };
 
 function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: string | null; highlightedRequestId?: string }) {
+  const qc = useQueryClient();
+  const [cancelRequestId, setCancelRequestId] = useState<string | null>(null);
   const { data = [], isLoading, error } = useQuery<AcceptedContactRequest[]>({
     queryKey: ["office-accepted-property-requests", officeId],
     enabled: !!officeId,
@@ -719,6 +721,27 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
   });
+
+  const cancelAcceptedOffer = useMutation({
+    mutationFn: async (vars: { offerId: string; reason: string }) => {
+      const { error } = await supabase.rpc("office_cancel_accepted_offer" as never, {
+        _offer_id: vars.offerId,
+        _reason: vars.reason,
+      } as never);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setCancelRequestId(null);
+      toast.success("تم إلغاء العرض وإشعار الفردي بسبب الإلغاء");
+      void qc.invalidateQueries({ queryKey: ["office-accepted-property-requests"] });
+      void qc.invalidateQueries({ queryKey: ["open-requests"] });
+      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
+      void qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] });
+      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر إلغاء العرض"),
+  });
+
   useEffect(() => {
     if (!highlightedRequestId || !data.length) return;
     window.setTimeout(() => {
@@ -754,6 +777,14 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
             </div>
             <div className="rounded-xl bg-background p-3 ring-1 ring-line"><div className="text-[10px] font-semibold text-muted-foreground">تفاصيل الطلب</div><p className="mt-1 whitespace-pre-wrap text-sm leading-6">{request.description || "لا يوجد وصف إضافي."}</p></div>
             {request.offer_message && <div className="rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest"><div className="font-bold">رسالة عرض مكتبك</div><p className="mt-1 whitespace-pre-wrap">{request.offer_message}</p>{request.offer_price != null && <div className="mt-1 font-extrabold">السعر المقترح: {formatPrice(request.offer_price)} ر.س</div>}</div>}
+            <button
+              type="button"
+              onClick={() => setCancelRequestId(request.id)}
+              disabled={cancelAcceptedOffer.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+            >
+              <X className="size-4" /> إلغاء العرض
+            </button>
             <div className="rounded-xl bg-background p-3 ring-1 ring-line">
               <div className="text-[10px] font-semibold text-muted-foreground">بيانات اتصال العميل</div>
               <div className="mt-1 text-sm font-extrabold" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
@@ -770,6 +801,25 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
           لا توجد طلبات مقبولة حتى الآن. عندما يقبل الفردي عرض مكتبك، سيظهر الطلب هنا بالأولوية.
         </div>
       )}
+      <CompleteViewingReasonModal
+        open={!!cancelRequestId}
+        pending={cancelAcceptedOffer.isPending}
+        title="إلغاء العرض"
+        heading="وضّح سبب إلغاء العرض المقبول"
+        reasonLabel="سبب الإلغاء (إلزامي)"
+        placeholder="اكتب سبب إلغاء العرض الذي وافق عليه الفردي"
+        confirmLabel="تأكيد إلغاء العرض"
+        variant="reject"
+        onClose={() => { if (!cancelAcceptedOffer.isPending) setCancelRequestId(null); }}
+        onConfirm={(reason) => {
+          const request = data.find((item) => item.id === cancelRequestId);
+          if (!request?.accepted_offer_id) {
+            toast.error("تعذّر العثور على العرض المقبول");
+            return;
+          }
+          cancelAcceptedOffer.mutate({ offerId: request.accepted_offer_id, reason });
+        }}
+      />
     </section>
   );
 }
