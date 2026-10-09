@@ -778,6 +778,15 @@ function RequestCard({
   const status = request.status;
   const isActive = status === "active";
   const offerCount = request.office_offers?.length ?? 0;
+  const completedOffer = (request.office_offers ?? []).find(
+    (offer) => String(offer.id) === String(request.completed_offer_id ?? ""),
+  );
+  const completedOfficeName =
+    completedOffer?.offices?.name ||
+    (request.office_offers ?? []).find(
+      (offer) => String(offer.offices?.id ?? "") === String(request.completed_office_id ?? ""),
+    )?.offices?.name ||
+    null;
   return (
     <div id={"request-card-" + request.id} className={cn("rounded-2xl bg-surface p-3 ring-1 ring-line", highlighted && "ring-2 ring-forest")}>
       <div className="flex items-start justify-between gap-3">
