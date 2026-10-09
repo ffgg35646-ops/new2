@@ -211,8 +211,9 @@ export function useAdminDirectory() {
     queryKey: ["admin-directory"],
     queryFn: fetchAdminDirectory,
 
-    initialData: cached?.data,
-    initialDataUpdatedAt: cached?.savedAt,
+    ...(cached
+      ? { initialData: cached.data, initialDataUpdatedAt: cached.savedAt }
+      : {}),
 
     staleTime: 60_000,
     gcTime: 30 * 60_000,
@@ -324,8 +325,9 @@ export function useAdminDashboardStats() {
     queryKey: ["admin-dashboard-stats"],
     queryFn: fetchAdminDashboardStats,
 
-    initialData: cached?.data,
-    initialDataUpdatedAt: cached?.savedAt,
+    ...(cached
+      ? { initialData: cached.data, initialDataUpdatedAt: cached.savedAt }
+      : {}),
 
     staleTime: 60_000,
     gcTime: 30 * 60_000,
