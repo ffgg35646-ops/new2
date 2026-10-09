@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { CalendarDays, CheckCircle2, Clock3, Edit3, Loader2, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, Edit3, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
