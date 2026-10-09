@@ -128,9 +128,21 @@ export async function registerUser(input: {
   phone?: string | null;
   role?: "individual" | "office";
 }) {
+  if (typeof input.email !== "string" || typeof input.password !== "string") {
+    throw new Error("بيانات التسجيل غير صالحة.");
+  }
   const email = normalizeEmail(input.email);
-  if (!email.includes("@")) throw new Error("البريد الإلكتروني يجب أن يحتوي على @.");
-  if (input.password.length < 8) throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف.");
+  if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254) {
+    throw new Error("صيغة البريد الإلكتروني غير صحيحة.");
+  }
+  if (input.password.length < 8 || input.password.length > 1024) {
+    throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف.");
+  }
+
+  // Runtime validation is required: server-function TypeScript casts do not validate requests.
+  const requestedRole: "individual" | "office" | null =
+    input.role === "office" ? "office" :
+    input.role === "individual" ? "individual" : null;
 
   const users = await getMongoCollection<UserDoc>("users");
   const existing = await users.findOne({ email });
@@ -141,7 +153,15 @@ export async function registerUser(input: {
     const passwordHash = await hashPassword(input.password);
     await users.updateOne(
       { _id: existing._id },
-      { $set: { password_hash: passwordHash, full_name: input.fullName ?? existing.full_name ?? null, phone: input.phone ?? existing.phone ?? null, role: input.role ?? existing.role ?? null, updated_at: new Date() } },
+      { $set: {
+        password_hash: passwordHash,
+        full_name: typeof input.fullName === "string" ? input.fullName.slice(0, 160) : existing.full_name ?? null,
+        phone: typeof input.phone === "string" ? input.phone.slice(0, 30) : existing.phone ?? null,
+        role: requestedRole ?? (
+          existing.role === "office" || existing.role === "individual" ? existing.role : null
+        ),
+        updated_at: new Date(),
+      } },
     );
     const fresh = await users.findOne({ _id: existing._id });
     if (!fresh) throw new Error("تعذر تجهيز الحساب.");
@@ -156,9 +176,9 @@ export async function registerUser(input: {
     password_hash: await hashPassword(input.password),
     email_verified: false,
     email_confirmed_at: null,
-    full_name: input.fullName ?? null,
-    phone: input.phone ?? null,
-    role: input.role ?? null,
+    full_name: typeof input.fullName === "string" ? input.fullName.slice(0, 160) : null,
+    phone: typeof input.phone === "string" ? input.phone.slice(0, 30) : null,
+    role: requestedRole,
     verification_code_hash: null,
     verification_expires_at: null,
     verification_sent_count: 0,
@@ -278,7 +298,43 @@ export async function updateCurrentUser(input: { password?: string; email?: stri
   return { user: toUser(fresh) };
 }
 
+function trustedPasswordResetOrigin(requestedOrigin: string) {
+  const configuredOrigins = [
+    process.env["PUBLIC_APP_URL"],
+    process.env["APP_URL"],
+    process.env["VITE_PUBLIC_APP_URL"],
+    process.env["VERCEL_URL"] ? "https://" + process.env["VERCEL_URL"] : null,
+    "https://new2-sss22.vercel.app",
+  ].filter((value): value is string => typeof value === "string" && !!value.trim());
+
+  const allowed = new Set<string>();
+  for (const value of configuredOrigins) {
+    try {
+      allowed.add(new URL(value.startsWith("http") ? value : "https://" + value).origin);
+    } catch {
+      // Ignore invalid deployment configuration; the hard-coded production origin remains.
+    }
+  }
+
+  try {
+    const candidate = new URL(requestedOrigin).origin;
+    if (allowed.has(candidate)) return candidate;
+
+    const localHost = new URL(candidate);
+    if (
+      process.env["NODE_ENV"] !== "production" &&
+      ["localhost", "127.0.0.1"].includes(localHost.hostname) &&
+      ["http:", "https:"].includes(localHost.protocol)
+    ) return candidate;
+  } catch {
+    // Fall back to the configured production origin.
+  }
+
+  return [...allowed][0] ?? "https://new2-sss22.vercel.app";
+}
+
 export async function requestPasswordReset(email: string, origin: string) {
+  const trustedOrigin = trustedPasswordResetOrigin(origin);
   const users = await getMongoCollection<UserDoc>("users");
   const user = await users.findOne({ email: normalizeEmail(email) });
   if (!user) return { success: true };
@@ -290,7 +346,7 @@ export async function requestPasswordReset(email: string, origin: string) {
     { $set: { reset_token_hash: hashCode(rawToken), reset_expires_at: new Date(Date.now() + 15 * 60_000), updated_at: new Date() } },
   );
 
-  const url = `${origin.replace(/\/$/, "")}/auth/reset-password?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(user.email)}`;
+  const url = `${trustedOrigin.replace(/\/$/, "")}/auth/reset-password?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(user.email)}`;
   await sendPasswordReset(user.email, url);
 
   return { success: true };
