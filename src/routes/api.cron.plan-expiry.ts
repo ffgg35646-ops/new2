@@ -32,10 +32,10 @@ async function processPlanExpirations(request: Request) {
 
   try {
     const db = await getMongoDb();
-    const offices = db.collection<Record<string, any>>("offices");
-    const notifications = db.collection<Record<string, any>>("notifications");
-    const events = db.collection<Record<string, any>>("office_plan_events");
-    const packages = db.collection<Record<string, any>>("package_catalog");
+    const offices = db.collection<any>("offices");
+    const notifications = db.collection<any>("notifications");
+    const events = db.collection<any>("office_plan_events");
+    const packages = db.collection<any>("package_catalog");
 
     const freePackage = await packages.findOne({
       code: "free",
