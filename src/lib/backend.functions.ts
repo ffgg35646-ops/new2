@@ -3248,11 +3248,26 @@ export const rpcRequest = createServerFn({ method: "POST" })
           ? await getMongoCollection<Record<string, unknown>>("properties")
               .then((properties) => properties.findOne({ id: String(selectedOffer.property_id) }))
           : null;
+        const completedKindLabels: Record<string, string> = {
+          land: "أرض",
+          villa: "فيلا",
+          apartment: "شقة",
+          farm: "مزرعة",
+          rest_house: "استراحة",
+          building: "عمارة",
+          shop: "محل",
+        };
+        const completedListingLabels: Record<string, string> = {
+          sale: "للبيع",
+          rent: "للإيجار",
+        };
         const propertyTitle =
           String(completedProperty?.title ?? "").trim() ||
-          [String(request.kind ?? "طلب عقاري"), request.neighborhood ? String(request.neighborhood) : ""]
-            .filter(Boolean)
-            .join(" — ");
+          [
+            completedKindLabels[String(request.kind ?? "")] ?? "عقار",
+            completedListingLabels[String(request.listing ?? "")] ?? "",
+            request.neighborhood ? String(request.neighborhood) : "",
+          ].filter(Boolean).join(" — ");
         await offers.updateOne(
           { id: offerId, request_id: requestId, status: "completed" },
           {
@@ -3293,8 +3308,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
                 (request.description ? ". تفاصيل الطلب: " + String(request.description).slice(0, 600) : "")
               : "أكد العميل " + clientName + " اكتمال الطلب من خلال مكتب آخر. تم إغلاق الطلب وعروضه.",
             type: "property_offer_completed",
-            link: "/office/requests?tab=" + (isCompletedOffice ? "inbox" : "sent") +
-              (isCompletedOffice ? "&request=" + encodeURIComponent(requestId) : ""),
+            link: "/office/requests?tab=sent",
             is_read: false,
             created_at: now,
           });
