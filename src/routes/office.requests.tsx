@@ -1619,39 +1619,62 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
       {visibleRequests.map((r) => {
         return (
           <div key={r.id} className="overflow-hidden rounded-2xl bg-surface ring-1 ring-line">
-            {r.attachment_url ? (
-              <img
-                src={r.attachment_url}
-                alt="صورة الطلب العقاري"
-                loading="eager"
-                decoding="async"
-                className="block aspect-[4/3] w-full object-cover"
-                onError={(event) => {
-                  event.currentTarget.style.display = "none";
-                  const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
-                  if (fallback) fallback.hidden = false;
-                }}
-              />
-            ) : null}
-            <div
-              hidden={!!r.attachment_url}
-              className="grid aspect-[4/3] w-full place-items-center bg-sand px-4 text-center text-sm text-muted-foreground"
-            >
-              لا توجد صورة مرفقة بالطلب
+            <div className="relative w-full bg-sand">
+              {r.attachment_url ? (
+                <img
+                  src={r.attachment_url}
+                  alt="صورة الطلب العقاري"
+                  loading="eager"
+                  decoding="async"
+                  className="block aspect-[4/3] w-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.style.display = "none";
+                    const fallback = event.currentTarget.parentElement?.querySelector("[data-request-image-fallback]") as HTMLElement | null;
+                    if (fallback) fallback.style.display = "grid";
+                  }}
+                />
+              ) : null}
+              <div
+                data-request-image-fallback
+                style={{ display: r.attachment_url ? "none" : "grid" }}
+                className="aspect-[4/3] w-full place-items-center bg-sand px-4 text-center text-sm text-muted-foreground"
+              >
+                لا توجد صورة توضيحية لهذا الطلب
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setDetailsId(r.id);
-                if (!viewed.current.has(r.id)) {
-                  viewed.current.add(r.id);
-                  void supabase.rpc("mark_property_request_view" as never, { _request_id: r.id } as never);
-                }
-              }}
-              className="flex w-full items-center justify-center gap-2 bg-forest-soft px-3 py-3.5 text-sm font-bold text-forest"
-            >
-              عرض التفاصيل
-            </button>
+            <div className="grid grid-cols-2 gap-2 p-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setDetailsId(r.id);
+                  if (!viewed.current.has(r.id)) {
+                    viewed.current.add(r.id);
+                    void supabase.rpc("mark_property_request_view" as never, { _request_id: r.id } as never);
+                  }
+                }}
+                className="flex w-full items-center justify-center rounded-xl bg-forest-soft px-2 py-3 text-xs font-bold text-forest"
+              >
+                عرض بيانات الطلب
+              </button>
+              {!r.offer_sent ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDetailsId(null);
+                    setMessage("");
+                    setPrice("");
+                    setOpenId(r.id);
+                  }}
+                  className="flex w-full items-center justify-center rounded-xl bg-terracotta px-2 py-3 text-xs font-bold text-background"
+                >
+                  قبول
+                </button>
+              ) : (
+                <div className="flex items-center justify-center rounded-xl bg-sand px-2 py-3 text-center text-[11px] font-bold text-muted-foreground">
+                  تم إرسال العرض
+                </div>
+              )}
+            </div>
           </div>
         );
       })}
