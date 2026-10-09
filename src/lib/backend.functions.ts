@@ -1959,7 +1959,9 @@ export const rpcRequest = createServerFn({ method: "POST" })
                   user_id: recipientId,
                   title: "لديك معاينة اليوم",
                   body:
-                    "لديك موعد معاينة اليوم الساعة " +
+                    "لديك معاينة اليوم " +
+                    visitDate +
+                    " الساعة " +
                     timeText +
                     propertyText +
                     ".",
@@ -2262,6 +2264,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
 
         const actorLabel = isOfficeOwner ? "المكتب" : "العميل";
+        const officeName = String(bookingOffice?.name ?? "المكتب العقاري").trim() || "المكتب العقاري";
         const recipientId = isOfficeOwner
           ? bookingUserId
           : String(
@@ -2274,38 +2277,49 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const propertyLabel = property?.title
           ? "عقار " + String(property.title)
           : "العقار";
-        const baseBody =
+        const appointmentLabel =
           propertyLabel +
-          " · العميل: " +
-          clientName +
+          " · التاريخ " +
+          String(booking.visit_date ?? "").slice(0, 10) +
           " · الساعة " +
           String(booking.visit_time ?? "").slice(0, 5);
+        const baseBody =
+          appointmentLabel +
+          " · العميل: " +
+          clientName;
 
         let title: string;
         let body: string;
         let notificationRecipients: string[];
 
         if (requestedStatus === "completed") {
-          title = "تم إنهاء المعاينة من " + actorLabel;
-          body = baseBody + " · سبب إنهاء المعاينة: " + cancelReason;
+          title = "تم إنهاء المعاينة من " + (isOfficeOwner ? officeName : "العميل");
+          body =
+            (isOfficeOwner ? officeName : "العميل " + clientName) +
+            " أنهى المعاينة · " +
+            appointmentLabel +
+            " · السبب: " +
+            cancelReason;
+          notificationRecipients = [recipientId];
+        } else if (requestedStatus === "accepted") {
+          title = "تم قبول طلب المعاينة من " + officeName;
+          body =
+            officeName +
+            " وافق على طلب المعاينة · " +
+            appointmentLabel;
+          notificationRecipients = [recipientId];
+        } else if (requestedStatus === "rejected") {
+          title = "تم رفض طلب المعاينة من " + officeName;
+          body =
+            officeName +
+            " رفض طلب المعاينة · " +
+            appointmentLabel +
+            " · سبب الرفض: " +
+            cancelReason;
           notificationRecipients = [recipientId];
         } else {
-          title =
-            requestedStatus === "cancelled"
-              ? "تم إلغاء المعاينة من " + actorLabel
-              : requestedStatus === "accepted"
-                ? "تم قبول حجز المعاينة"
-                : requestedStatus === "rejected"
-                  ? "تم رفض حجز المعاينة"
-                  : "تم تحديث حجز المعاينة";
-
-          body =
-            requestedStatus === "cancelled"
-              ? baseBody + " · سبب الإلغاء: " + cancelReason
-              : requestedStatus === "rejected"
-                ? baseBody + " · سبب الرفض: " + cancelReason
-                : baseBody;
-
+          title = "تم إلغاء المعاينة من " + actorLabel;
+          body = baseBody + " · سبب الإلغاء: " + cancelReason;
           notificationRecipients = [recipientId];
         }
 
