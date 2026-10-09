@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Bell, BellOff, Crown, ShieldCheck, Star } from "lucide-react";
+import { Bell, BellOff, Crown, MessageSquare, ShieldCheck, Star } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useFollowState, useSetOfficeNotifications } from "@/lib/follows";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ export type OfficeCardData = {
   properties_count?: number;
   rating?: number | null;
   rating_avg?: number | null;
+  reviews_count?: number | null;
   plan?: string | null;
   plan_expires_at?: string | null;
   completed_requests_count?: number;
@@ -57,15 +58,25 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
           )}
         </div>
         <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-          {(office.rating_avg ?? office.rating) != null ? (
-            <>
-              <Star className="size-3 fill-terracotta text-terracotta" />
-              {Number(office.rating_avg ?? office.rating ?? 0).toFixed(1)} ·{" "}
-            </>
-          ) : null}
-          {office.properties_count ?? 0} عقارًا · {timeAgo(office.updated_at)}
+          <Star className="size-3 fill-terracotta text-terracotta" />
+          {Number(office.rating_avg ?? office.rating ?? 0).toFixed(1)}
+          <span>({office.reviews_count ?? 0} تقييم)</span>
+          <span>· {office.completed_requests_count ?? 0} طلب مكتمل</span>
+          <span>· {office.properties_count ?? 0} عقارًا</span>
+          <span>· {timeAgo(office.updated_at)}</span>
         </div>
       </div>
+      {isPro && !isOffice && !isAdmin && (
+        <Link
+          to="/chats"
+          search={{ office: office.id }}
+          aria-label={"فتح محادثة مع " + office.name}
+          title={"شات مع " + office.name}
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-forest-soft text-forest ring-1 ring-forest/20 transition hover:bg-forest hover:text-background"
+        >
+          <MessageSquare className="size-4" />
+        </Link>
+      )}
       <button
         type="button"
         onClick={() => {
