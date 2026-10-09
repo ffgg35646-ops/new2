@@ -21,7 +21,7 @@ type Result<T> = {
   count?: number | null;
 };
 
-type QueryRow = Record<string, any>;
+type QueryRow = any;
 type QueryRows = QueryRow[];
 type SingleValue<T> = T extends readonly (infer Row)[] ? Row : T;
 type MaybeSingleValue<T> = T extends readonly (infer Row)[] ? Row | null : T | null;
