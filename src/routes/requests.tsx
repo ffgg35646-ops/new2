@@ -132,7 +132,7 @@ function RequestsPage() {
       if (error) throw error;
     },
     onSuccess: (_, vars) => {
-      toast.success(vars.status === "fulfilled" ? "تم تسجيل الطلب كمكتمل" : "تم حذف الطلب من الطلبات النشطة");
+      toast.success(vars.status === "fulfilled" ? "تم إنهاء الطلب ونقله إلى سجل الطلبات" : "تم إلغاء الطلب");
       void qc.invalidateQueries({ queryKey: ["requests-page"] });
       void qc.invalidateQueries({ queryKey: ["open-requests"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
