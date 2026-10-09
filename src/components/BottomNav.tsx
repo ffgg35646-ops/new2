@@ -21,6 +21,7 @@ const individualItems: Item[] = [
   { to: "/home", label: "الرئيسية", icon: Home },
   { to: "/properties", label: "العقارات", icon: Building2 },
   { to: "/request", label: "اطلب", icon: PlusCircle, primary: true },
+  { to: "/requests", label: "طلباتي", icon: ClipboardList },
   { to: "/account", label: "حسابي", icon: User },
 ];
 
@@ -40,13 +41,59 @@ export function BottomNav({
   variant?: "individual" | "office";
   fixed?: boolean;
 }) {
-  const { isOffice } = useAuth();
+  const { isOffice, userId } = useAuth();
   const resolved = variant ?? (isOffice ? "office" : "individual");
   const items = resolved === "office" ? officeItems : individualItems;
   const { data: membership } = useMyOffice();
   const officeId = resolved === "office" ? membership?.office?.id ?? null : null;
   const officeGovernorateId =
     resolved === "office" ? membership?.office?.governorate_id ?? null : null;
+
+  const individualUserId = resolved === "individual" ? userId ?? null : null;
+
+  const { data: individualRequestsCount = 0 } = useQuery({
+    queryKey: ["individual-bottom-nav-request-count", individualUserId],
+    enabled: !!individualUserId,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
+      const [requestsResult, inquiryResult] = await Promise.all([
+        supabase
+          .from("property_requests")
+          .select("id,status,accepted_offer_id,office_offers(id,status)")
+          .eq("user_id", individualUserId!)
+          .limit(500),
+        supabase
+          .from("property_inquiries")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", individualUserId!)
+          .eq("status", "new"),
+      ]);
+
+      if (requestsResult.error) throw requestsResult.error;
+      if (inquiryResult.error) throw inquiryResult.error;
+
+      const rows = (requestsResult.data ?? []) as Array<{
+        id: string;
+        status: string;
+        accepted_offer_id?: string | null;
+        office_offers?: Array<{ id: string; status: string }> | null;
+      }>;
+      const activeRequests = rows.filter(
+        (request) => request.status === "active" && !request.accepted_offer_id,
+      );
+      const waitingOffers = rows.reduce((total, request) => {
+        if (request.accepted_offer_id) return total;
+        return total + (request.office_offers ?? []).filter(
+          (offer) => ["sent", "pending"].includes(String(offer.status ?? "")),
+        ).length;
+      }, 0);
+
+      // Accepted items have their own counter and are not double-counted here.
+      return activeRequests.length + waitingOffers + (inquiryResult.count ?? 0);
+    },
+  });
+
 
   const { data: officeRequestsCount = 0 } = useQuery({
     queryKey: ["office-bottom-nav-request-count", officeId, officeGovernorateId],
@@ -122,6 +169,11 @@ export function BottomNav({
               {item.to === "/office/requests" && officeRequestsCount > 0 && (
                 <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
                   {officeRequestsCount > 99 ? "99+" : officeRequestsCount}
+                </span>
+              )}
+              {item.to === "/requests" && individualRequestsCount > 0 && (
+                <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
+                  {individualRequestsCount > 99 ? "99+" : individualRequestsCount}
                 </span>
               )}
             </span>
