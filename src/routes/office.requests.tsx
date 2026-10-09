@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { PaginationControls } from "@/components/PaginationControls";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 import {
   BOOKING_STATUS,
@@ -176,6 +177,9 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
   const [note, setNote] = useState("");
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [contactOpenId, setContactOpenId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => setPage(1), [officeId]);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["office-bookings", officeId],
@@ -254,6 +258,11 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
     refetchIntervalInBackground: true,
   });
 
+  const pageSize = 6;
+  const pageCount = Math.max(1, Math.ceil(data.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visibleBookings = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   const setStatus = useMutation({
     mutationFn: async (vars: {
       id: string;
@@ -314,8 +323,8 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
 
   return (
     <>
-      <div className="space-y-2.5">
-        {data.map((booking) => {
+      <div className="space-y-2">
+        {visibleBookings.map((booking) => {
           const contactPhone = booking.contact_phone || booking.client?.phone;
           const property = booking.properties as {
             id: string;
@@ -333,7 +342,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
           return (
             <article
               key={booking.id}
-              className="overflow-hidden rounded-[28px] bg-surface ring-1 ring-line"
+              className="overflow-hidden rounded-2xl bg-surface ring-1 ring-line"
             >
               {property?.id ? (
                 <a href={"/properties/" + encodeURIComponent(property.id)} className="block">
@@ -349,7 +358,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                       لا توجد صورة للعقار
                     </div>
                   )}
-                  <div className="p-4">
+                  <div className="p-3">
                     <div className="text-[10px] font-semibold text-muted-foreground">
                       العقار المرتبط بالمعاينة
                     </div>
@@ -436,7 +445,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                   </div>
                 </div>
 
-                <div className="mt-3 rounded-2xl bg-background p-3.5 ring-1 ring-line">
+                <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">
                   <div className="flex items-start gap-3">
                     <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-forest-soft text-forest">
                       <Building2 className="size-4" />
@@ -479,9 +488,9 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                             rel="noreferrer"
                             aria-label="واتساب العميل"
                             title="واتساب"
-                            className="grid size-10 place-items-center rounded-xl bg-sand"
+                            className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"
                           >
-                            <WhatsAppIcon className="size-5" />
+                            <WhatsAppIcon className="size-5 text-[#25D366]" />
                           </a>
                         </div>
                       )}
@@ -607,6 +616,12 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
           );
         })}
       </div>
+      <PaginationControls
+        page={currentPage}
+        total={data.length}
+        pageSize={pageSize}
+        onPageChange={setPage}
+      />
 
       <CancelReasonModal
         open={!!cancelId}
@@ -662,6 +677,9 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<string>("all");
   const [contactOpenId, setContactOpenId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => setPage(1), [filter, officeId]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["office-inquiries", officeId, filter],
@@ -681,6 +699,12 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
   });
+
+  const rows = data ?? [];
+  const pageSize = 6;
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visibleInquiries = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const setStatus = useMutation({
     mutationFn: async (vars: { id: string; status: string }) => {
@@ -714,8 +738,9 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
       {isLoading ? (
         <ListSkeleton />
       ) : data?.length ? (
-        <div className="space-y-2.5">
-          {data.map((q) => {
+        <>
+        <div className="space-y-2">
+          {visibleInquiries.map((q) => {
             const prop = q.properties as { title: string; property_number: string } | null;
             return (
               <div key={q.id} className="space-y-2 rounded-2xl bg-surface p-3.5 ring-1 ring-line">
@@ -765,9 +790,9 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
                       rel="noreferrer"
                       aria-label="واتساب العميل"
                       title="واتساب"
-                      className="grid size-10 place-items-center rounded-xl bg-sand"
+                      className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"
                     >
-                      <WhatsAppIcon className="size-5" />
+                      <WhatsAppIcon className="size-5 text-[#25D366]" />
                     </a>
                   </div>
                 )}
@@ -809,6 +834,13 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
             );
           })}
         </div>
+        <PaginationControls
+          page={currentPage}
+          total={rows.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
+        </>
       ) : (
         <EmptyState
           icon={ClipboardList}
@@ -856,6 +888,9 @@ function FilterChip({
 
 function SentOffers({ officeId }: { officeId: string | null }) {
   const qc = useQueryClient();
+  const [page, setPage] = useState(1);
+
+  useEffect(() => setPage(1), [officeId]);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["office-sent-offers", officeId],
@@ -913,6 +948,11 @@ function SentOffers({ officeId }: { officeId: string | null }) {
     },
   });
 
+  const pageSize = 6;
+  const pageCount = Math.max(1, Math.ceil(data.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visibleHistory = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   const action = useMutation({
     mutationFn: async (vars: { offerId: string; status: "completed" | "deleted" }) => {
       const { error } = await supabase.rpc(
@@ -942,8 +982,8 @@ function SentOffers({ officeId }: { officeId: string | null }) {
   }
 
   return (
-    <div className="space-y-3">
-      {data.map((row) => {
+    <div className="space-y-2">
+      {visibleHistory.map((row) => {
         const request = row.request as {
           kind: string;
           listing: string;
@@ -955,7 +995,7 @@ function SentOffers({ officeId }: { officeId: string | null }) {
         } | null;
 
         return (
-          <div key={row.id} className="rounded-3xl bg-surface p-4 ring-1 ring-line">
+          <div key={row.id} className="rounded-2xl bg-surface p-3 ring-1 ring-line">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-display text-sm font-extrabold">
@@ -1030,6 +1070,12 @@ function SentOffers({ officeId }: { officeId: string | null }) {
           </div>
         );
       })}
+      <PaginationControls
+        page={currentPage}
+        total={data.length}
+        pageSize={pageSize}
+        onPageChange={setPage}
+      />
     </div>
   );
 }
@@ -1098,7 +1144,10 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [price, setPrice] = useState("");
+  const [page, setPage] = useState(1);
   const viewed = useRef(new Set<string>());
+
+  useEffect(() => setPage(1), [officeId, officeGovernorateId]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["open-requests", officeId, officeGovernorateId],
@@ -1132,6 +1181,13 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
       }>;
     },
   });
+
+  const rows = data ?? [];
+  const pageSize = 6;
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visibleRequests = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   const sendOffer = useMutation({
     mutationFn: async (requestId: string) => {
       if (!officeId) throw new Error("مكتبك غير متاح");
@@ -1179,11 +1235,11 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   const details = data.find((request) => request.id === detailsId) ?? null;
 
   return (
-    <div className="space-y-2.5">
-      {data.map((r) => {
+    <div className="space-y-2">
+      {visibleRequests.map((r) => {
         const sent = r.offer_sent;
         return (
-          <div key={r.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+          <div key={r.id} className="rounded-2xl bg-surface p-3 ring-1 ring-line">
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold">
                 {kindLabel(r.kind)} · {listingLabel(r.listing)}
@@ -1230,9 +1286,9 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
                   href={whatsappHref(r.client_phone, "مرحبًا " + r.client_name + "، بخصوص طلب العقار")}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 rounded-xl bg-sand py-2.5 text-center text-xs font-bold"
+                  className="flex-1 rounded-xl bg-[#25D366]/10 py-2.5 text-center text-xs font-bold text-[#25D366]"
                 >
-                  <MessageCircle className="mx-auto mb-1 size-3.5" />
+                  <WhatsAppIcon className="mx-auto mb-1 size-4 text-[#25D366]" />
                   واتساب
                 </a>
               </div>
@@ -1296,6 +1352,12 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
           </div>
         );
       })}
+      <PaginationControls
+        page={currentPage}
+        total={rows.length}
+        pageSize={pageSize}
+        onPageChange={setPage}
+      />
 
     {details && (
       <div
@@ -1396,9 +1458,9 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
                   href={whatsappHref(details.client_phone, "مرحبًا " + details.client_name + "، بخصوص طلب العقار")}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 rounded-2xl bg-sand py-3.5 text-center text-sm font-bold"
+                  className="flex-1 rounded-2xl bg-[#25D366]/10 py-3.5 text-center text-sm font-bold text-[#25D366]"
                 >
-                  <MessageCircle className="mx-auto mb-1 size-4" /> واتساب
+                  <WhatsAppIcon className="mx-auto mb-1 size-4 text-[#25D366]" /> واتساب
                 </a>
               </div>
             )}
