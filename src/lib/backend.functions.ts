@@ -1844,8 +1844,22 @@ export const rpcRequest = createServerFn({ method: "POST" })
             ["fulfilled", "cancelled", "ended", "expired"].includes(requestStatus);
           if (!visibleInHistory) return null;
 
+          const historyKindLabels: Record<string, string> = {
+            land: "أرض",
+            villa: "فيلا",
+            apartment: "شقة",
+            farm: "مزرعة",
+            rest_house: "استراحة",
+            building: "عمارة",
+            shop: "محل",
+          };
+          const historyListingLabels: Record<string, string> = {
+            sale: "للبيع",
+            rent: "للإيجار",
+          };
           const fallbackTitle = [
-            String(request?.kind ?? offer.completed_request_kind ?? "طلب عقاري"),
+            historyKindLabels[String(request?.kind ?? offer.completed_request_kind ?? "")] ?? "طلب عقاري",
+            historyListingLabels[String(request?.listing ?? offer.completed_request_listing ?? "")] ?? "",
             String(request?.neighborhood ?? offer.completed_neighborhood ?? ""),
           ].filter(Boolean).join(" — ");
           const title =
