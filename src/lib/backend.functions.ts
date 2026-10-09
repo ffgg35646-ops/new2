@@ -670,6 +670,10 @@ async function runDb(input: DbInput) {
     throw new Error("هذه العملية تحتاج إلى صلاحيات الإدارة.");
   }
 
+  if (role !== "admin" && input.collection === "office_staff" && isWrite) {
+    throw new Error("إدارة موظفي المكتب لا تتم من خلال تعديل قاعدة البيانات العام.");
+  }
+
   if (role !== "admin" && input.collection === "users") {
     throw new Error("غير مصرح بقراءة بيانات الحسابات الداخلية.");
   }
@@ -908,10 +912,16 @@ async function runDb(input: DbInput) {
     if (input.collection === "conversation_blocks" && input.operation === "insert") {
       const list = Array.isArray(input.payload) ? input.payload : [input.payload];
       for (const row of list) {
-        const conversationId = String((row as Record<string, unknown> | null)?.conversation_id ?? "");
+        if (!row || typeof row !== "object" || Array.isArray(row)) {
+          throw new Error("بيانات الحظر غير صالحة.");
+        }
+        const block = row as Record<string, unknown>;
+        const conversationId = String(block.conversation_id ?? "");
         if (!allowedConversationIds.includes(conversationId)) {
           throw new Error("not_conversation_member");
         }
+        // The caller cannot block as another conversation participant.
+        block.blocker_id = userId;
       }
     }
 
