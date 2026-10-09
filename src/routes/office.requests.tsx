@@ -42,6 +42,7 @@ export const Route = createFileRoute("/office/requests")({
       search.tab === "sent"
         ? search.tab
         : undefined,
+    request: typeof search.request === "string" ? search.request : undefined,
   }),
   head: () => ({
     meta: [
@@ -115,14 +116,16 @@ function OfficeRequests() {
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("property_inquiries")
-        .select("id", { count: "exact", head: true })
-        .eq("office_id", officeId!)
-        .eq("status", "new");
-
+      const [{ count, error }, { data: acceptedRequests, error: acceptedError }] = await Promise.all([
+        supabase.from("property_inquiries")
+          .select("id", { count: "exact", head: true })
+          .eq("office_id", officeId!)
+          .eq("status", "new"),
+        supabase.rpc("office_accepted_property_requests" as never),
+      ]);
       if (error) throw error;
-      return count ?? 0;
+      if (acceptedError) throw acceptedError;
+      return (count ?? 0) + (Array.isArray(acceptedRequests) ? acceptedRequests.length : 0);
     },
   });
 
@@ -159,7 +162,10 @@ function OfficeRequests() {
         </div>
 
         {tab === "inbox" ? (
-          <InquiriesInbox officeId={officeId} />
+          <>
+            <AcceptedRequestsInbox officeId={officeId} highlightedRequestId={search.request} />
+            <InquiriesInbox officeId={officeId} />
+          </>
         ) : tab === "bookings" ? (
           <BookingsInbox officeId={officeId} />
         ) : tab === "market" ? (
@@ -693,6 +699,75 @@ function TabButton({
   );
 }
 
+type AcceptedContactRequest = {
+  id: string; accepted_offer_id: string; user_id: string; kind: string | null; listing: string | null;
+  governorate_name: string | null; neighborhood: string | null; budget_min: number | null; budget_max: number | null;
+  area_min: number | null; description: string; attachment_url: string | null; created_at: string | null;
+  expires_at: string | null; client_name: string; client_phone: string | null; offer_message: string | null;
+  offer_price: number | null; offer_status: string;
+};
+
+function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: string | null; highlightedRequestId?: string }) {
+  const { data = [], isLoading, error } = useQuery<AcceptedContactRequest[]>({
+    queryKey: ["office-accepted-property-requests", officeId],
+    enabled: !!officeId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("office_accepted_property_requests" as never);
+      if (error) throw error;
+      return (Array.isArray(data) ? data : []) as AcceptedContactRequest[];
+    },
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+  });
+  useEffect(() => {
+    if (!highlightedRequestId || !data.length) return;
+    window.setTimeout(() => {
+      document.getElementById("accepted-request-card-" + highlightedRequestId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
+  }, [highlightedRequestId, data.length]);
+  if (isLoading) return <ListSkeleton />;
+  if (error) return <div role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">تعذّر تحميل طلبات التواصل المقبولة: {error instanceof Error ? error.message : "خطأ غير معروف"}</div>;
+  if (!data.length) return null;
+  return (
+    <section className="space-y-2">
+      <h2 className="font-display text-sm font-extrabold">طلبات السوق المقبولة — خاصة بمكتبك</h2>
+      {data.map((request) => {
+        const phone = String(request.client_phone ?? "").trim();
+        return (
+          <article id={"accepted-request-card-" + request.id} key={request.id}
+            className={cn("space-y-3 rounded-2xl bg-surface p-3 ring-1 ring-line", highlightedRequestId === request.id && "ring-2 ring-forest")}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-display text-sm font-extrabold">{request.client_name || "عميل"}</h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">{kindLabel(request.kind)} · {listingLabel(request.listing)} · {timeAgo(request.created_at)}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">تم قبول عرضك</span>
+            </div>
+            {request.attachment_url && <img src={request.attachment_url} alt="صورة الطلب" loading="lazy" className="max-h-64 w-full rounded-xl object-cover" />}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-background p-2.5 ring-1 ring-line"><div className="text-[10px] text-muted-foreground">المحافظة</div><div className="mt-1 text-xs font-bold">{request.governorate_name || "—"}</div></div>
+              <div className="rounded-xl bg-background p-2.5 ring-1 ring-line"><div className="text-[10px] text-muted-foreground">الحي</div><div className="mt-1 text-xs font-bold">{request.neighborhood || "أي حي"}</div></div>
+              <div className="rounded-xl bg-background p-2.5 ring-1 ring-line"><div className="text-[10px] text-muted-foreground">الميزانية</div><div className="mt-1 text-xs font-bold">{request.budget_min != null || request.budget_max != null ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س" : "غير محددة"}</div></div>
+              <div className="rounded-xl bg-background p-2.5 ring-1 ring-line"><div className="text-[10px] text-muted-foreground">المساحة</div><div className="mt-1 text-xs font-bold">{request.area_min != null ? "من " + formatArea(request.area_min) : "غير محددة"}</div></div>
+            </div>
+            <div className="rounded-xl bg-background p-3 ring-1 ring-line"><div className="text-[10px] font-semibold text-muted-foreground">تفاصيل الطلب</div><p className="mt-1 whitespace-pre-wrap text-sm leading-6">{request.description || "لا يوجد وصف إضافي."}</p></div>
+            {request.offer_message && <div className="rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest"><div className="font-bold">رسالة عرض مكتبك</div><p className="mt-1 whitespace-pre-wrap">{request.offer_message}</p>{request.offer_price != null && <div className="mt-1 font-extrabold">السعر المقترح: {formatPrice(request.offer_price)} ر.س</div>}</div>}
+            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
+              <div className="text-[10px] font-semibold text-muted-foreground">بيانات اتصال العميل</div>
+              <div className="mt-1 text-sm font-extrabold" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
+              {phone && <div className="mt-3 grid grid-cols-3 gap-2">
+                <a href={"tel:" + phone} className="rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"><Phone className="mx-auto mb-1 size-4" /> اتصال</a>
+                <a href={whatsappHref(phone, "مرحبًا " + (request.client_name || "عميل") + "، بخصوص طلب العقار")} target="_blank" rel="noreferrer" className="rounded-xl bg-[#25D366]/10 py-2.5 text-center text-xs font-bold text-[#25D366]"><WhatsAppIcon className="mx-auto mb-1 size-4" /> واتساب</a>
+                <button type="button" onClick={() => void copyContactPhone(phone)} className="rounded-xl bg-background py-2.5 text-center text-xs font-bold ring-1 ring-line"><Copy className="mx-auto mb-1 size-4" /> نسخ الرقم</button>
+              </div>}
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
 function InquiriesInbox({ officeId }: { officeId: string | null }) {
   const qc = useQueryClient();
   const [contactOpenId, setContactOpenId] = useState<string | null>(null);
@@ -1146,10 +1221,10 @@ function MarketOfferActions({
     }
   }
 
-  if (offerStatus === "ended" || offerStatus === "deleted") {
+  if (offerStatus === "rejected" || offerStatus === "deleted" || offerStatus === "ended") {
     return (
       <div className="mt-2.5 rounded-xl bg-terracotta-soft py-2.5 text-center text-xs font-bold text-terracotta">
-        منتهي — لم يتم تأكيد إتمام الصفقة داخل التطبيق
+        {offerStatus === "rejected" ? "تم رفض عرضك — لا يمكنك إرسال عرض آخر على هذا الطلب" : "العرض منتهي — لا يمكنك إعادة تقديم عرض على الطلب"}
       </div>
     );
   }
@@ -1352,15 +1427,8 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
           };
         }
 
-        // A rejected/deleted offer can be replaced. An ended offer remains visible,
-        // but is archived as "منتهي" and cannot be treated as completed.
-        const offerStillTracked = [
-          "sent",
-          "accepted",
-          "awaiting_confirmation",
-          "completed",
-          "ended",
-        ].includes(latestOffer.status);
+        // Once this office has submitted an offer, the action stays locked for this request.
+        const offerStillTracked = true;
 
         return {
           ...request,
@@ -1427,6 +1495,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   if (!data?.length) return <EmptyState icon={ClipboardList} title="السوق فارغ حاليًا" description="ستظهر هنا طلبات البحث العقاري النشطة في محافظتك." />;
 
   const details = data.find((request) => request.id === detailsId) ?? null;
+  const offerRequest = data.find((request) => request.id === openId) ?? null;
 
   return (
     <div className="space-y-2">
@@ -1440,21 +1509,23 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               </span>
               <span className="text-[10px] text-muted-foreground">{timeAgo(r.created_at)}</span>
             </div>
+            {r.attachment_url && <img src={r.attachment_url} alt="صورة الطلب" loading="lazy" className="mt-2 max-h-56 w-full rounded-xl object-cover" />}
             <div className="mt-2 rounded-xl bg-background p-3 ring-1 ring-line">
               <div className="text-xs font-bold">{r.client_name}</div>
-              {r.client_phone && (
-                <div className="mt-0.5 text-[11px] text-muted-foreground">
-                  {r.client_phone}
-                </div>
-              )}
             </div>
 
             <button
               type="button"
-              onClick={() => setDetailsId(r.id)}
+              onClick={() => {
+                setDetailsId(r.id);
+                if (!viewed.current.has(r.id)) {
+                  viewed.current.add(r.id);
+                  void supabase.rpc("mark_property_request_view" as never, { _request_id: r.id } as never);
+                }
+              }}
               className="mt-2.5 flex w-full items-center justify-between rounded-xl bg-forest-soft px-3 py-2.5 text-xs font-bold text-forest"
             >
-              <span>عرض تفاصيل الطلب كاملة</span>
+              <span>عرض التفاصيل</span>
               <span>‹</span>
             </button>
 
@@ -1488,64 +1559,14 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               </div>
             )}
 
-            {sent ? (
-              <MarketOfferActions
-                offerId={r.offer_id}
-                offerStatus={r.offer_status ?? "sent"}
-                offerMessage={r.offer_message ?? ""}
-                offerPrice={r.offer_price ?? null}
+            {sent && (
+              <MarketOfferActions offerId={r.offer_id} offerStatus={r.offer_status ?? "sent"}
+                offerMessage={r.offer_message ?? ""} offerPrice={r.offer_price ?? null}
                 onChanged={() => {
                   void qc.invalidateQueries({ queryKey: ["open-requests"] });
                   void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
                   void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
-                }}
-              />
-            ) : openId === r.id ? (
-              <div className="mt-2.5 space-y-2">
-                <textarea
-                  rows={3}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="اكتب تفاصيل العرض المناسب للعميل"
-                  className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
-                />
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="السعر المقترح (اختياري)"
-                  className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
-                />
-                <button
-                  onClick={() => sendOffer.mutate(r.id)}
-                  disabled={sendOffer.isPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-sm font-bold text-background disabled:opacity-60"
-                >
-                  {sendOffer.isPending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                  إرسال العرض
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  setOpenId(r.id);
-
-                  if (!viewed.current.has(r.id)) {
-                    viewed.current.add(r.id);
-                    void supabase.rpc(
-                      "mark_property_request_view" as never,
-                      { _request_id: r.id } as never,
-                    );
-                  }
-                }}
-                className="mt-2.5 w-full rounded-xl bg-terracotta py-2.5 text-sm font-bold text-background"
-              >
-                إرسال عرض
-              </button>
+                }} />
             )}
           </div>
         );
@@ -1591,7 +1612,6 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
             <section className="rounded-2xl bg-background p-3 ring-1 ring-line">
               <div className="text-[10px] font-semibold text-muted-foreground">العميل</div>
               <div className="mt-1 text-sm font-extrabold">{details.client_name}</div>
-              {details.client_phone && <div className="mt-1 text-xs text-muted-foreground">{details.client_phone}</div>}
             </section>
 
             <section className="grid grid-cols-2 gap-2">
@@ -1632,50 +1652,49 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               <p className="mt-1.5 whitespace-pre-wrap text-sm leading-7">{details.description || "لا يوجد وصف إضافي."}</p>
             </section>
 
-            {details.attachment_url && (
-              <a
-                href={details.attachment_url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex w-full items-center justify-center rounded-2xl bg-sand py-3 text-sm font-bold text-forest"
-              >
-                فتح المرفق المضاف
-              </a>
-            )}
+            {details.attachment_url && <img src={details.attachment_url} alt="صورة الطلب" loading="lazy" className="max-h-72 w-full rounded-2xl object-cover" />}
 
             <div className="text-[11px] leading-6 text-muted-foreground">
               نُشر الطلب: {formatDate(details.created_at)} · آخر موعد: {details.expires_at ? formatDate(details.expires_at) : "غير محدد"} · {details.views_count} مشاهدة
             </div>
-
-            {details.client_phone && (
-              <div className="flex gap-2">
-                <a href={"tel:" + details.client_phone} className="flex-1 rounded-2xl bg-forest py-3.5 text-center text-sm font-bold text-background">
-                  <Phone className="mx-auto mb-1 size-4" /> اتصال
-                </a>
-                <a
-                  href={whatsappHref(details.client_phone, "مرحبًا " + details.client_name + "، بخصوص طلب العقار")}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 rounded-2xl bg-[#25D366]/10 py-3.5 text-center text-sm font-bold text-[#25D366]"
-                >
-                  <WhatsAppIcon className="mx-auto mb-1 size-4 text-[#25D366]" /> واتساب
-                </a>
-              </div>
-            )}
 
             {!details.offer_sent && (
               <button
                 type="button"
                 onClick={() => {
                   setDetailsId(null);
+                  setMessage("");
+                  setPrice("");
                   setOpenId(details.id);
                 }}
                 className="w-full rounded-2xl bg-terracotta py-3.5 text-sm font-bold text-background"
               >
-                إرسال عرض للعميل
+                قبول
               </button>
             )}
           </div>
+        </div>
+      </div>
+    )}
+    {offerRequest && (
+      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label="إرسال عرض للعميل"
+        onClick={() => { if (!sendOffer.isPending) setOpenId(null); }}>
+        <div className="w-full max-w-md rounded-[28px] bg-surface p-4 shadow-2xl ring-1 ring-line" onClick={(event) => event.stopPropagation()} dir="rtl">
+          <div className="flex items-center justify-between gap-3">
+            <div><div className="text-[10px] text-muted-foreground">قبول طلب العميل بإرسال عرض</div><h2 className="mt-1 font-display text-lg font-extrabold">ما السبب الذي يجعل العميل يختارك؟</h2></div>
+            <button type="button" onClick={() => { if (!sendOffer.isPending) setOpenId(null); }} className="grid size-9 place-items-center rounded-full bg-background ring-1 ring-line" aria-label="إغلاق"><X className="size-4" /></button>
+          </div>
+          <textarea rows={4} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="اكتب رسالة تشرح للعميل لماذا يختار مكتبك"
+            className="mt-3 w-full rounded-xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest" />
+          <input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="السعر المقترح (اختياري)"
+            className="mt-2 w-full rounded-xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest" />
+          <button type="button" onClick={() => sendOffer.mutate(offerRequest.id)}
+            disabled={sendOffer.isPending || message.trim().length < 5 || (price.trim() !== "" && (!Number.isFinite(Number(price)) || Number(price) < 0))}
+            className="mt-3 flex w-full items-center justify-center rounded-xl bg-forest py-3 text-sm font-bold text-background disabled:opacity-50">
+            {sendOffer.isPending ? "جارٍ إرسال العرض..." : "تأكيد وإرسال العرض"}
+          </button>
+          <button type="button" onClick={() => { if (!sendOffer.isPending) setOpenId(null); }} disabled={sendOffer.isPending}
+            className="mt-2 w-full rounded-xl bg-background py-3 text-sm font-bold ring-1 ring-line">رجوع</button>
         </div>
       </div>
     )}
