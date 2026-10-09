@@ -4952,6 +4952,17 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
 
     const file = data.get("file");
     if (!(file instanceof File)) throw new Error("الملف غير موجود.");
+
+    const requestedOwnerId = data.get("uploaderId");
+    if (typeof requestedOwnerId === "string" && requestedOwnerId !== userId) {
+      throw new Error("جلسة المستخدم لا تطابق صاحب الملف.");
+    }
+
+    const folder = data.get("folder");
+    if (typeof folder !== "string" || !["properties", "requests", "licenses"].includes(folder)) {
+      throw new Error("نوع مجلد الرفع غير مدعوم.");
+    }
+
     if (file.size <= 0 || file.size > 8 * 1024 * 1024) {
       throw new Error("حجم الملف يجب أن يكون بين 1 بايت و8 ميجابايت.");
     }
@@ -4973,7 +4984,13 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
       throw new Error("محتوى الصورة لا يطابق نوع الملف.");
     }
 
-    const id = await storeMedia(file.name, mimeType, bytes, userId);
+    const id = await storeMedia(
+      file.name,
+      mimeType,
+      bytes,
+      userId,
+      folder === "licenses" ? "private" : "public",
+    );
 
     return {
       data: {
