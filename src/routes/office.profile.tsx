@@ -27,6 +27,7 @@ import { useMyOffice } from "@/lib/office";
 import { useMyPlan } from "@/lib/plans";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { getPublicAppUrl, PUBLIC_APP_URL_HELP } from "@/lib/public-app-url";
 import { SupportCenter } from "@/components/SupportCenter";
 import { ProfileModal } from "@/components/ProfileModal";
 
@@ -166,6 +167,7 @@ function OfficeProfile() {
 
   const governorateName =
     governorates.find((g) => g.id === (office?.governorate_id ?? ""))?.name_ar ?? "—";
+  const officeQrUrl = office ? getPublicAppUrl(`/offices/${office.id}`) : null;
 
   const readRows: [string, string][] = [
     ["اسم المكتب", office?.name ?? "—"],
@@ -257,6 +259,10 @@ function OfficeProfile() {
               onClick={() => {
                 if (!isPro) {
                   toast.error("رمز QR ميزة احترافية — رقِّ باقتك لإنشاء رمز مكتبك.");
+                  return;
+                }
+                if (!officeQrUrl) {
+                  toast.error(PUBLIC_APP_URL_HELP);
                   return;
                 }
                 setShowQr(true);
@@ -473,7 +479,7 @@ function OfficeProfile() {
         <QrDialog
           open={showQr}
           onClose={() => setShowQr(false)}
-          value={`${typeof window !== "undefined" ? window.location.origin : ""}/offices/${office.id}`}
+          value={officeQrUrl ?? ""}
           title={office.name}
           subtitle="امسح الرمز لفتح صفحة المكتب"
           fileName={`qr-${office.name}`}
