@@ -957,10 +957,11 @@ function SentOffers({ officeId }: { officeId: string | null }) {
         request: requestById.get(row.request_id) ?? null,
       }));
 
-      // The history contains completed offers and requests closed by this office.
+      // Include finished offers, offers waiting for the customer's confirmation,
+      // rejected/ended offers, and offers whose customer request has since closed.
       return historyRows.filter(
         (row) =>
-          row.status === "completed" ||
+          ["awaiting_confirmation", "completed", "ended", "deleted", "rejected"].includes(row.status) ||
           ["fulfilled", "cancelled"].includes(String(row.request?.status ?? "")),
       );
     },
@@ -970,23 +971,6 @@ function SentOffers({ officeId }: { officeId: string | null }) {
   const pageCount = Math.max(1, Math.ceil(data.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleHistory = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  const action = useMutation({
-    mutationFn: async (vars: { offerId: string; status: "completed" | "deleted" }) => {
-      const { error } = await supabase.rpc(
-        "set_office_offer_status" as never,
-        { _offer_id: vars.offerId, _status: vars.status } as never,
-      );
-      if (error) throw error;
-    },
-    onSuccess: (_, vars) => {
-      toast.success(vars.status === "completed" ? "تم تسجيل العرض كطلب مكتمل" : "تم حذف العرض");
-      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
-      void qc.invalidateQueries({ queryKey: ["open-requests"] });
-      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث العرض"),
-  });
 
   if (isLoading) return <ListSkeleton />;
   if (!data.length) {
@@ -1027,13 +1011,23 @@ function SentOffers({ officeId }: { officeId: string | null }) {
                 "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
                 row.status === "completed" || request?.status === "fulfilled"
                   ? "bg-forest-soft text-forest"
-                  : "bg-terracotta-soft text-terracotta",
+                  : row.status === "awaiting_confirmation"
+                    ? "bg-sand text-muted-foreground"
+                    : "bg-terracotta-soft text-terracotta",
               )}>
                 {row.status === "completed" || request?.status === "fulfilled"
                   ? "مكتمل"
-                  : request?.status === "cancelled"
-                    ? "أنهيته / ملغي"
-                    : "مكتمل"}
+                  : row.status === "awaiting_confirmation"
+                    ? "بانتظار تأكيد الفردي"
+                    : row.status === "ended" || row.status === "deleted"
+                      ? "منتهي"
+                      : row.status === "rejected"
+                        ? "مرفوض"
+                        : request?.status === "cancelled"
+                          ? "الطلب ملغي"
+                          : row.status === "accepted"
+                            ? "مقبول"
+                            : "منتهي"}
               </span>
             </div>
 
@@ -1065,26 +1059,7 @@ function SentOffers({ officeId }: { officeId: string | null }) {
               </div>
             )}
 
-            {row.status === "sent" && (
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => action.mutate({ offerId: row.id, status: "completed" })}
-                  disabled={action.isPending}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-[11px] font-bold text-background disabled:opacity-50"
-                >
-                  <CheckCircle2 className="size-4" /> طلب مكتمل
-                </button>
-                <button
-                  type="button"
-                  onClick={() => action.mutate({ offerId: row.id, status: "deleted" })}
-                  disabled={action.isPending}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
-                >
-                  <Trash2 className="size-4" /> حذف العرض
-                </button>
-              </div>
-            )}
+
           </div>
         );
       })}
@@ -1100,54 +1075,100 @@ function SentOffers({ officeId }: { officeId: string | null }) {
 
 
 function MarketOfferActions({
-  requestId,
   offerId,
+  offerStatus,
   onChanged,
 }: {
-  requestId: string;
   offerId: string | null;
+  offerStatus: string;
   onChanged: () => void;
 }) {
   const [pending, setPending] = useState(false);
 
-  async function setRequestStatus(status: "fulfilled" | "cancelled") {
+  async function changeOffer(action: "request_completion" | "end") {
+    if (!offerId) {
+      toast.error("تعذّر العثور على العرض");
+      return;
+    }
+
     setPending(true);
     try {
       const { error } = await supabase.rpc(
-        "set_property_request_status" as never,
-        { _request_id: requestId, _status: status } as never,
+        (action === "request_completion"
+          ? "office_request_offer_completion"
+          : "office_end_offer") as never,
+        { _offer_id: offerId } as never,
       );
       if (error) throw error;
-      toast.success(status === "fulfilled" ? "تم تسجيل الطلب كمكتمل" : "تم حذف الطلب من سوق الطلبات");
+
+      toast.success(
+        action === "request_completion"
+          ? "تم إرسال طلب تأكيد إتمام الصفقة للعميل"
+          : "تم إنهاء العرض دون تسجيل الصفقة كمكتملة",
+      );
       onChanged();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تعذّر تحديث الطلب");
+      toast.error(error instanceof Error ? error.message : "تعذّر تحديث العرض");
     } finally {
       setPending(false);
     }
   }
 
+  if (offerStatus === "ended" || offerStatus === "deleted") {
+    return (
+      <div className="mt-2.5 rounded-xl bg-terracotta-soft py-2.5 text-center text-xs font-bold text-terracotta">
+        منتهي — لم يتم تأكيد إتمام الصفقة داخل التطبيق
+      </div>
+    );
+  }
+
+  if (offerStatus === "completed") {
+    return (
+      <div className="mt-2.5 rounded-xl bg-forest-soft py-2.5 text-center text-xs font-bold text-forest">
+        مكتمل — أكد العميل إتمام الصفقة
+      </div>
+    );
+  }
+
+  if (offerStatus === "awaiting_confirmation") {
+    return (
+      <div className="mt-2.5 space-y-2">
+        <div className="rounded-xl bg-sand py-2.5 text-center text-xs font-semibold text-muted-foreground">
+          أرسلت طلب تأكيد الإتمام، وبانتظار تأكيد الفردي
+        </div>
+        <button
+          type="button"
+          onClick={() => void changeOffer("end")}
+          disabled={pending}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
+        >
+          <Trash2 className="size-4" /> إنهاء العرض
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-2.5 space-y-2">
       <div className="rounded-xl bg-forest-soft py-2 text-center text-xs font-semibold text-forest">
-        تم إرسال عرضك
+        {offerStatus === "accepted" ? "قبل العميل العرض" : "تم إرسال عرضك"}
       </div>
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() => void setRequestStatus("fulfilled")}
-          disabled={pending}
+          onClick={() => void changeOffer("request_completion")}
+          disabled={pending || !offerId}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-[11px] font-bold text-background disabled:opacity-50"
         >
-          <CheckCircle2 className="size-4" /> طلب مكتمل
+          <CheckCircle2 className="size-4" /> إبلاغ بإتمام الصفقة
         </button>
         <button
           type="button"
-          onClick={() => void setRequestStatus("cancelled")}
-          disabled={pending}
+          onClick={() => void changeOffer("end")}
+          disabled={pending || !offerId}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
         >
-          <Trash2 className="size-4" /> حذف الطلب
+          <Trash2 className="size-4" /> إنهاء العرض
         </button>
       </div>
     </div>
@@ -1168,16 +1189,15 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   useEffect(() => setPage(1), [officeId, officeGovernorateId]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["open-requests", officeId, officeGovernorateId],
+    queryKey: ["open-requests", "office-market-list", officeId, officeGovernorateId],
     enabled: !!officeId && !!officeGovernorateId,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc(
+      const { data: marketData, error } = await supabase.rpc(
         "office_market_requests" as never,
       );
-
       if (error) throw error;
 
-      return (data ?? []) as Array<{
+      const requests = (marketData ?? []) as Array<{
         id: string;
         user_id: string;
         kind: string;
@@ -1194,10 +1214,57 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
         expires_at: string | null;
         offer_sent: boolean;
         offer_id: string | null;
+        offer_status?: string | null;
         client_name: string;
         client_phone: string | null;
       }>;
+
+      const { data: ownOffers, error: offersError } = await supabase
+        .from("office_offers")
+        .select("id,request_id,status,created_at")
+        .eq("office_id", officeId!)
+        .order("created_at", { ascending: false });
+      if (offersError) throw offersError;
+
+      const latestOfferByRequest = new Map<string, { id: string; status: string }>();
+      for (const offer of ownOffers ?? []) {
+        if (!latestOfferByRequest.has(offer.request_id)) {
+          latestOfferByRequest.set(offer.request_id, {
+            id: offer.id,
+            status: offer.status,
+          });
+        }
+      }
+
+      return requests.map((request) => {
+        const latestOffer = latestOfferByRequest.get(request.id);
+        if (!latestOffer) {
+          return {
+            ...request,
+            offer_status: request.offer_sent ? "sent" : null,
+          };
+        }
+
+        // A rejected/deleted offer can be replaced. An ended offer remains visible,
+        // but is archived as "منتهي" and cannot be treated as completed.
+        const offerStillTracked = [
+          "sent",
+          "accepted",
+          "awaiting_confirmation",
+          "completed",
+          "ended",
+        ].includes(latestOffer.status);
+
+        return {
+          ...request,
+          offer_sent: offerStillTracked,
+          offer_id: offerStillTracked ? latestOffer.id : null,
+          offer_status: offerStillTracked ? latestOffer.status : null,
+        };
+      });
     },
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 
   const rows = data ?? [];
@@ -1314,10 +1381,12 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
 
             {sent ? (
               <MarketOfferActions
-                requestId={r.id}
                 offerId={r.offer_id}
+                offerStatus={r.offer_status ?? "sent"}
                 onChanged={() => {
                   void qc.invalidateQueries({ queryKey: ["open-requests"] });
+                  void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
+                  void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
                 }}
               />
             ) : openId === r.id ? (
