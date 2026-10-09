@@ -3,21 +3,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Building2,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
   Copy,
   Clock3,
   Loader2,
-  MapPin,
   Pencil,
   Phone,
-  Ruler,
   Send,
   Trash2,
   X,
-  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,7 +22,6 @@ import { BottomNav } from "@/components/BottomNav";
 import { PaginationControls } from "@/components/PaginationControls";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 import {
-  BOOKING_STATUS,
   inquiryTypeLabel,
   kindLabel,
   listingLabel,
