@@ -3,6 +3,33 @@ import { randomUUID } from "node:crypto";
 import { getMongoCollection } from "@/lib/mongo.server";
 import { getSessionUserId } from "@/lib/session.server";
 
+function getTrustedCheckoutOrigin(request: Request) {
+  if (process.env["NODE_ENV"] !== "production") {
+    try {
+      const origin = new URL(request.url);
+      if (["localhost", "127.0.0.1"].includes(origin.hostname)) return origin.origin;
+    } catch {
+      // Use the configured origin below.
+    }
+  }
+
+  const configured = String(
+    process.env["PUBLIC_APP_URL"] ??
+    process.env["APP_URL"] ??
+    process.env["VITE_PUBLIC_APP_URL"] ??
+    "https://new2-sss22.vercel.app"
+  ).trim();
+
+  const url = new URL(configured.startsWith("http") ? configured : "https://" + configured);
+  if (process.env["NODE_ENV"] === "production" && url.protocol !== "https:") {
+    throw new Error("يجب ضبط PUBLIC_APP_URL على عنوان HTTPS.");
+  }
+  if (["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname)) {
+    throw new Error("عنوان العودة من بوابة الدفع غير صالح.");
+  }
+  return url.origin;
+}
+
 export const Route = createFileRoute("/api/payment-checkout")({
   server: {
     handlers: {
@@ -46,7 +73,7 @@ export const Route = createFileRoute("/api/payment-checkout")({
             return Response.json({ error: "إعدادات HyperPay غير مكتملة" }, { status: 500 });
           }
 
-          const origin = new URL(request.url).origin;
+          const origin = getTrustedCheckoutOrigin(request);
           const merchantTransactionId = randomUUID();
 
           const params = new URLSearchParams();
