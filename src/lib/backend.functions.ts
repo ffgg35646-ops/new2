@@ -3274,9 +3274,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             : "";
 
           try {
-            await getMongoCollection<Record<string, unknown>>(
-              "notifications",
-            ).insertOne({
+            await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
               id: randomUUID(),
               _id: randomUUID(),
               user_id: officeOwnerId,
