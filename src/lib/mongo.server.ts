@@ -56,10 +56,13 @@ export async function getMongoDb(): Promise<Db> {
 
 export async function getMongoCollection<T extends Document = Document>(
   name: string,
-): Promise<Collection<T & { _id: any }>> {
-  // This app stores UUID strings in _id for its records, unlike Mongo's default ObjectId.
-  // Keep query results generic while allowing both legacy ObjectId records and UUID records.
-  return (await getMongoDb()).collection<T & { _id: any }>(name);
+): Promise<Collection<any> & { readonly __recordType?: T }> {
+  // The application uses a mixed legacy schema (UUID strings and ObjectIds).
+  // Keep the collection boundary dynamic; request validators and server-side
+  // authorization enforce the application schema before any write.
+  return (await getMongoDb()).collection<any>(name) as Collection<any> & {
+    readonly __recordType?: T;
+  };
 }
 
 export async function ensureMongoIndexes() {
