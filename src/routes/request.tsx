@@ -155,9 +155,7 @@ function RequestPage() {
           _area_min: areaMin ? Number(areaMin) : null,
           _description: description.trim(),
           _attachment_url: attachment[0] ?? null,
-          _expires_at: new Date(
-            Date.now() + durationDays * 24 * 60 * 60 * 1000,
-          ).toISOString(),
+          _duration_days: durationDays,
         } as never,
       );
 
