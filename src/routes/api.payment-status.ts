@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getMongoCollection } from "@/lib/mongo.server";
+import { randomUUID } from "node:crypto";
+import { getMongoCollection, getMongoDb } from "@/lib/mongo.server";
 import { getSessionUserId } from "@/lib/session.server";
+
+const PRO_DURATION_DAYS = 30;
+const DAY_MS = 86_400_000;
 
 export const Route = createFileRoute("/api/payment-status")({
   server: {
@@ -8,16 +12,31 @@ export const Route = createFileRoute("/api/payment-status")({
       POST: async ({ request }) => {
         try {
           const userId = getSessionUserId();
-          if (!userId) return Response.json({ error: "انتهت جلسة الدخول" }, { status: 401 });
+          if (!userId) {
+            return Response.json({ error: "انتهت جلسة الدخول" }, { status: 401 });
+          }
 
           const body = (await request.json()) as { checkoutId?: string };
           const checkoutId = String(body.checkoutId ?? "").trim();
-          if (!checkoutId) return Response.json({ error: "checkoutId مفقود" }, { status: 400 });
+          if (!checkoutId) {
+            return Response.json({ error: "checkoutId مفقود" }, { status: 400 });
+          }
 
-          const txs = await getMongoCollection<Record<string, unknown>>("payment_transactions");
+          const txs = await getMongoCollection<Record<string, any>>("payment_transactions");
           const tx = await txs.findOne({ checkout_id: checkoutId, user_id: userId });
+          if (!tx) {
+            return Response.json({ error: "عملية الدفع غير موجودة" }, { status: 404 });
+          }
 
-          if (!tx) return Response.json({ error: "عملية الدفع غير موجودة" }, { status: 404 });
+          // لا نعيد تمديد الاشتراك إذا زار المستخدم صفحة النتيجة أكثر من مرة.
+          if (tx.status === "success" || tx.activation_applied_at) {
+            return Response.json({
+              success: true,
+              pending: false,
+              status: "success",
+              description: "تم الدفع وتفعيل الباقة بالفعل.",
+            });
+          }
 
           const baseUrl = String(process.env["HYPERPAY_BASE_URL"] ?? "").replace(/\/$/, "");
           const accessToken = process.env["HYPERPAY_ACCESS_TOKEN"];
@@ -43,15 +62,158 @@ export const Route = createFileRoute("/api/payment-status")({
             result?: { code?: string; description?: string };
           };
 
+          if (!response.ok) {
+            return Response.json(
+              { error: data.result?.description || "تعذّر التحقق من نتيجة الدفع لدى HyperPay." },
+              { status: 502 },
+            );
+          }
+
           const resultCode = data.result?.code ?? "";
           const description = data.result?.description ?? "";
           const success = /^(000\.000\.|000\.100\.1|000\.[36])/.test(resultCode);
           const pending = resultCode.startsWith("000.200");
-
           const statusValue = success ? "success" : pending ? "pending" : "failed";
+          const now = new Date();
 
+          if (success) {
+            const db = await getMongoDb();
+            const session = db.client.startSession();
+            try {
+              await session.withTransaction(async () => {
+                const txCollection = db.collection<Record<string, any>>("payment_transactions");
+                const currentTx = await txCollection.findOne(
+                  { id: tx.id, user_id: userId },
+                  { session },
+                );
+                if (!currentTx) throw new Error("عملية الدفع غير موجودة");
+
+                // حماية من تكرار استدعاء النتيجة أو إعادة المحاولة المتزامنة.
+                if (currentTx.status === "success" || currentTx.activation_applied_at) {
+                  return;
+                }
+
+                const packages = db.collection<Record<string, any>>("package_catalog");
+                const pkg = await packages.findOne(
+                  { id: String(currentTx.package_id), is_active: { $ne: false } },
+                  { session },
+                );
+                if (!pkg || String(pkg.code ?? "").toLowerCase() !== "pro") {
+                  throw new Error("عملية الدفع لا تخص الباقة الاحترافية.");
+                }
+
+                const offices = db.collection<Record<string, any>>("offices");
+                const office = await offices.findOne(
+                  { id: String(currentTx.office_id), is_deleted: { $ne: true } },
+                  { session },
+                );
+                if (!office) throw new Error("المكتب المرتبط بعملية الدفع غير موجود.");
+
+                const oldExpiry = office.plan_expires_at
+                  ? new Date(office.plan_expires_at)
+                  : null;
+                const hasActivePro =
+                  String(office.plan ?? "") === "pro" &&
+                  !!oldExpiry &&
+                  Number.isFinite(oldExpiry.getTime()) &&
+                  oldExpiry.getTime() > now.getTime();
+
+                // التجديد المبكر يمدد من تاريخ الانتهاء الحالي؛ التجديد بعد الانتهاء يبدأ من الآن.
+                const periodStart = hasActivePro ? oldExpiry!.getTime() : now.getTime();
+                const expiresAt = new Date(periodStart + PRO_DURATION_DAYS * DAY_MS);
+                const oldStartedAt = office.plan_started_at
+                  ? new Date(office.plan_started_at)
+                  : null;
+                const startedAt =
+                  hasActivePro && oldStartedAt && Number.isFinite(oldStartedAt.getTime())
+                    ? oldStartedAt
+                    : now;
+
+                await offices.updateOne(
+                  { id: String(office.id) },
+                  {
+                    $set: {
+                      package_id: pkg.id,
+                      plan: "pro",
+                      plan_started_at: startedAt,
+                      plan_expires_at: expiresAt,
+                      last_payment_transaction_id: currentTx.id,
+                      updated_at: now,
+                    },
+                  },
+                  { session },
+                );
+
+                await txCollection.updateOne(
+                  { id: currentTx.id },
+                  {
+                    $set: {
+                      gateway_transaction_id: data.id ?? null,
+                      payment_type: data.paymentType ?? "DB",
+                      payment_brand: data.paymentBrand ?? null,
+                      result_code: resultCode,
+                      result_description: description,
+                      status: "success",
+                      paid_at: now,
+                      activation_applied_at: now,
+                      activated_until: expiresAt,
+                      updated_at: now,
+                    },
+                  },
+                  { session },
+                );
+
+                await db.collection("office_plan_events").insertOne(
+                  {
+                    id: randomUUID(),
+                    _id: randomUUID(),
+                    office_id: office.id,
+                    plan: "pro",
+                    package_id: pkg.id,
+                    action: "payment",
+                    created_at: now,
+                    expires_at: expiresAt,
+                    payment_transaction_id: currentTx.id,
+                    note: "تم تفعيل الباقة الاحترافية لمدة 30 يومًا بعد الدفع.",
+                  },
+                  { session },
+                );
+
+                if (office.owner_id) {
+                  await db.collection("notifications").insertOne(
+                    {
+                      id: randomUUID(),
+                      _id: randomUUID(),
+                      user_id: String(office.owner_id),
+                      title: "تم تفعيل الباقة الاحترافية",
+                      body: `تم تفعيل باقة Pro لمدة 30 يومًا. تنتهي في ${expiresAt.toLocaleDateString("ar-SA")}.`,
+                      type: "pro_activated",
+                      link: "/office/subscription",
+                      is_read: false,
+                      created_at: now,
+                      office_id: office.id,
+                      payment_transaction_id: currentTx.id,
+                      expires_at: expiresAt,
+                    },
+                    { session },
+                  );
+                }
+              });
+            } finally {
+              await session.endSession();
+            }
+
+            return Response.json({
+              success: true,
+              pending: false,
+              status: "success",
+              description: "تم الدفع وتفعيل الباقة الاحترافية لمدة 30 يومًا.",
+            });
+          }
+
+          // الفشل أو استمرار المعالجة لا يغير باقة المكتب إطلاقًا.
           await txs.updateOne(
-            { id: tx.id },
+            { id: tx.id, status: { $ne: "success" } },
             {
               $set: {
                 gateway_transaction_id: data.id ?? null,
@@ -60,54 +222,20 @@ export const Route = createFileRoute("/api/payment-status")({
                 result_code: resultCode,
                 result_description: description,
                 status: statusValue,
-                updated_at: new Date(),
-                ...(success ? { paid_at: new Date() } : {}),
+                updated_at: now,
               },
             },
           );
 
-          if (success) {
-            const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
-            const pkg = await packages.findOne({ id: tx.package_id });
-
-            const durationDays = Number(pkg?.duration_days ?? 0);
-            const startedAt = new Date();
-            const expiresAt =
-              durationDays > 0
-                ? new Date(startedAt.getTime() + durationDays * 86_400_000)
-                : null;
-
-            const offices = await getMongoCollection("offices");
-
-            await offices.updateOne(
-              { id: tx.office_id },
-              {
-                $set: {
-                  package_id: pkg?.id ?? tx.package_id,
-                  plan: pkg?.code === "pro" ? "pro" : "free",
-                  plan_started_at: startedAt,
-                  plan_expires_at: expiresAt,
-                  updated_at: new Date(),
-                },
-              },
-            );
-
-            await getMongoCollection("office_plan_events").insertOne({
-              id: crypto.randomUUID(),
-              office_id: tx.office_id,
-              plan: pkg?.code === "pro" ? "pro" : "free",
-              action: "payment",
-              created_at: new Date(),
-              expires_at: expiresAt,
-              note: "تم تفعيل الباقة بعد الدفع",
-            });
-          }
-
           return Response.json({
-            success,
+            success: false,
             pending,
             status: statusValue,
-            description: description || (success ? "تمت العملية بنجاح" : "لم تكتمل عملية الدفع"),
+            description: description || (
+              pending
+                ? "الدفع ما زال قيد المعالجة؛ لم يتم تفعيل الباقة بعد."
+                : "لم يكتمل الدفع، ولم يتم تفعيل الباقة.",
+            ),
           });
         } catch (error) {
           console.error("[payment-status]", error);
