@@ -229,9 +229,9 @@ function BookingsPage() {
               const canEdit =
                 !started &&
                 ["pending", "accepted"].includes(status);
-              const canFinish =
-                status === "accepted" &&
-                started;
+              // Keep the finish action visible for both sides after acceptance;
+              // it becomes actionable when the scheduled appointment starts.
+              const canFinish = status === "accepted";
 
               return (
                 <article
@@ -319,9 +319,9 @@ function BookingsPage() {
                         <button
                           type="button"
                           onClick={() => setFinishId(booking.id)}
-                          disabled={finish.isPending}
-                          className="flex items-center justify-center gap-1.5 rounded-2xl bg-forest py-3 text-xs font-bold text-background disabled:opacity-50"
-                          title="إنهاء المعاينة"
+                          disabled={finish.isPending || !started}
+                          className="flex items-center justify-center gap-1.5 rounded-2xl bg-forest py-3 text-xs font-bold text-background disabled:cursor-not-allowed disabled:opacity-50"
+                          title={!started ? "يتاح إنهاء المعاينة عند حلول موعدها" : "إنهاء المعاينة"}
                         >
                           <CheckCircle2 className="size-3.5" />
                           إنهاء المعاينة
@@ -333,6 +333,7 @@ function BookingsPage() {
                   {isToday && !started && (
                     <div className="mt-3 rounded-2xl bg-forest-soft p-3 text-center text-[11px] font-semibold text-forest">
                       لديك معاينة اليوم الساعة {formatBookingTime(booking.visit_time)}
+                      {property?.title ? " · " + property.title : ""}
                     </div>
                   )}
 
