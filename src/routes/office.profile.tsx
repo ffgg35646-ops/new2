@@ -236,6 +236,7 @@ function OfficeProfile() {
             onClose={() => setProfileOpen(false)}
             email={session?.user?.email ?? office?.email ?? ""}
             emailVerified={!!session?.user?.email_confirmed_at}
+            avatarUrl={office?.logo_url}
             rows={readRows
               .filter(([label]) => label !== "البريد الإلكتروني")
               .map(([label, value]) => ({ label, value }))}
