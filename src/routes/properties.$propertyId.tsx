@@ -189,6 +189,7 @@ function PropertyDetail() {
 
   const officeChatEnabled =
     officeChatPlan?.plan === "pro" &&
+    officeChatPlan.chat_enabled === true &&
     (!officeChatPlan.expires_at ||
       new Date(officeChatPlan.expires_at).getTime() > Date.now());
 
@@ -350,16 +351,19 @@ function PropertyDetail() {
       if (!userId) throw new Error("سجّل الدخول لبدء المحادثة");
       const officeId = data!.office_id;
 
-      const { data: plan } = await supabase.rpc("office_effective_plan", {
+      const { data: plan, error: planError } = await supabase.rpc("office_effective_plan", {
         _office_id: officeId,
       });
+      if (planError) throw planError;
       const chatResult = plan as {
         plan?: string;
         expires_at?: string | null;
+        chat_enabled?: boolean;
       } | null;
 
       if (
         chatResult?.plan !== "pro" ||
+        chatResult.chat_enabled !== true ||
         (chatResult.expires_at &&
           new Date(chatResult.expires_at).getTime() <= Date.now())
       ) {
