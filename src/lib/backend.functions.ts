@@ -1501,10 +1501,8 @@ export const rpcRequest = createServerFn({ method: "POST" })
             args._area_min == null ? null : Number(args._area_min),
           description,
           attachment_url: args._attachment_url || null,
-          expires_at:
-            args._expires_at
-              ? new Date(String(args._expires_at))
-              : new Date(Date.now() + 7 * 86_400_000),
+          duration_days: durationDays,
+          expires_at: new Date(Date.now() + durationDays * 86_400_000),
           status: "active",
           views_count: 0,
           created_at: new Date(),
