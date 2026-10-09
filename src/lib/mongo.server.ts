@@ -63,14 +63,20 @@ export async function ensureMongoIndexes() {
   await createMongoIndexes(db);
 }
 
-export async function storeMedia(fileName: string, mimeType: string, bytes: Buffer, ownerId: string) {
+export async function storeMedia(
+  fileName: string,
+  mimeType: string,
+  bytes: Buffer,
+  ownerId: string,
+  visibility: "public" | "private" = "public",
+) {
   const db = await getMongoDb();
   const bucket = new GridFSBucket(db, { bucketName: "media" });
 
   return await new Promise<string>((resolve, reject) => {
     const upload = bucket.openUploadStream(fileName, {
       contentType: mimeType,
-      metadata: { originalName: fileName, ownerId },
+      metadata: { originalName: fileName, ownerId, visibility },
     });
     upload.once("error", reject);
     upload.once("finish", () => resolve(String(upload.id)));
@@ -78,7 +84,7 @@ export async function storeMedia(fileName: string, mimeType: string, bytes: Buff
   });
 }
 
-export async function readMedia(id: string) {
+export async function readMedia(id: string, viewerId: string | null = null) {
   const db = await getMongoDb();
   const bucket = new GridFSBucket(db, { bucketName: "media" });
   const { ObjectId } = await import("mongodb");
@@ -87,7 +93,28 @@ export async function readMedia(id: string) {
 
   const objectId = new ObjectId(id);
   const files = await db.collection("media.files").find({ _id: objectId }).limit(1).toArray();
-  if (!files[0]) return null;
+  const file = files[0];
+  if (!file) return null;
+
+  // License documents uploaded before private-media support are also protected
+  // while referenced from an office's license fields.
+  const mediaPaths = [id, "/api/media/" + id];
+  const referencedOffice = await db.collection("offices").findOne(
+    {
+      $or: [
+        { fal_license_url: { $in: mediaPaths } },
+        { real_estate_license_url: { $in: mediaPaths } },
+      ],
+    },
+    { projection: { owner_id: 1 } },
+  );
+
+  const privateMedia =
+    file.metadata?.visibility === "private" || !!referencedOffice;
+  if (privateMedia) {
+    const expectedOwner = String(referencedOffice?.owner_id ?? file.metadata?.ownerId ?? "");
+    if (!viewerId || !expectedOwner || viewerId !== expectedOwner) return null;
+  }
 
   const stream = bucket.openDownloadStream(objectId);
   const chunks: Buffer[] = [];
