@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { useMyOffice, useNewInquiriesCount } from "@/lib/office";
+import { useMyOffice } from "@/lib/office";
 import {
   Building2,
   ClipboardList,
@@ -42,9 +44,46 @@ export function BottomNav({
   const resolved = variant ?? (isOffice ? "office" : "individual");
   const items = resolved === "office" ? officeItems : individualItems;
   const { data: membership } = useMyOffice();
-  const { data: newRequests = 0 } = useNewInquiriesCount(
-    resolved === "office" ? membership?.office?.id : null,
-  );
+  const officeId = resolved === "office" ? membership?.office?.id ?? null : null;
+  const officeGovernorateId =
+    resolved === "office" ? membership?.office?.governorate_id ?? null : null;
+
+  const { data: officeRequestsCount = 0 } = useQuery({
+    queryKey: ["office-bottom-nav-request-count", officeId, officeGovernorateId],
+    enabled: !!officeId,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
+      const [bookingResult, inquiryResult, marketRequests] = await Promise.all([
+        supabase
+          .from("viewing_bookings")
+          .select("id,status")
+          .eq("office_id", officeId!)
+          .limit(500),
+        supabase
+          .from("property_inquiries")
+          .select("id", { count: "exact", head: true })
+          .eq("office_id", officeId!)
+          .eq("status", "new"),
+        (async () => {
+          if (!officeGovernorateId) return [];
+          const { data, error } = await supabase.rpc("office_market_requests" as never);
+          if (error) throw error;
+          return Array.isArray(data) ? data : [];
+        })(),
+      ]);
+
+      if (bookingResult.error) throw bookingResult.error;
+      if (inquiryResult.error) throw inquiryResult.error;
+
+      const activeBookings = (bookingResult.data ?? []).filter((booking: any) => {
+        const status = String(booking.status ?? "").trim() || "pending";
+        return ["pending", "accepted"].includes(status);
+      }).length;
+
+      return marketRequests.length + activeBookings + (inquiryResult.count ?? 0);
+    },
+  });
 
   return (
     <nav
@@ -80,9 +119,9 @@ export function BottomNav({
           >
             <span className="relative">
               <Icon className="size-5" />
-              {item.to === "/office/requests" && newRequests > 0 && (
+              {item.to === "/office/requests" && officeRequestsCount > 0 && (
                 <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
-                  {newRequests}
+                  {officeRequestsCount > 99 ? "99+" : officeRequestsCount}
                 </span>
               )}
             </span>
