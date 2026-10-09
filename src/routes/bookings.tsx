@@ -50,7 +50,7 @@ function BookingsPage() {
     setActiveBookingsPage(1);
   }, [userId]);
 
-  const { data = [], isLoading } = useQuery({
+  const { data = [], isLoading, error: bookingsError } = useQuery({
     queryKey: ["bookings", userId],
     enabled: !!userId,
     refetchInterval: 5000,
@@ -62,12 +62,19 @@ function BookingsPage() {
           "id,property_id,office_id,visit_date,visit_time,status,office_note,cancel_reason,completion_reason,contact_phone,created_at,properties(title,price,neighborhood),offices(name,phone,whatsapp)",
         )
         .eq("user_id", userId!)
-        .in("status", ["pending", "accepted"])
         .order("visit_date", { ascending: false })
         .order("visit_time", { ascending: false })
         .limit(100);
       if (error) throw error;
-      return data ?? [];
+
+      // Some older records predate the status field. Normalize them before filtering
+      // so legacy pending bookings are not silently hidden by the database query.
+      return (data ?? [])
+        .map((booking: any) => ({
+          ...booking,
+          status: String(booking.status ?? "").trim() || "pending",
+        }))
+        .filter((booking: any) => ["pending", "accepted"].includes(booking.status));
     },
   });
 
@@ -185,6 +192,10 @@ function BookingsPage() {
 
         {isLoading ? (
           <ListSkeleton />
+        ) : bookingsError ? (
+          <div role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
+            تعذّر تحميل المعاينات: {bookingsError instanceof Error ? bookingsError.message : "خطأ غير معروف"}
+          </div>
         ) : data.length ? (
           (() => {
             const activeBookings = data;
