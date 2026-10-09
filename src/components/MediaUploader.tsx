@@ -12,6 +12,8 @@ export async function uploadMedia(file: File, userId: string, folder: string) {
   const ext = file.name.split(".").pop() ?? "jpg";
   const form = new FormData();
   form.append("file", file, file.name);
+  form.append("folder", folder);
+  form.append("uploaderId", userId);
 
   const result = await uploadMediaServer({ data: form });
   if (result.error) throw new Error(result.error.message);
