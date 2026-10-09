@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardList,
+  Copy,
   Clock3,
   Loader2,
   MapPin,
@@ -174,6 +175,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [contactOpenId, setContactOpenId] = useState<string | null>(null);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["office-bookings", officeId],
@@ -314,6 +316,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
     <>
       <div className="space-y-2.5">
         {data.map((booking) => {
+          const contactPhone = booking.contact_phone || booking.client?.phone;
           const property = booking.properties as {
             id: string;
             property_number: string;
@@ -441,27 +444,66 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                     <div className="min-w-0">
                       <div className="text-[10px] font-semibold text-muted-foreground">بيانات العميل المتاحة</div>
                       <div className="mt-1 text-sm font-extrabold">{booking.client?.full_name || "عميل"}</div>
-                      {booking.contact_phone && (
-                        <a
-                          href={"tel:" + booking.contact_phone}
-                          dir="ltr"
-                          className="mt-1 block text-sm font-bold text-forest"
-                        >
-                          {booking.contact_phone}
-                        </a>
-                      )}
-                      {!booking.contact_phone && booking.client?.phone && (
-                        <a
-                          href={"tel:" + booking.client.phone}
-                          dir="ltr"
-                          className="mt-1 block text-sm font-bold text-forest"
-                        >
-                          {booking.client.phone}
-                        </a>
-                      )}
                       {booking.client?.governorate_name && (
                         <div className="mt-1 text-xs text-muted-foreground">
                           المحافظة: {booking.client.governorate_name}
+                        </div>
+                      )}
+                      {contactPhone && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setContactOpenId((current) =>
+                                current === booking.id ? null : booking.id,
+                              )
+                            }
+                            aria-expanded={contactOpenId === booking.id}
+                            aria-label="عرض رقم اتصال العميل"
+                            title="اتصال"
+                            className={cn(
+                              "grid size-10 place-items-center rounded-xl ring-1 ring-line",
+                              contactOpenId === booking.id
+                                ? "bg-forest-soft text-forest"
+                                : "bg-surface text-forest",
+                            )}
+                          >
+                            <Phone className="size-4" />
+                          </button>
+                          <a
+                            href={whatsappHref(
+                              contactPhone,
+                              `مرحبًا ${booking.client?.full_name || "عميل"}، بخصوص موعد المعاينة`,
+                            )}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label="واتساب العميل"
+                            title="واتساب"
+                            className="grid size-10 place-items-center rounded-xl bg-sand"
+                          >
+                            <WhatsAppIcon className="size-5" />
+                          </a>
+                        </div>
+                      )}
+                      {contactPhone && contactOpenId === booking.id && (
+                        <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">
+                          <div className="text-[10px] font-semibold text-muted-foreground">
+                            رقم الاتصال الذي أضافه العميل
+                          </div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className="min-w-0 flex-1 text-sm font-extrabold" dir="ltr">
+                              {contactPhone}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void copyContactPhone(contactPhone)}
+                              className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface text-forest ring-1 ring-line"
+                              aria-label="نسخ رقم اتصال العميل"
+                              title="نسخ الرقم"
+                            >
+                              <Copy className="size-4" />
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -619,6 +661,7 @@ function TabButton({
 function InquiriesInbox({ officeId }: { officeId: string | null }) {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<string>("all");
+  const [contactOpenId, setContactOpenId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["office-inquiries", officeId, filter],
@@ -690,30 +733,64 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
 
                 <div className="rounded-xl bg-background p-2.5 text-xs ring-1 ring-line">
                   <div className="font-semibold">{q.contact_name}</div>
-                  {q.contact_phone && (
-                    <div className="text-muted-foreground">{q.contact_phone}</div>
-                  )}
                   {q.message && (
                     <p className="mt-1 leading-relaxed text-muted-foreground">{q.message}</p>
                   )}
                 </div>
 
                 {q.contact_phone && (
-                  <div className="flex gap-2">
-                    <a
-                      href={`tel:${q.contact_phone}`}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-forest py-2 text-xs font-bold text-background"
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setContactOpenId((current) =>
+                          current === q.id ? null : String(q.id),
+                        )
+                      }
+                      aria-expanded={contactOpenId === q.id}
+                      aria-label="عرض رقم اتصال العميل"
+                      title="اتصال"
+                      className={cn(
+                        "grid size-10 place-items-center rounded-xl ring-1 ring-line",
+                        contactOpenId === q.id
+                          ? "bg-forest-soft text-forest"
+                          : "bg-surface text-forest",
+                      )}
                     >
-                      <Phone className="size-3.5" /> اتصال
-                    </a>
+                      <Phone className="size-4" />
+                    </button>
                     <a
                       href={whatsappHref(q.contact_phone, `مرحبًا ${q.contact_name}`)}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-sand py-2 text-xs font-bold"
+                      aria-label="واتساب العميل"
+                      title="واتساب"
+                      className="grid size-10 place-items-center rounded-xl bg-sand"
                     >
-                      <MessageCircle className="size-3.5" /> واتساب
+                      <WhatsAppIcon className="size-5" />
                     </a>
+                  </div>
+                )}
+
+                {q.contact_phone && contactOpenId === q.id && (
+                  <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+                    <div className="text-[10px] font-semibold text-muted-foreground">
+                      رقم الاتصال الذي أضافه العميل
+                    </div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="min-w-0 flex-1 text-sm font-extrabold" dir="ltr">
+                        {q.contact_phone}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void copyContactPhone(String(q.contact_phone))}
+                        className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface text-forest ring-1 ring-line"
+                        aria-label="نسخ رقم اتصال العميل"
+                        title="نسخ الرقم"
+                      >
+                        <Copy className="size-4" />
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -1343,5 +1420,39 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
       </div>
     )}
     </div>
+  );
+}
+
+async function copyContactPhone(phone: string) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(phone);
+    } else {
+      const input = document.createElement("textarea");
+      input.value = phone;
+      input.setAttribute("readonly", "");
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand("copy");
+      document.body.removeChild(input);
+      if (!copied) throw new Error("copy_failed");
+    }
+    toast.success("تم نسخ رقم الاتصال");
+  } catch {
+    toast.error("تعذّر نسخ رقم الاتصال");
+  }
+}
+
+function WhatsAppIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={cn("fill-current", className)}
+    >
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.198.297-.767.966-.94 1.164-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.298-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.099-.298.099-.497.099-.198.05-.372-.025-.521-.075-.149-.669-1.611-.916-2.206-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.273 0-.52.099-.792.372-.273.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.297 2.095 3.2 5.077 4.487.71.307 1.263.49 1.694.626.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.074-.694-.272-1.289-.57-1.413-.074-.124-.272-.347-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.268c.001-5.45 4.436-9.884 9.888-9.884a9.83 9.83 0 0 1 6.988 2.898 9.83 9.83 0 0 1 2.893 6.994c0 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.89a11.86 11.86 0 0 0 1.595 5.946L.057 24l6.304-1.655a11.88 11.88 0 0 0 5.684 1.448h.005c6.554 0 11.89-5.335 11.893-11.89a11.821 11.821 0 0 0-3.479-8.415" />
+    </svg>
   );
 }
