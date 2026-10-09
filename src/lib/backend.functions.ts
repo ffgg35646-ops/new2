@@ -667,7 +667,10 @@ async function runDb(input: DbInput) {
       throw new Error("لا يمكن تعديل المحادثة مباشرة.");
     }
 
-    if (input.collection === "messages" && input.operation === "insert") {
+    if (
+      input.collection === "messages" &&
+      ["insert", "upsert", "delete"].includes(input.operation)
+    ) {
       throw new Error("إرسال الرسائل يجب أن يتم عبر إجراء الدردشة المخصص.");
     }
 
@@ -676,7 +679,19 @@ async function runDb(input: DbInput) {
       if (Object.keys(payload).some((key) => key !== "read_at")) {
         throw new Error("يمكن تحديث حالة قراءة الرسالة فقط.");
       }
+      filters.push({
+        field: "conversation_id",
+        op: "in",
+        value: allowedConversationIds,
+      });
       filters.push({ field: "sender_id", op: "neq", value: userId });
+    }
+
+    if (
+      input.collection === "conversation_blocks" &&
+      ["update", "upsert"].includes(input.operation)
+    ) {
+      throw new Error("تعديل الحظر يجب أن يتم عبر إجراءات المحادثة.");
     }
 
     if (input.collection === "conversation_blocks" && input.operation === "insert") {
@@ -690,6 +705,11 @@ async function runDb(input: DbInput) {
     }
 
     if (input.collection === "conversation_blocks" && input.operation === "delete") {
+      filters.push({
+        field: "conversation_id",
+        op: "in",
+        value: allowedConversationIds,
+      });
       filters.push({ field: "blocker_id", op: "eq", value: userId });
     }
   }
