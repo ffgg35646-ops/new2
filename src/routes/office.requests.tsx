@@ -14,6 +14,7 @@ import {
   Send,
   Trash2,
   X,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,11 +37,11 @@ import { formatBookingTime, isSaudiAppointmentStarted, isSaudiAppointmentToday }
 export const Route = createFileRoute("/office/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
     tab:
-      search.tab === "inbox" ||
-      search.tab === "bookings" ||
-      search.tab === "market" ||
-      search.tab === "sent"
-        ? search.tab
+      search["tab"] === "inbox" ||
+      search["tab"] === "bookings" ||
+      search["tab"] === "market" ||
+      search["tab"] === "sent"
+        ? (search["tab"] as "inbox" | "bookings" | "market" | "sent")
         : undefined,
     request: typeof search.request === "string" ? search.request : undefined,
   }),
