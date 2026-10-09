@@ -36,6 +36,8 @@ export function useMyOffice() {
   return useQuery({
     queryKey: ["my-office-full", userId],
     enabled: !!userId,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: true,
     queryFn: async () => {
       const owned = await supabase
         .from("offices")
