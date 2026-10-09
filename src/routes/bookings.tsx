@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { PaginationControls } from "@/components/PaginationControls";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 import { useAuth } from "@/lib/auth";
 import { BOOKING_STATUS } from "@/lib/constants";
@@ -37,12 +38,19 @@ function BookingsPage() {
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [finishId, setFinishId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [activeBookingsPage, setActiveBookingsPage] = useState(1);
+  const [historyBookingsPage, setHistoryBookingsPage] = useState(1);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setActiveBookingsPage(1);
+    setHistoryBookingsPage(1);
+  }, [userId]);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["bookings", userId],
@@ -197,6 +205,19 @@ function BookingsPage() {
             );
 
             const historyBookings = data.filter(isHistoryBooking);
+            const pageSize = 6;
+            const activePageCount = Math.max(1, Math.ceil(activeBookings.length / pageSize));
+            const currentActivePage = Math.min(activeBookingsPage, activePageCount);
+            const visibleActiveBookings = activeBookings.slice(
+              (currentActivePage - 1) * pageSize,
+              currentActivePage * pageSize,
+            );
+            const historyPageCount = Math.max(1, Math.ceil(historyBookings.length / pageSize));
+            const currentHistoryPage = Math.min(historyBookingsPage, historyPageCount);
+            const visibleHistoryBookings = historyBookings.slice(
+              (currentHistoryPage - 1) * pageSize,
+              currentHistoryPage * pageSize,
+            );
 
             const renderBooking = (booking: any, history = false) => {
               const property = booking.properties as {
@@ -231,7 +252,7 @@ function BookingsPage() {
                 <article
                   key={booking.id}
                   className={cn(
-                    "rounded-3xl bg-surface p-4 ring-1 ring-line",
+                    "rounded-2xl bg-surface p-3 ring-1 ring-line",
                     history && "opacity-95",
                   )}
                 >
@@ -273,26 +294,26 @@ function BookingsPage() {
                   </div>
 
                   {booking.office_note && (
-                    <div className="mt-3 rounded-2xl bg-forest-soft p-3 text-xs leading-6 text-forest">
+                    <div className="mt-2 rounded-2xl bg-forest-soft p-3 text-xs leading-6 text-forest">
                       ملاحظة المكتب: {booking.office_note}
                     </div>
                   )}
 
                   {booking.contact_phone && (
-                    <div className="mt-3 rounded-2xl bg-sand p-3 text-xs ring-1 ring-line">
+                    <div className="mt-2 rounded-2xl bg-sand p-3 text-xs ring-1 ring-line">
                       <div className="font-semibold">وسيلة الاتصال</div>
                       <div className="mt-1 text-forest" dir="ltr">{booking.contact_phone}</div>
                     </div>
                   )}
 
                   {booking.cancel_reason && (
-                    <div className="mt-3 rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
+                    <div className="mt-2 rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
                       سبب الإلغاء: {booking.cancel_reason}
                     </div>
                   )}
 
                   {booking.completion_reason && booking.status === "completed" && (
-                    <div className="mt-3 rounded-2xl bg-forest-soft p-3 text-xs leading-6 text-forest">
+                    <div className="mt-2 rounded-2xl bg-forest-soft p-3 text-xs leading-6 text-forest">
                       <span className="font-bold">سبب إنهاء المعاينة:</span>{" "}
                       {booking.completion_reason}
                     </div>
@@ -369,9 +390,17 @@ function BookingsPage() {
                   </div>
 
                   {activeBookings.length ? (
-                    <div className="space-y-3">
-                      {activeBookings.map((booking: any) => renderBooking(booking))}
+                    <>
+                    <div className="space-y-2">
+                      {visibleActiveBookings.map((booking: any) => renderBooking(booking))}
                     </div>
+                    <PaginationControls
+                      page={currentActivePage}
+                      total={activeBookings.length}
+                      pageSize={pageSize}
+                      onPageChange={setActiveBookingsPage}
+                    />
+                  </>
                   ) : (
                     <div className="rounded-3xl bg-surface p-4 text-center text-xs text-muted-foreground ring-1 ring-line">
                       لا توجد معاينات نشطة.
@@ -393,9 +422,17 @@ function BookingsPage() {
                       </span>
                     </div>
 
-                    <div className="space-y-3">
-                      {historyBookings.map((booking: any) => renderBooking(booking, true))}
+                    <>
+                    <div className="space-y-2">
+                      {visibleHistoryBookings.map((booking: any) => renderBooking(booking, true))}
                     </div>
+                    <PaginationControls
+                      page={currentHistoryPage}
+                      total={historyBookings.length}
+                      pageSize={pageSize}
+                      onPageChange={setHistoryBookingsPage}
+                    />
+                  </>
                   </section>
                 )}
               </div>
