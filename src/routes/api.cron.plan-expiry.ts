@@ -88,17 +88,21 @@ async function processPlanExpirations(request: Request) {
         if (changed.modifiedCount !== 1) continue;
         downgraded += 1;
 
-        await events.insertOne({
-          id: randomUUID(),
-          _id: randomUUID(),
-          office_id: officeId,
-          package_id: freePackage?.id ?? null,
-          plan: "free",
-          action: "expired",
-          created_at: now,
-          expired_at: expiry,
-          note: "انتهت مدة الباقة الاحترافية وعاد المكتب إلى الباقة المجانية.",
-        });
+        try {
+          await events.insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            office_id: officeId,
+            package_id: freePackage?.id ?? null,
+            plan: "free",
+            action: "expired",
+            created_at: now,
+            expired_at: expiry,
+            note: "انتهت مدة الباقة الاحترافية وعاد المكتب إلى الباقة المجانية.",
+          });
+        } catch (error) {
+          console.error("[plan-expiry] event history insert failed", error);
+        }
 
         if (office.owner_id) {
           try {
