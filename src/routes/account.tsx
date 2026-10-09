@@ -103,8 +103,12 @@ function AccountPage() {
               onClick={() => setProfileOpen(true)}
               className="flex w-full items-center gap-3 rounded-3xl bg-surface p-4 text-right ring-1 ring-line"
             >
-              <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-forest-soft font-display text-xl font-extrabold text-forest">
-                {(profileName || session?.user?.email || "؟").charAt(0)}
+              <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-forest-soft font-display text-xl font-extrabold text-forest">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt={"صورة " + profileName} className="size-full object-cover" />
+                ) : (
+                  (profileName || session?.user?.email || "؟").charAt(0)
+                )}
               </div>
 
               <div className="min-w-0 flex-1">
