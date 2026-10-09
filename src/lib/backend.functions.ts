@@ -1963,6 +1963,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
                     visitDate +
                     " الساعة " +
                     timeText +
+                    " بتوقيت السعودية (UTC+3)" +
                     propertyText +
                     ".",
                   type: "viewing_booking_reminder",
@@ -2282,7 +2283,8 @@ export const rpcRequest = createServerFn({ method: "POST" })
           " · التاريخ " +
           String(booking.visit_date ?? "").slice(0, 10) +
           " · الساعة " +
-          String(booking.visit_time ?? "").slice(0, 5);
+          String(booking.visit_time ?? "").slice(0, 5) +
+          " بتوقيت السعودية (UTC+3)";
         const baseBody =
           appointmentLabel +
           " · العميل: " +
