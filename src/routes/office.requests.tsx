@@ -34,9 +34,8 @@ import {
 import { formatArea, formatDate, formatPrice, timeAgo } from "@/lib/format";
 import { useMyOffice, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
-import { CancelReasonModal } from "@/components/CancelReasonModal";
 import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
-import { formatBookingTime, isSaudiAppointmentStarted, isSaudiAppointmentToday } from "@/lib/saudi-time";
+import { formatBookingTime, isSaudiAppointmentToday } from "@/lib/saudi-time";
 
 export const Route = createFileRoute("/office/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -183,38 +182,16 @@ type BookingRow = {
   user_id: string;
   visit_date: string;
   visit_time: string;
-  status: string;
-  office_note: string | null;
-  cancel_reason?: string | null;
+  status: string | null;
+  contact_name?: string | null;
   contact_phone?: string | null;
   created_at: string;
-  properties: {
-    id: string;
-    property_number: string;
-    title: string;
-    price: number | string;
-    area: number | string;
-    kind: string;
-    listing: string;
-    neighborhood: string | null;
-    cover_url: string | null;
-    images_count?: number | null;
-    governorates?: { name_ar: string } | null;
-  } | null;
-  client?: {
-    full_name: string;
-    phone: string | null;
-    governorate_name: string | null;
-  } | null;
-  completion_reason?: string | null;
 };
 
 function BookingsInbox({ officeId }: { officeId: string | null }) {
   const qc = useQueryClient();
-  const [noteFor, setNoteFor] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [cancelId, setCancelId] = useState<string | null>(null);
-  const [finishId, setFinishId] = useState<string | null>(null);
+  const [acceptId, setAcceptId] = useState<string | null>(null);
+  const [acceptNote, setAcceptNote] = useState("");
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [contactOpenId, setContactOpenId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -227,9 +204,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from("viewing_bookings")
-        .select(
-          "id,user_id,visit_date,visit_time,status,office_note,cancel_reason,completion_reason,contact_phone,contact_name,contact_governorate_id,created_at,properties(id,property_number,title,price,area,kind,listing,neighborhood,cover_url,images_count,governorates(name_ar))",
-        )
+        .select("id,user_id,visit_date,visit_time,status,contact_name,contact_phone,created_at")
         .eq("office_id", officeId!)
         .order("visit_date", { ascending: true })
         .order("visit_time", { ascending: true })
@@ -237,67 +212,21 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
 
       if (error) throw error;
 
-      const bookings = ((rows ?? []) as unknown as Array<
-        BookingRow & {
-          contact_name?: string | null;
-          contact_governorate_id?: string | null;
-        }
-      >)
+      const bookings = ((rows ?? []) as unknown as BookingRow[])
         .map((booking) => ({
           ...booking,
           status: String(booking.status ?? "").trim() || "pending",
         }))
         .filter((booking) => ["pending", "accepted"].includes(booking.status));
 
-      const governorateIds = [
-        ...new Set(
-          bookings
-            .map((booking) => booking.contact_governorate_id)
-            .filter((id): id is string => typeof id === "string" && !!id),
-        ),
-      ];
-
-      const { data: governorates, error: governorateError } = governorateIds.length
-        ? await supabase
-            .from("governorates")
-            .select("id,name_ar")
-            .in("id", governorateIds)
-        : { data: [], error: null };
-
-      if (governorateError) throw governorateError;
-
-      const governorateMap = new Map(
-        (governorates ?? []).map((row) => [
-          String(row.id),
-          String(row.name_ar ?? ""),
-        ]),
-      );
-
-      for (const booking of bookings) {
-        booking.client = {
-          full_name: String(booking.contact_name ?? "عميل"),
-          phone: booking.contact_phone ? String(booking.contact_phone) : null,
-          governorate_name: booking.contact_governorate_id
-            ? governorateMap.get(String(booking.contact_governorate_id)) ?? null
-            : null,
-        };
-      }
-
-      const activeBookings = bookings.filter(
-        (booking) => booking.status !== "cancelled",
-      );
-      const cancelledBookings = bookings.filter(
-        (booking) => booking.status === "cancelled",
-      );
-      const todayBookings = activeBookings.filter((booking) =>
+      const todayBookings = bookings.filter((booking) =>
         isSaudiAppointmentToday(booking.visit_date),
       );
-      const otherBookings = activeBookings.filter(
+      const otherBookings = bookings.filter(
         (booking) => !isSaudiAppointmentToday(booking.visit_date),
       );
 
-      // Keep cancelled appointments at the bottom, after all non-cancelled bookings.
-      return [...todayBookings, ...otherBookings, ...cancelledBookings];
+      return [...todayBookings, ...otherBookings];
     },
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
@@ -307,11 +236,13 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
   const pageCount = Math.max(1, Math.ceil(data.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleBookings = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const acceptBooking = data.find((booking) => booking.id === acceptId) ?? null;
+  const contactBooking = data.find((booking) => booking.id === contactOpenId) ?? null;
 
   const setStatus = useMutation({
     mutationFn: async (vars: {
       id: string;
-      status: "accepted" | "rejected" | "completed" | "cancelled";
+      status: "accepted" | "rejected";
       reason?: string;
       note?: string;
     }) => {
@@ -337,22 +268,19 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
       return vars;
     },
     onSuccess: (vars) => {
-      if (vars.status === "cancelled") setCancelId(null);
-      if (vars.status === "completed") setFinishId(null);
+      if (vars.status === "accepted") {
+        setAcceptId(null);
+        setAcceptNote("");
+      }
       if (vars.status === "rejected") setRejectId(null);
-      setNoteFor(null);
-      setNote("");
       toast.success(
-        vars.status === "cancelled"
-          ? "تم إلغاء المعاينة وإرسال السبب"
-          : vars.status === "completed"
-            ? "تم إنهاء المعاينة وإرسال السبب للفردي"
-            : vars.status === "rejected"
-              ? "تم رفض طلب المعاينة وإرسال السبب للفردي"
-              : "تم قبول طلب المعاينة",
+        vars.status === "accepted"
+          ? "تم قبول طلب المعاينة"
+          : "تم رفض طلب المعاينة وإرسال السبب للفردي",
       );
       void qc.invalidateQueries({ queryKey: ["office-bookings"] });
       void qc.invalidateQueries({ queryKey: ["office-bookings-tab-count"] });
+      void qc.invalidateQueries({ queryKey: ["office-bottom-nav-request-count"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
     onError: (error) =>
@@ -383,285 +311,93 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
     <>
       <div className="space-y-2">
         {visibleBookings.map((booking) => {
-          const contactPhone = booking.contact_phone || booking.client?.phone;
-          const property = booking.properties as {
-            id: string;
-            property_number: string;
-            title: string;
-            price: number | string;
-            area: number | string;
-            kind: string;
-            listing: string;
-            neighborhood: string | null;
-            cover_url: string | null;
-            images_count?: number | null;
-            governorates?: { name_ar: string } | null;
-          } | null;
+          const contactName = String(booking.contact_name ?? "").trim() || "عميل";
+          const contactPhone = String(booking.contact_phone ?? "").trim();
           return (
             <article
               key={booking.id}
-              className="overflow-hidden rounded-2xl bg-surface ring-1 ring-line"
+              className="rounded-2xl bg-surface p-4 ring-1 ring-line"
             >
-              {property?.id ? (
-                <a href={"/properties/" + encodeURIComponent(property.id)} className="block">
-                  {property.cover_url ? (
-                    <img
-                      src={property.cover_url}
-                      alt={property.title}
-                      className="aspect-[16/9] w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="grid aspect-[16/9] w-full place-items-center bg-sand text-xs text-muted-foreground">
-                      لا توجد صورة للعقار
-                    </div>
-                  )}
-                  <div className="p-3">
-                    <div className="text-[10px] font-semibold text-muted-foreground">
-                      العقار المرتبط بالمعاينة
-                    </div>
-                    <div className="mt-1 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h2 className="font-display text-base font-extrabold leading-6">
-                          {property.title || "عقار"}
-                        </h2>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                          <span>{property.property_number || "—"}</span>
-                          {property.governorates?.name_ar && <span>· {property.governorates.name_ar}</span>}
-                        </div>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-bold text-background">
-                        {listingLabel(property.listing)}
-                      </span>
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <div className="font-display text-lg font-extrabold text-forest">
-                        {formatPrice(property.price)} <span className="text-xs">ر.س</span>
-                      </div>
-                      <span className="rounded-full bg-sand px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
-                        {kindLabel(property.kind)}
-                      </span>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
-                        <div className="text-[10px] text-muted-foreground">الحي</div>
-                        <div className="mt-1 flex items-center gap-1.5 text-xs font-bold">
-                          <MapPin className="size-3.5 text-terracotta" />
-                          {property.neighborhood || "—"}
-                        </div>
-                      </div>
-                      <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
-                        <div className="text-[10px] text-muted-foreground">المساحة</div>
-                        <div className="mt-1 flex items-center gap-1.5 text-xs font-bold">
-                          <Ruler className="size-3.5 text-terracotta" />
-                          {property.area != null ? formatArea(property.area) : "—"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </a>
-              ) : (
-                <div className="p-4">
-                  <div className="font-display text-base font-extrabold">العقار</div>
-                </div>
-              )}
-
-              <div className="border-t border-line p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] font-semibold text-muted-foreground">موعد المعاينة</div>
-                    <div className="mt-1 flex items-center gap-1.5 text-sm font-extrabold">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-extrabold">{contactName}</h2>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
                       <CalendarDays className="size-4 text-terracotta" />
                       {formatDate(booking.visit_date)}
-                    </div>
-                    <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Clock3 className="size-3.5" /> الساعة {formatBookingTime(booking.visit_time)}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    {isSaudiAppointmentToday(booking.visit_date) && booking.status === "accepted" && (
-                      <span className="rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-bold text-background">
-                        معاينة اليوم
-                      </span>
-                    )}
-                    <span
-                      className={cn(
-                        "rounded-full px-2.5 py-1 text-[10px] font-semibold",
-                        booking.status === "accepted" || booking.status === "completed"
-                          ? "bg-forest-soft text-forest"
-                          : booking.status === "rejected" || booking.status === "cancelled"
-                            ? "bg-terracotta-soft text-terracotta"
-                            : "bg-sand text-muted-foreground",
-                      )}
-                    >
-                      {booking.status === "completed"
-                        ? "المعاينة انتهت"
-                        : BOOKING_STATUS[booking.status] ?? booking.status}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Clock3 className="size-3.5" />
+                      {formatBookingTime(booking.visit_time)}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">
-                  <div className="flex items-start gap-3">
-                    <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-forest-soft text-forest">
-                      <Building2 className="size-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-semibold text-muted-foreground">بيانات العميل المتاحة</div>
-                      <div className="mt-1 text-sm font-extrabold">{booking.client?.full_name || "عميل"}</div>
-                      {booking.client?.governorate_name && (
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          المحافظة: {booking.client.governorate_name}
-                        </div>
-                      )}
-                      {contactPhone && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setContactOpenId((current) =>
-                                current === booking.id ? null : booking.id,
-                              )
-                            }
-                            aria-expanded={contactOpenId === booking.id}
-                            aria-label="عرض رقم اتصال العميل"
-                            title="اتصال"
-                            className={cn(
-                              "grid size-10 place-items-center rounded-xl ring-1 ring-line",
-                              contactOpenId === booking.id
-                                ? "bg-forest-soft text-forest"
-                                : "bg-surface text-forest",
-                            )}
-                          >
-                            <Phone className="size-4" />
-                          </button>
-                          <a
-                            href={whatsappHref(
-                              contactPhone,
-                              `مرحبًا ${booking.client?.full_name || "عميل"}، بخصوص موعد المعاينة`,
-                            )}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label="واتساب العميل"
-                            title="واتساب"
-                            className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"
-                          >
-                            <WhatsAppIcon className="size-5 text-[#25D366]" />
-                          </a>
-                        </div>
-                      )}
-                      {contactPhone && contactOpenId === booking.id && (
-                        <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">
-                          <div className="text-[10px] font-semibold text-muted-foreground">
-                            رقم الاتصال الذي أضافه العميل
-                          </div>
-                          <div className="mt-1 flex items-center gap-2">
-                            <div className="min-w-0 flex-1 text-sm font-extrabold" dir="ltr">
-                              {contactPhone}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => void copyContactPhone(contactPhone)}
-                              className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface text-forest ring-1 ring-line"
-                              aria-label="نسخ رقم اتصال العميل"
-                              title="نسخ الرقم"
-                            >
-                              <Copy className="size-4" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {booking.office_note && (
-                  <p className="mt-2 rounded-2xl bg-sand p-3 text-[11px] leading-6 text-muted-foreground">
-                    ملاحظتك: {booking.office_note}
-                  </p>
-                )}
-
-                {booking.cancel_reason && ["cancelled", "rejected"].includes(booking.status) && (
-                  <p className="mt-2 rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
-                    {booking.status === "rejected" ? "سبب الرفض:" : "سبب الإلغاء:"} {booking.cancel_reason}
-                  </p>
-                )}
-
-                {booking.completion_reason && booking.status === "completed" && (
-                  <p className="mt-2 rounded-2xl bg-forest-soft p-3 text-xs leading-6 text-forest">
-                    <span className="font-bold">سبب إنهاء المعاينة:</span>{" "}
-                    {booking.completion_reason}
-                  </p>
-                )}
-
-                {booking.status === "pending" && (
-                  <>
-                    {noteFor === booking.id && (
-                      <input
-                        value={note}
-                        onChange={(event) => setNote(event.target.value)}
-                        placeholder="ملاحظة للعميل (اختياري)"
-                        className="mt-3 w-full rounded-xl bg-background px-3 py-2.5 text-xs ring-1 ring-line outline-none focus:ring-forest"
-                      />
-                    )}
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          noteFor === booking.id
-                            ? setStatus.mutate({
-                                id: booking.id,
-                                status: "accepted",
-                                note,
-                              })
-                            : setNoteFor(booking.id)
-                        }
-                        disabled={setStatus.isPending}
-                        className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
-                      >
-                        {noteFor === booking.id ? "تأكيد القبول" : "قبول"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRejectId(booking.id)}
-                        disabled={setStatus.isPending}
-                        className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
-                      >
-                        رفض مع ذكر السبب
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {(booking.status === "pending" || booking.status === "accepted") && (
+                <div className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setCancelId(booking.id)}
-                    disabled={setStatus.isPending}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+                    onClick={() => setContactOpenId(booking.id)}
+                    aria-label={"عرض اتصال " + contactName}
+                    title="بيانات الاتصال"
+                    className="grid size-10 place-items-center rounded-xl bg-background text-forest ring-1 ring-line"
                   >
-                    <XCircle className="size-4" /> إلغاء المعاينة
+                    <Phone className="size-4" />
                   </button>
-                )}
-
-                {booking.status === "accepted" &&
-                  isSaudiAppointmentStarted(booking.visit_date, booking.visit_time) && (
-                    <button
-                      type="button"
-                      onClick={() => setFinishId(booking.id)}
-                      disabled={setStatus.isPending}
-                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+                  {contactPhone ? (
+                    <a
+                      href={whatsappHref(contactPhone, "مرحبًا " + contactName + "، بخصوص موعد المعاينة")}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={"واتساب " + contactName}
+                      title="واتساب"
+                      className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"
                     >
-                      <CheckCircle2 className="size-4" /> إنهاء المعاينة مع ذكر السبب
-                    </button>
+                      <WhatsAppIcon className="size-5 text-[#25D366]" />
+                    </a>
+                  ) : (
+                    <span
+                      aria-label="رقم واتساب غير متوفر"
+                      title="رقم العميل غير متوفر"
+                      className="grid size-10 place-items-center rounded-xl bg-background text-muted-foreground ring-1 ring-line"
+                    >
+                      <WhatsAppIcon className="size-5" />
+                    </span>
                   )}
+                </div>
               </div>
+
+              {booking.status === "pending" ? (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAcceptNote("");
+                      setAcceptId(booking.id);
+                    }}
+                    disabled={setStatus.isPending}
+                    className="rounded-xl bg-forest py-2.5 text-sm font-bold text-background disabled:opacity-50"
+                  >
+                    قبول
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRejectId(booking.id)}
+                    disabled={setStatus.isPending}
+                    className="rounded-xl bg-terracotta-soft py-2.5 text-sm font-bold text-terracotta disabled:opacity-50"
+                  >
+                    رفض
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-3 rounded-xl bg-forest-soft px-3 py-2 text-center text-xs font-bold text-forest">
+                  تمت الموافقة على المعاينة
+                </div>
+              )}
             </article>
           );
         })}
       </div>
+
       <PaginationControls
         page={currentPage}
         total={data.length}
@@ -669,39 +405,170 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
         onPageChange={setPage}
       />
 
-      <CancelReasonModal
-        open={!!cancelId}
-        pending={setStatus.isPending}
-        title="إلغاء المعاينة"
-        onClose={() => {
-          if (!setStatus.isPending) setCancelId(null);
-        }}
-        onConfirm={(reason) => {
-          if (cancelId) {
-            setStatus.mutate({
-              id: cancelId,
-              status: "cancelled",
-              reason,
-            });
-          }
-        }}
-      />
-      <CompleteViewingReasonModal
-        open={!!finishId}
-        pending={setStatus.isPending}
-        onClose={() => {
-          if (!setStatus.isPending) setFinishId(null);
-        }}
-        onConfirm={(reason) => {
-          if (finishId) {
-            setStatus.mutate({
-              id: finishId,
-              status: "completed",
-              reason,
-            });
-          }
-        }}
-      />
+      {acceptBooking && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="تأكيد قبول المعاينة"
+          onClick={() => {
+            if (!setStatus.isPending) {
+              setAcceptId(null);
+              setAcceptNote("");
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-[28px] bg-surface p-5 shadow-2xl ring-1 ring-line"
+            dir="rtl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-display text-lg font-extrabold">قبول طلب المعاينة</h2>
+                <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                  هل توافق على موعد {formatDate(acceptBooking.visit_date)} الساعة {formatBookingTime(acceptBooking.visit_time)} للعميل {String(acceptBooking.contact_name ?? "").trim() || "عميل"}؟
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!setStatus.isPending) {
+                    setAcceptId(null);
+                    setAcceptNote("");
+                  }
+                }}
+                disabled={setStatus.isPending}
+                aria-label="إغلاق"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-background ring-1 ring-line"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <label className="mt-4 block text-xs font-semibold">
+              ملاحظة للعميل (اختياري)
+              <textarea
+                rows={3}
+                value={acceptNote}
+                onChange={(event) => setAcceptNote(event.target.value)}
+                placeholder="اكتب ملاحظة تظهر للعميل عند الحاجة"
+                className="mt-2 w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none ring-1 ring-line focus:ring-forest"
+              />
+            </label>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setStatus.mutate({
+                    id: acceptBooking.id,
+                    status: "accepted",
+                    note: acceptNote,
+                  })
+                }
+                disabled={setStatus.isPending}
+                className="rounded-xl bg-forest py-3 text-sm font-bold text-background disabled:opacity-50"
+              >
+                {setStatus.isPending ? "جارٍ التأكيد..." : "تأكيد القبول"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!setStatus.isPending) {
+                    setAcceptId(null);
+                    setAcceptNote("");
+                  }
+                }}
+                disabled={setStatus.isPending}
+                className="rounded-xl bg-background py-3 text-sm font-bold ring-1 ring-line disabled:opacity-50"
+              >
+                رجوع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {contactBooking && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="كارت اتصال العميل"
+          onClick={() => setContactOpenId(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-[28px] bg-surface p-5 shadow-2xl ring-1 ring-line"
+            dir="rtl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-semibold text-muted-foreground">كارت الاتصال</div>
+                <h2 className="mt-1 font-display text-lg font-extrabold">
+                  {String(contactBooking.contact_name ?? "").trim() || "عميل"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setContactOpenId(null)}
+                aria-label="إغلاق"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-background ring-1 ring-line"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="mt-3 rounded-2xl bg-background p-3 ring-1 ring-line">
+              <div className="text-[10px] text-muted-foreground">موعد المعاينة</div>
+              <div className="mt-1 text-sm font-bold">
+                {formatDate(contactBooking.visit_date)} · {formatBookingTime(contactBooking.visit_time)}
+              </div>
+              <div className="mt-3 text-[10px] text-muted-foreground">رقم الهاتف</div>
+              <div className="mt-1 text-sm font-extrabold" dir="ltr">
+                {String(contactBooking.contact_phone ?? "").trim() || "رقم الهاتف غير مسجل"}
+              </div>
+            </div>
+            {String(contactBooking.contact_phone ?? "").trim() && (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <a
+                  href={"tel:" + String(contactBooking.contact_phone).trim()}
+                  className="rounded-xl bg-forest py-3 text-center text-xs font-bold text-background"
+                >
+                  <Phone className="mx-auto mb-1 size-4" />
+                  اتصال
+                </a>
+                <a
+                  href={whatsappHref(
+                    String(contactBooking.contact_phone).trim(),
+                    "مرحبًا " + (String(contactBooking.contact_name ?? "").trim() || "عميل") + "، بخصوص موعد المعاينة",
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-xl bg-[#25D366]/10 py-3 text-center text-xs font-bold text-[#25D366]"
+                >
+                  <WhatsAppIcon className="mx-auto mb-1 size-4" />
+                  واتساب
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void copyContactPhone(String(contactBooking.contact_phone).trim())}
+                  className="rounded-xl bg-background py-3 text-center text-xs font-bold ring-1 ring-line"
+                >
+                  <Copy className="mx-auto mb-1 size-4" />
+                  نسخ الرقم
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setContactOpenId(null)}
+              className="mt-3 w-full rounded-xl bg-background py-3 text-sm font-bold ring-1 ring-line"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
+
       <CompleteViewingReasonModal
         open={!!rejectId}
         pending={setStatus.isPending}
