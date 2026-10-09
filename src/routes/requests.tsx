@@ -196,7 +196,7 @@ function RequestsPage() {
 
   const acceptedMarketRequests = useMemo(
     () => myRequests.filter((request) =>
-      !!request.accepted_offer_id && ["active", "fulfilled"].includes(request.status),
+      !!request.accepted_offer_id && request.status === "active",
     ),
     [myRequests],
   );
