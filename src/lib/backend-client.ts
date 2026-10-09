@@ -29,6 +29,7 @@ type MaybeSingleValue<T> = T extends readonly (infer Row)[] ? Row | null : T | n
 type User = {
   id: string;
   email?: string;
+  phone?: string | null;
   email_confirmed_at?: string | null;
   user_metadata?: Record<string, unknown>;
 };
@@ -54,7 +55,7 @@ function errorOf(error: unknown) {
   return error instanceof Error ? { message: error.message } : { message: String(error) };
 }
 
-class QueryBuilder<T = QueryRows> {
+class QueryBuilder<T = QueryRows> implements PromiseLike<Result<T>> {
   private input: any;
 
   constructor(collection: string) {
@@ -122,108 +123,131 @@ class QueryBuilder<T = QueryRows> {
   then<TResult1 = Result<T>, TResult2 = never>(
     onfulfilled?: ((value: Result<T>) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
-  ) {
-    return dbRequest({ data: this.input })
-      .then((value: any) => value as Result<T>)
-      .then(onfulfilled as any, onrejected as any);
+  ): Promise<TResult1 | TResult2> {
+    const request = dbRequest({ data: this.input }) as unknown as Promise<Result<T>>;
+    return request.then(
+      onfulfilled ?? undefined,
+      onrejected ?? undefined,
+    );
   }
 
   catch<TResult = never>(
     onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null,
-  ) {
-    return dbRequest({ data: this.input }).catch(onrejected as any);
+  ): Promise<Result<T> | TResult> {
+    const request = dbRequest({ data: this.input }) as unknown as Promise<Result<T>>;
+    return request.catch(onrejected ?? undefined);
   }
 }
 
+type ChannelConfig = {
+  event?: string;
+  schema?: string;
+  table?: string;
+  filter?: string;
+};
+
+type ChannelHandler = {
+  table: string;
+  filterField: string | null;
+  filterValue: string | null;
+  callback: (payload: any) => void;
+  lastSignature: string;
+};
+
 class Channel {
-  private callback: ((payload: any) => void) | null = null;
+  private handlers: ChannelHandler[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
-  private filterField: string | null = null;
-  private filterValue: string | null = null;
-  private lastSignature = "";
+  private readonly presenceKey: string;
+  private readonly localPresence: Record<string, Array<Record<string, unknown>>> = {};
 
-  constructor(private readonly table: string) {}
-
-  on(
-    _event: string,
-    config: { filter?: string; table?: string },
-    callback: (payload: any) => void,
+  constructor(
+    private readonly name: string,
+    options?: { config?: { presence?: { key?: string } } },
   ) {
-    this.callback = callback;
+    this.presenceKey = options?.config?.presence?.key ?? name;
+  }
 
-    const match = config.filter?.match(/^([a-zA-Z0-9_]+)=eq\.(.*)$/);
-    this.filterField = match?.[1] ?? null;
-    this.filterValue = match?.[2] ? decodeURIComponent(match[2]) : null;
-
+  on(_event: string, config: ChannelConfig, callback: (payload: any) => void) {
+    const match = config.filter?.match(/^([a-zA-Z0-9_]+)=eq\\.(.*)$/);
+    this.handlers.push({
+      table: config.table ?? this.name,
+      filterField: match?.[1] ?? null,
+      filterValue: match?.[2] ? decodeURIComponent(match[2]) : null,
+      callback,
+      lastSignature: "",
+    });
     return this;
   }
 
-  subscribe() {
-    const poll = async () => {
-      if (!this.callback) return;
+  private async pollHandler(handler: ChannelHandler) {
+    try {
+      let query: any = backend
+        .from(handler.table)
+        .select("*")
+        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(20);
 
-      try {
-        let query: any = backend
-          .from(this.table)
-          .select("*")
-          .order("updated_at", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(20);
-
-        if (this.filterField && this.filterValue != null) {
-          query = query.eq(this.filterField, this.filterValue);
-        }
-
-        const result = await query;
-        if (result.error) return;
-
-        const rows = Array.isArray(result.data) ? result.data : [];
-        const signature = rows
-          .map((row) =>
-            String(
-              row.id ??
-                row._id ??
-                row.updated_at ??
-                row.created_at ??
-                "",
-            ),
-          )
-          .join("|");
-
-        if (!signature || signature === this.lastSignature) return;
-
-        const previous = this.lastSignature;
-        this.lastSignature = signature;
-
-        if (!previous) return;
-
-        this.callback({
-          eventType: "*",
-          new: rows[0] ?? null,
-          old: null,
-        });
-      } catch {
-        // Best effort polling.
+      if (handler.filterField && handler.filterValue != null) {
+        query = query.eq(handler.filterField, handler.filterValue);
       }
+
+      const result = await query;
+      if (result.error) return;
+      const rows = Array.isArray(result.data) ? result.data : [];
+      const signature = rows.map((row: any) =>
+        String(row.id ?? row._id ?? row.updated_at ?? row.created_at ?? ""),
+      ).join("|");
+      if (!signature || signature === handler.lastSignature) return;
+
+      const previous = handler.lastSignature;
+      handler.lastSignature = signature;
+      if (!previous) return;
+
+      handler.callback({
+        eventType: "*",
+        new: rows[0] ?? null,
+        old: null,
+      });
+    } catch {
+      // Best effort polling: the main query continues to work if polling fails.
+    }
+  }
+
+  subscribe(callback?: (status: string) => void) {
+    const poll = async () => {
+      await Promise.all(this.handlers.map((handler) => this.pollHandler(handler)));
     };
 
     void poll();
     this.timer = setInterval(() => void poll(), 5000);
+    callback?.("SUBSCRIBED");
 
     return {
-      unsubscribe: () => {
-        if (this.timer) clearInterval(this.timer);
-        this.timer = null;
-      },
+      unsubscribe: () => this.unsubscribe(),
     };
+  }
+
+  presenceState<T extends Record<string, unknown> = Record<string, unknown>>() {
+    return this.localPresence as Record<string, T[]>;
+  }
+
+  async track(payload: Record<string, unknown>) {
+    this.localPresence[this.presenceKey] = [payload];
+    for (const handler of this.handlers) {
+      if (handler.table === "presence") {
+        handler.callback({ eventType: "SYNC", new: this.localPresence, old: null });
+      }
+    }
+    return "ok" as const;
   }
 
   unsubscribe() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    this.handlers = [];
   }
 }
-
 class StorageBucket {
   constructor(private readonly name: string) { void name; }
   async upload(_path: string, file: File) {
@@ -358,8 +382,10 @@ export const backend = {
   rpc(name: string, args?: Record<string, unknown>): Promise<Result<any>> {
     return rpcRequest({ data: { name, args } }) as unknown as Promise<Result<any>>;
   },
-  channel(name: string) { return new Channel(name); },
-  removeChannel(channel: Channel) { channel.unsubscribe(); },
+  channel(name: string, options?: { config?: { presence?: { key?: string } } }) {
+    return new Channel(name, options);
+  },
+  removeChannel(channel: Channel | { unsubscribe: () => void }) { channel.unsubscribe(); },
   storage: { from(name: string) { return new StorageBucket(name); } },
   auth,
 };
