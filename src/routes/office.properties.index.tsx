@@ -14,6 +14,7 @@ import { useMyOffice } from "@/lib/office";
 import { kindLabel, listingLabel, stateLabel } from "@/lib/constants";
 import { formatArea, formatPrice } from "@/lib/format";
 import { useMyPlan } from "@/lib/plans";
+import { getPublicAppUrl, PUBLIC_APP_URL_HELP } from "@/lib/public-app-url";
 
 export const Route = createFileRoute("/office/properties/")({
   head: () => ({
@@ -38,7 +39,7 @@ function OfficeProperties() {
   const { featuredLimit } = useMyPlan();
   const officeId = membership?.office?.id ?? null;
   const canFeature = featuredLimit > 0;
-  const [qrFor, setQrFor] = useState<{ id: string; title: string } | null>(null);
+  const [qrFor, setQrFor] = useState<{ id: string; title: string; url: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["office-my-properties", userId, officeId],
@@ -204,7 +205,16 @@ function OfficeProperties() {
                         toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
                         return;
                       }
-                      setQrFor({ id: p.id, title: p.title });
+                      if (!p.is_published) {
+                        toast.error("انشر العقار أولًا لإنشاء رمز QR صالح للمشاركة.");
+                        return;
+                      }
+                      const url = getPublicAppUrl(`/properties/${p.id}`);
+                      if (!url) {
+                        toast.error(PUBLIC_APP_URL_HELP);
+                        return;
+                      }
+                      setQrFor({ id: p.id, title: p.title, url });
                     }}
                     className="grid size-9 place-items-center rounded-xl bg-sand text-forest"
                     aria-label="رمز QR"
@@ -235,7 +245,7 @@ function OfficeProperties() {
         <QrDialog
           open={!!qrFor}
           onClose={() => setQrFor(null)}
-          value={`${typeof window !== "undefined" ? window.location.origin : ""}/properties/${qrFor.id}`}
+          value={qrFor.url}
           title={qrFor.title}
           subtitle="امسح الرمز لفتح صفحة العقار"
           fileName={`qr-${qrFor.title}`}
