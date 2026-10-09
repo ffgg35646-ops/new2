@@ -31,7 +31,7 @@ export const Route = createFileRoute("/chats")({
     ],
   }),
   component: () => (
-    <RoleGuard allow={["individual", "admin"]} guestsTo="/auth/individual">
+    <RoleGuard allow={["individual"]} guestsTo="/auth/individual">
       <ChatsPage />
     </RoleGuard>
   ),
@@ -222,6 +222,7 @@ function ChatsPage() {
         {activeId ? (
           <ChatThread
             conversationId={activeId}
+            title={conversations.data?.find((conversation) => conversation.id === activeId)?.offices?.name ?? "محادثة المكتب"}
             onBack={() => void navigate({ search: { c: undefined, office: undefined } })}
           />
         ) : officeTargetId || startChat.isPending ? (
