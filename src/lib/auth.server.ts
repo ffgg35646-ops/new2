@@ -128,9 +128,9 @@ async function issueVerificationCode(user: UserDoc) {
 export async function registerUser(input: {
   email: string;
   password: string;
-  fullName?: string;
+  fullName?: string | undefined;
   phone?: string | null;
-  role?: "individual" | "office";
+  role?: "individual" | "office" | undefined;
 }) {
   if (typeof input.email !== "string" || typeof input.password !== "string") {
     throw new Error("بيانات التسجيل غير صالحة.");
