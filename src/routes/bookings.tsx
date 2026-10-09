@@ -274,7 +274,7 @@ function BookingsPage() {
                     />
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-2.5 grid grid-cols-2 gap-2">
                     <Info label="تاريخ المعاينة">
                       <span className="inline-flex items-center gap-1.5">
                         <CalendarDays className="size-3.5 text-terracotta" />
@@ -375,7 +375,7 @@ function BookingsPage() {
             };
 
             return (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <section>
                   <div className="mb-2.5 flex items-end justify-between">
                     <div>
@@ -525,7 +525,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function Info({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+    <div className="rounded-2xl bg-background p-2.5 ring-1 ring-line">
       <div className="text-[10px] text-muted-foreground">{label}</div>
       <div className="mt-1 text-xs font-bold">{children}</div>
     </div>
