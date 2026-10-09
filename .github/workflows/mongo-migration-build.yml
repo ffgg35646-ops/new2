@@ -2,6 +2,10 @@ name: Mongo migration build
 
 on:
   push:
+    branches:
+      - main
+      - fix/pro-subscription-30-days-expiry-notices
+  pull_request:
     branches: [main]
 
 jobs:
@@ -21,5 +25,8 @@ jobs:
       - name: Verify Supabase dependency is gone
         run: |
           ! grep -RIn --exclude-dir=.git --exclude='*.bak*' --exclude='*.before-*' --exclude='*.backup*' -E '@supabase/supabase-js|VITE_SUPABASE_|SUPABASE_URL' src package.json
+
+      - name: TypeScript check
+        run: npx tsc --noEmit --pretty false
 
       - run: npm run build
