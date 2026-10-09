@@ -168,9 +168,9 @@ export function useMyPlan() {
     expiresAt: office?.plan_expires_at ?? null,
     startedAt: office?.plan_started_at ?? null,
     propertyLimit:
-      expired
-        ? 5
-        : pkg?.property_limit ?? null,
+      currentPlan === "pro"
+        ? pkg?.property_limit ?? null
+        : FREE_PROPERTY_LIMIT,
     chatEnabled:
       !expired && Boolean(pkg?.chat_enabled),
     featuredLimit:
