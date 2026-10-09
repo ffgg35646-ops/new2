@@ -3313,7 +3313,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             _id: randomUUID(),
             user_id: recipientId,
             title: isCompletedOffice
-              ? "نهنئكم على " + (String(request.listing ?? "") === "rent" ? "تأجير العقار: " : "بيع العقار: ") + propertyTitle
+              ? "نهنئك على إتمام " + (String(request.listing ?? "") === "rent" ? "تأجير العقار: " : "بيع العقار: ") + propertyTitle
               : "الطلب مكتمل من خلال مكتب آخر",
             body: isCompletedOffice
               ? "نهنئ مكتبكم على إتمام " +
