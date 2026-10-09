@@ -1035,7 +1035,7 @@ function SentOffers({ officeId }: { officeId: string | null }) {
             )}
 
             {row.message && (
-              <p className="mt-3 rounded-2xl bg-sand p-3 text-xs leading-6 text-muted-foreground">
+              <p className="mt-2 rounded-2xl bg-sand p-3 text-xs leading-5 text-muted-foreground">
                 عرضك: {row.message}
               </p>
             )}
@@ -1388,8 +1388,8 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
             </button>
           </div>
 
-          <div className="mt-4 space-y-3">
-            <section className="rounded-2xl bg-background p-3.5 ring-1 ring-line">
+          <div className="mt-3 space-y-2.5">
+            <section className="rounded-2xl bg-background p-3 ring-1 ring-line">
               <div className="text-[10px] font-semibold text-muted-foreground">العميل</div>
               <div className="mt-1 text-sm font-extrabold">{details.client_name}</div>
               {details.client_phone && <div className="mt-1 text-xs text-muted-foreground">{details.client_phone}</div>}
@@ -1428,7 +1428,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               </div>
             </section>
 
-            <section className="rounded-2xl bg-background p-3.5 ring-1 ring-line">
+            <section className="rounded-2xl bg-background p-3 ring-1 ring-line">
               <div className="text-[10px] font-semibold text-muted-foreground">وصف الطلب</div>
               <p className="mt-1.5 whitespace-pre-wrap text-sm leading-7">{details.description || "لا يوجد وصف إضافي."}</p>
             </section>
