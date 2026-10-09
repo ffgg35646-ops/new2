@@ -26,7 +26,9 @@ jobs:
         run: |
           ! grep -RIn --exclude-dir=.git --exclude='*.bak*' --exclude='*.before-*' --exclude='*.backup*' -E '@supabase/supabase-js|VITE_SUPABASE_|SUPABASE_URL' src package.json
 
+      # The TanStack Vite plugin regenerates src/routeTree.gen.ts during the build.
+      # Generate route types first, then run strict TypeScript validation.
+      - run: npm run build
+
       - name: TypeScript check
         run: npx tsc --noEmit --pretty false
-
-      - run: npm run build
