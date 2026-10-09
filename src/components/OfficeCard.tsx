@@ -1,5 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { Crown, ShieldCheck, Star } from "lucide-react";
+import { Bell, BellOff, Crown, ShieldCheck, Star } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { useFollowState, useSetOfficeNotifications } from "@/lib/follows";
+import { toast } from "sonner";
 import { timeAgo } from "@/lib/format";
 
 export type OfficeCardData = {
@@ -19,6 +22,10 @@ export type OfficeCardData = {
 };
 
 export function OfficeCard({ office }: { office: OfficeCardData }) {
+  const { userId, isOffice, isAdmin } = useAuth();
+  const { data: followState } = useFollowState(office.id);
+  const notifyOn = followState?.notify ?? false;
+  const setNotifications = useSetOfficeNotifications();
   const isPro = office.is_pro_current === true;
   const isVerified = office.verification_badge === true;
   return (
@@ -59,6 +66,45 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
           {office.properties_count ?? 0} عقارًا · {timeAgo(office.updated_at)}
         </div>
       </div>
+      <button
+        type="button"
+        onClick={() => {
+          if (!userId) {
+            toast.error("سجّل الدخول لتفعيل إشعارات المكاتب");
+            return;
+          }
+          if (isOffice || isAdmin) {
+            toast.error("إشعارات متابعة المكاتب متاحة لحساب الفردي");
+            return;
+          }
+          setNotifications.mutate(
+            { officeId: office.id, notify: !notifyOn },
+            {
+              onSuccess: (enabled) =>
+                toast.success(
+                  enabled
+                    ? \`ستصلك إشعارات العروض الجديدة من \${office.name}\`
+                    : \`تم إيقاف إشعارات \${office.name}\`,
+                ),
+              onError: (error) =>
+                toast.error(error instanceof Error ? error.message : "تعذّر تحديث الإشعارات"),
+            },
+          );
+        }}
+        disabled={setNotifications.isPending}
+        aria-label={notifyOn ? \`إيقاف إشعارات \${office.name}\` : \`تفعيل إشعارات \${office.name}\`}
+        aria-pressed={notifyOn}
+        title={notifyOn ? "إشعارات المكتب مفعّلة" : "تفعيل إشعارات المكتب"}
+        className={[
+          "grid size-9 shrink-0 place-items-center rounded-full ring-1 transition",
+          notifyOn
+            ? "bg-forest-soft text-forest ring-forest/30"
+            : "bg-background text-muted-foreground ring-line hover:bg-sand",
+          setNotifications.isPending ? "opacity-50" : "",
+        ].join(" ")}
+      >
+        {notifyOn ? <Bell className="size-4" /> : <BellOff className="size-4" />}
+      </button>
       <Link
         to="/offices/$officeId"
         params={{ officeId: office.id }}
