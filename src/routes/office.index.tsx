@@ -10,13 +10,12 @@ import {
   Heart,
   Home,
   Plus,
-  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { EmptyState } from "@/components/EmptyState";
-import { BOOKING_STATUS, VERIFICATION_STATUS, inquiryTypeLabel } from "@/lib/constants";
+import { BOOKING_STATUS, inquiryTypeLabel } from "@/lib/constants";
 import { formatDate, timeAgo } from "@/lib/format";
 import { useMyOffice, useNewInquiriesCount } from "@/lib/office";
 import { useMyPlan } from "@/lib/plans";
@@ -114,10 +113,6 @@ function OfficeDashboard() {
           <div className="font-display text-lg font-extrabold">{office?.name}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-background/15 px-2.5 py-1 text-[11px]">
-              <ShieldCheck className="size-3.5" />
-              {VERIFICATION_STATUS[office?.verification_status ?? "pending"]}
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-background/15 px-2.5 py-1 text-[11px]">
               <Crown className="size-3.5" />
               {currentPackage?.name ?? "الباقة"}
             </span>
@@ -171,56 +166,21 @@ function OfficeDashboard() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Link
-            to="/office/chat"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
-          >
-            الدردشة
-            <span className="text-xs">{propertyLimit == null ? "" : "🔒"}</span>
-          </Link>
-          <Link
-            to="/plans"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
-          >
-            الباقات
-          </Link>
-          <Link
-            to="/extras"
-            className="col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
-          >
-            الإضافات
-          </Link>
-        </div>
+        <Link
+          to="/plans"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
+        >
+          الباقات
+        </Link>
 
-        <div className="grid grid-cols-2 gap-2">
+        {!isOwner && (
           <Link
-            to="/office/requests"
-            className="relative flex items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
+            to="/office/profile"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
           >
-            الطلبات
-            {newRequests > 0 && (
-              <span className="rounded-full bg-terracotta px-2 py-0.5 text-[10px] text-background">
-                {newRequests}
-              </span>
-            )}
+            ملف المكتب
           </Link>
-          {isOwner ? (
-            <Link
-              to="/office/subscription"
-              className="flex items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
-            >
-              <Crown className="size-4" /> الباقة والاشتراك
-            </Link>
-          ) : (
-            <Link
-              to="/office/profile"
-              className="flex items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
-            >
-              ملف المكتب
-            </Link>
-          )}
-        </div>
+        )}
 
         <section className="space-y-3">
           <h2 className="font-display text-lg font-extrabold">آخر طلبات العملاء</h2>
