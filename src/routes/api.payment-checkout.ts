@@ -119,7 +119,7 @@ export const Route = createFileRoute("/api/payment-checkout")({
             );
           }
 
-          await getMongoCollection("payment_transactions").insertOne({
+          await (await getMongoCollection("payment_transactions")).insertOne({
             id: randomUUID(),
             checkout_id: hpData.id,
             merchant_transaction_id: merchantTransactionId,
