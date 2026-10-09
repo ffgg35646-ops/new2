@@ -46,7 +46,7 @@ export const Route = createFileRoute("/offices/$officeId")({
   }),
   component: OfficePage,
   errorComponent: ({ error }) => (
-    <div className="p-6 text-center text-sm text-destructive">{error.message}</div>
+    <div className="p-6 text-center text-sm text-destructive">{error instanceof Error ? error.message : String(error)}</div>
   ),
   notFoundComponent: () => <div className="p-6 text-center text-sm">المكتب غير موجود</div>,
 });
