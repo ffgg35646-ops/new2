@@ -26,6 +26,12 @@ export const Route = createFileRoute("/api/payment-checkout")({
           });
 
           if (!pkg) return Response.json({ error: "الباقة غير موجودة" }, { status: 404 });
+          if (String(pkg.code ?? "").toLowerCase() !== "pro") {
+            return Response.json(
+              { error: "الدفع متاح للباقة الاحترافية فقط." },
+              { status: 400 },
+            );
+          }
 
           const amount = Number(pkg.price ?? 0);
           if (!Number.isFinite(amount) || amount <= 0) {
@@ -40,27 +46,6 @@ export const Route = createFileRoute("/api/payment-checkout")({
             return Response.json({ error: "إعدادات HyperPay غير مكتملة" }, { status: 500 });
           }
 
-          const merchantSettings = await getMongoCollection<Record<string, unknown>>(
-            "payment_gateway_settings",
-          ).findOne({ id: 1 });
-
-          const merchantName = String(
-            merchantSettings?.merchant_name ?? process.env["HYPERPAY_MERCHANT_NAME"] ?? "",
-          ).trim();
-          const merchantPhone = String(
-            merchantSettings?.merchant_phone ?? process.env["HYPERPAY_MERCHANT_PHONE"] ?? "",
-          ).trim();
-
-          if (!merchantName || !merchantPhone) {
-            return Response.json(
-              {
-                error:
-                  "إعدادات التاجر ناقصة: أدخل اسم التاجر ورقم هاتف التاجر من إعدادات الدفع.",
-              },
-              { status: 500 },
-            );
-          }
-
           const origin = new URL(request.url).origin;
           const merchantTransactionId = randomUUID();
 
@@ -71,16 +56,13 @@ export const Route = createFileRoute("/api/payment-checkout")({
           params.set("paymentType", "DB");
           params.set("merchantTransactionId", merchantTransactionId);
           params.set("shopperResultUrl", origin + "/office/payresult");
-          params.set("merchant.name", merchantName);
-          params.set("merchant.phone", merchantPhone);
           params.set(
             "Merchant.data[" + String.fromCharCode(39) + "ignoreDescriptorValidation" + String.fromCharCode(39) + "]",
             "true",
           );
 
-          const testMode = String(
-            process.env["HYPERPAY_TEST_MODE"] ?? "EXTERNAL",
-          ).trim();
+          // لا نرسل testMode مع بيانات LIVE إلا إذا ضُبط صراحةً في البيئة.
+          const testMode = String(process.env["HYPERPAY_TEST_MODE"] ?? "").trim();
 
           if (testMode) params.set("testMode", testMode);
 
