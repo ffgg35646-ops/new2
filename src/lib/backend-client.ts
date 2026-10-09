@@ -99,8 +99,16 @@ class QueryBuilder<T = QueryRows> {
   }
   limit(value: number) { this.input.limit = value; return this; }
   range(from: number, to: number) { this.input.offset = from; this.input.limit = Math.max(0, to - from + 1); return this; }
-  single() { this.input.single = true; this.input.limit = 2; return this; }
-  maybeSingle() { this.input.maybeSingle = true; this.input.limit = 2; return this; }
+  single(): QueryBuilder<SingleValue<T>> {
+    this.input.single = true;
+    this.input.limit = 2;
+    return this as unknown as QueryBuilder<SingleValue<T>>;
+  }
+  maybeSingle(): QueryBuilder<MaybeSingleValue<T>> {
+    this.input.maybeSingle = true;
+    this.input.limit = 2;
+    return this as unknown as QueryBuilder<MaybeSingleValue<T>>;
+  }
   insert(payload: unknown) { this.input.operation = "insert"; this.input.payload = payload; return this; }
   update(payload: unknown) { this.input.operation = "update"; this.input.payload = payload; return this; }
   upsert(payload: unknown, options?: { onConflict?: string }) {
