@@ -29,6 +29,12 @@ export const Route = createFileRoute("/plans")({
   ),
 });
 
+function displayPlanFeature(feature: string) {
+  return feature
+    .replace(/للمكاتب العقارية والعقارات/g, "للمكاتب فقط")
+    .replace(/للمكاتب والعقارات/g, "للمكاتب فقط");
+}
+
 function PlansPage() {
   const { isOffice } = useAuth();
   const { data: catalog = [], isLoading } = usePackages(true);
@@ -112,14 +118,20 @@ function PlansPage() {
                     التوثيق: {pkg.verification_included ? "مشمول" : "غير مشمول"}
                   </div>
 
-                  {pkg.features.length > 0 && (
+                  {(pkg.features.length > 0 || pkg.code === "pro") && (
                     <ul className="mt-3 space-y-1.5">
                       {pkg.features.map((f) => (
                         <li key={f} className="flex items-start gap-2 text-[12px]">
                           <Check className="mt-0.5 size-3.5 shrink-0 text-forest" />
-                          <span>{f}</span>
+                          <span>{displayPlanFeature(f)}</span>
                         </li>
                       ))}
+                      {pkg.code === "pro" && !pkg.features.some((f) => /qr/i.test(f)) && (
+                        <li className="flex items-start gap-2 text-[12px]">
+                          <Check className="mt-0.5 size-3.5 shrink-0 text-forest" />
+                          <span>رمز QR خاص بالمكتب</span>
+                        </li>
+                      )}
                     </ul>
                   )}
 
