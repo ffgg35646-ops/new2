@@ -31,7 +31,7 @@ import { formatArea, formatDate, formatPrice, timeAgo } from "@/lib/format";
 import { useMyOffice, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
 import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
-import { formatBookingTime, isSaudiAppointmentToday } from "@/lib/saudi-time";
+import { formatBookingTime, isSaudiAppointmentStarted, isSaudiAppointmentToday } from "@/lib/saudi-time";
 
 export const Route = createFileRoute("/office/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -189,6 +189,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
   const [acceptId, setAcceptId] = useState<string | null>(null);
   const [acceptNote, setAcceptNote] = useState("");
   const [rejectId, setRejectId] = useState<string | null>(null);
+  const [finishId, setFinishId] = useState<string | null>(null);
   const [contactOpenId, setContactOpenId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
@@ -267,7 +268,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
   const setStatus = useMutation({
     mutationFn: async (vars: {
       id: string;
-      status: "accepted" | "rejected";
+      status: "accepted" | "rejected" | "completed";
       reason?: string;
       note?: string;
     }) => {
@@ -298,10 +299,13 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
         setAcceptNote("");
       }
       if (vars.status === "rejected") setRejectId(null);
+      if (vars.status === "completed") setFinishId(null);
       toast.success(
         vars.status === "accepted"
           ? "تم قبول طلب المعاينة"
-          : "تم رفض طلب المعاينة وإرسال السبب للفردي",
+          : vars.status === "rejected"
+            ? "تم رفض طلب المعاينة وإرسال السبب للفردي"
+            : "تم إنهاء المعاينة وإرسال السبب للعميل",
       );
       void qc.invalidateQueries({ queryKey: ["office-bookings"] });
       void qc.invalidateQueries({ queryKey: ["office-bookings-tab-count"] });
@@ -414,9 +418,26 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                   </button>
                 </div>
               ) : (
-                <div className="mt-3 rounded-xl bg-forest-soft px-3 py-2 text-center text-xs font-bold text-forest">
-                  تمت الموافقة على المعاينة
-                </div>
+                <>
+                  <div className="mt-3 rounded-xl bg-forest-soft px-3 py-2 text-center text-xs font-bold text-forest">
+                    تمت الموافقة على المعاينة
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFinishId(booking.id)}
+                    disabled={setStatus.isPending || !isSaudiAppointmentStarted(booking.visit_date, booking.visit_time)}
+                    title={!isSaudiAppointmentStarted(booking.visit_date, booking.visit_time) ? "يتاح إنهاء المعاينة عند حلول موعدها" : "إنهاء المعاينة"}
+                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-sm font-bold text-background disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="size-4" />
+                    إنهاء المعاينة
+                  </button>
+                  {!isSaudiAppointmentStarted(booking.visit_date, booking.visit_time) && (
+                    <p className="mt-1 text-center text-[10px] text-muted-foreground">
+                      يتاح تأكيد إنهاء المعاينة عند حلول الموعد المحدد.
+                    </p>
+                  )}
+                </>
               )}
             </article>
           );
@@ -611,6 +632,28 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
             setStatus.mutate({
               id: rejectId,
               status: "rejected",
+              reason,
+            });
+          }
+        }}
+      />
+
+      <CompleteViewingReasonModal
+        open={!!finishId}
+        pending={setStatus.isPending}
+        title="إنهاء المعاينة"
+        heading="هل تمت المعاينة؟ اكتب السبب أو الملاحظات."
+        reasonLabel="سبب إنهاء المعاينة"
+        placeholder="اكتب ما حدث أثناء المعاينة ليظهر للطرف الآخر"
+        confirmLabel="تأكيد إنهاء المعاينة"
+        onClose={() => {
+          if (!setStatus.isPending) setFinishId(null);
+        }}
+        onConfirm={(reason) => {
+          if (finishId) {
+            setStatus.mutate({
+              id: finishId,
+              status: "completed",
               reason,
             });
           }
