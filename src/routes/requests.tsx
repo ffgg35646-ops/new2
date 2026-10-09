@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { PaginationControls } from "@/components/PaginationControls";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 import { useAuth } from "@/lib/auth";
 import { LISTING_TYPES, PROPERTY_KINDS, REQUEST_STATUS } from "@/lib/constants";
@@ -69,10 +70,19 @@ function RequestsPage() {
   const search = Route.useSearch();
   const [tab, setTab] = useState<"sent" | "received">(search.tab);
   const [openOfferId, setOpenOfferId] = useState<string | null>(null);
+  const [activeRequestsPage, setActiveRequestsPage] = useState(1);
+  const [historyRequestsPage, setHistoryRequestsPage] = useState(1);
+  const [receivedOffersPage, setReceivedOffersPage] = useState(1);
 
   useEffect(() => {
     setTab(search.tab);
   }, [search.tab]);
+
+  useEffect(() => {
+    setActiveRequestsPage(1);
+    setHistoryRequestsPage(1);
+    setReceivedOffersPage(1);
+  }, [tab, userId]);
 
   const { data: myRequests = [], isLoading } = useQuery({
     queryKey: ["requests-page", userId],
@@ -152,6 +162,13 @@ function RequestsPage() {
 
   const activeSent = myRequests.filter((request) => request.status === "active").length;
   const receivedCount = receivedOffers.length;
+  const pageSize = 6;
+  const receivedPageCount = Math.max(1, Math.ceil(receivedOffers.length / pageSize));
+  const currentReceivedPage = Math.min(receivedOffersPage, receivedPageCount);
+  const visibleReceivedOffers = receivedOffers.slice(
+    (currentReceivedPage - 1) * pageSize,
+    currentReceivedPage * pageSize,
+  );
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
@@ -175,6 +192,18 @@ function RequestsPage() {
           (() => {
             const activeRequests = myRequests.filter((request) => request.status === "active");
             const historyRequests = myRequests.filter((request) => request.status !== "active");
+            const activePageCount = Math.max(1, Math.ceil(activeRequests.length / pageSize));
+            const currentActivePage = Math.min(activeRequestsPage, activePageCount);
+            const visibleActiveRequests = activeRequests.slice(
+              (currentActivePage - 1) * pageSize,
+              currentActivePage * pageSize,
+            );
+            const historyPageCount = Math.max(1, Math.ceil(historyRequests.length / pageSize));
+            const currentHistoryPage = Math.min(historyRequestsPage, historyPageCount);
+            const visibleHistoryRequests = historyRequests.slice(
+              (currentHistoryPage - 1) * pageSize,
+              currentHistoryPage * pageSize,
+            );
 
             if (!myRequests.length) {
               return (
@@ -196,8 +225,8 @@ function RequestsPage() {
                         {activeRequests.length} طلب
                       </span>
                     </div>
-                    <div className="space-y-3">
-                      {activeRequests.map((request) => (
+                    <div className="space-y-2">
+                      {visibleActiveRequests.map((request) => (
                         <RequestCard
                           key={request.id}
                           request={request}
@@ -207,6 +236,12 @@ function RequestsPage() {
                         />
                       ))}
                     </div>
+                    <PaginationControls
+                      page={currentActivePage}
+                      total={activeRequests.length}
+                      pageSize={pageSize}
+                      onPageChange={setActiveRequestsPage}
+                    />
                   </section>
                 )}
 
@@ -223,8 +258,8 @@ function RequestsPage() {
                         {historyRequests.length} طلب
                       </span>
                     </div>
-                    <div className="space-y-3">
-                      {historyRequests.map((request) => (
+                    <div className="space-y-2">
+                      {visibleHistoryRequests.map((request) => (
                         <RequestCard
                           key={request.id}
                           request={request}
@@ -234,14 +269,20 @@ function RequestsPage() {
                         />
                       ))}
                     </div>
+                    <PaginationControls
+                      page={currentHistoryPage}
+                      total={historyRequests.length}
+                      pageSize={pageSize}
+                      onPageChange={setHistoryRequestsPage}
+                    />
                   </section>
                 )}
               </div>
             );
           })()
         ) : receivedOffers.length ? (
-          <div className="space-y-3">
-            {receivedOffers.map((offer) => (
+          <div className="space-y-2">
+            {visibleReceivedOffers.map((offer) => (
               <OfferCard
                 key={offer.id}
                 offer={offer}
@@ -253,6 +294,12 @@ function RequestsPage() {
                 onStatus={(status) => setOfferStatus.mutate({ id: offer.id, status })}
               />
             ))}
+            <PaginationControls
+              page={currentReceivedPage}
+              total={receivedOffers.length}
+              pageSize={pageSize}
+              onPageChange={setReceivedOffersPage}
+            />
           </div>
         ) : (
           <EmptyState
@@ -417,7 +464,7 @@ function OfferCard({
   const canRespond = offer.status === "sent" && offer.requestStatus === "active";
 
   return (
-    <div className="rounded-3xl bg-surface p-4 ring-1 ring-line">
+    <div className="rounded-2xl bg-surface p-3 ring-1 ring-line">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="font-display text-sm font-extrabold">
@@ -451,7 +498,7 @@ function OfferCard({
         </span>
       </div>
 
-      <div className="mt-3 rounded-2xl bg-background p-3 ring-1 ring-line">
+      <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">
         <div className="text-[10px] font-semibold text-muted-foreground">طلبك</div>
         <div className="mt-1 text-sm font-bold">
           {PROPERTY_KINDS.find((k) => k.value === offer.requestKind)?.label ?? "عقار"} ·{" "}
@@ -529,14 +576,14 @@ function OfferCard({
           onClick={(event) => event.stopPropagation()}
           aria-label="واتساب"
           title="واتساب"
-          className="grid size-10 place-items-center rounded-xl bg-sand"
+          className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"
         >
-          <WhatsAppIcon className="size-5" />
+          <WhatsAppIcon className="size-5 text-[#25D366]" />
         </a>
       </div>
 
       {contactOpen && (
-        <div className="mt-3 rounded-2xl bg-background p-3 ring-1 ring-line">
+        <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">
           <div className="text-[10px] font-semibold text-muted-foreground">
             رقم الاتصال الذي أضافه المكتب
           </div>
