@@ -78,6 +78,7 @@ function PropertyDetail() {
   const { userId, profile, session, isOffice } = useAuth();
   const { favoriteIds, toggleFavorite } = useFavorites();
   const [bookingDate, setBookingDate] = useState("");
+  const [bookingTime, setBookingTime] = useState("");
   const [bookingContact, setBookingContact] = useState("");
   const [inquiryType, setInquiryType] = useState<string>(INQUIRY_TYPES[0].value);
   const [inquiryMessage, setInquiryMessage] = useState("");
@@ -243,13 +244,10 @@ function PropertyDetail() {
   const book = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("سجّل الدخول لحجز معاينة");
-      if (!bookingDate) throw new Error("اختر تاريخ ووقت المعاينة");
+      if (!bookingDate || !bookingTime) throw new Error("اختر تاريخ ووقت المعاينة بتوقيت السعودية");
       const contactPhone = (bookingContact || profile?.phone || "").trim();
       if (!contactPhone) throw new Error("أدخل رقم الهاتف أو وسيلة اتصال");
-      const scheduled = saudiAppointmentDateTime(
-        bookingDate.slice(0, 10),
-        bookingDate.slice(11, 16),
-      );
+      const scheduled = saudiAppointmentDateTime(bookingDate, bookingTime);
       if (!Number.isFinite(scheduled.getTime()) || scheduled.getTime() <= Date.now()) {
         throw new Error("اختر موعدًا مستقبليًا");
       }
@@ -269,8 +267,8 @@ function PropertyDetail() {
           property_id: data!.id,
           user_id: userId,
           office_id: data!.office_id,
-          visit_date: bookingDate.slice(0, 10),
-          visit_time: bookingDate.slice(11, 16),
+          visit_date: bookingDate,
+          visit_time: bookingTime,
           status: "pending",
           contact_phone: contactPhone,
           contact_name: contactName,
@@ -293,6 +291,7 @@ function PropertyDetail() {
     onSuccess: () => {
       toast.success("تم إرسال طلب المعاينة للمكتب");
       setBookingDate("");
+      setBookingTime("");
       setBookingContact("");
       void qc.invalidateQueries({ queryKey: ["bookings"] });
     },
@@ -688,13 +687,36 @@ function PropertyDetail() {
           <h2 className="flex items-center gap-2 font-display text-base font-bold">
             <CalendarDays className="size-4 text-terracotta" /> حجز معاينة
           </h2>
-          <input
-            type="datetime-local"
-            value={bookingDate}
-            min={saudiInputDateTime(new Date(Date.now() + 60_000))}
-            onChange={(e) => setBookingDate(e.target.value)}
-            className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
-          />
+          <p className="text-[11px] font-semibold text-forest">
+            الموعد يُحسب بتوقيت السعودية (UTC+3)، وليس حسب توقيت الهاتف.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-xs font-semibold text-muted-foreground">
+              التاريخ السعودي
+              <input
+                type="date"
+                value={bookingDate}
+                min={saudiInputDateTime(new Date(Date.now() + 60_000)).slice(0, 10)}
+                onChange={(e) => setBookingDate(e.target.value)}
+                className="mt-1.5 w-full min-w-0 rounded-2xl bg-sand px-3 py-3 text-sm font-normal text-foreground outline-none focus:ring-2 focus:ring-forest"
+              />
+            </label>
+            <label className="block text-xs font-semibold text-muted-foreground">
+              الساعة السعودية
+              <input
+                type="time"
+                value={bookingTime}
+                min={
+                  bookingDate === saudiInputDateTime(new Date(Date.now() + 60_000)).slice(0, 10)
+                    ? saudiInputDateTime(new Date(Date.now() + 60_000)).slice(11, 16)
+                    : undefined
+                }
+                step={60}
+                onChange={(e) => setBookingTime(e.target.value)}
+                className="mt-1.5 w-full min-w-0 rounded-2xl bg-sand px-3 py-3 text-sm font-normal text-foreground outline-none focus:ring-2 focus:ring-forest"
+              />
+            </label>
+          </div>
           <input
             type="text"
             value={bookingContact || profile?.phone || ""}
