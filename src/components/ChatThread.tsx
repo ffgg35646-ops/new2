@@ -13,7 +13,7 @@ import {
   ShieldOff,
 } from "lucide-react";
 import { toast } from "sonner";
-type RealtimeChannel = { unsubscribe: () => void };
+type RealtimeChannel = { unsubscribe: () => void; track: (payload: Record<string, unknown>) => Promise<"ok"> };
 import { supabase } from "@/integrations/supabase/client";
 import { uploadMedia } from "@/components/MediaUploader";
 import { useAuth } from "@/lib/auth";
