@@ -57,6 +57,9 @@ export const Route = createFileRoute("/api/payment-status")({
 
           const data = (await response.json()) as {
             id?: string;
+            amount?: string | number;
+            currency?: string;
+            merchantTransactionId?: string;
             paymentType?: string;
             paymentBrand?: string;
             result?: { code?: string; description?: string };
@@ -67,6 +70,27 @@ export const Route = createFileRoute("/api/payment-status")({
               { error: data.result?.description || "تعذّر التحقق من نتيجة الدفع لدى HyperPay." },
               { status: 502 },
             );
+          }
+
+          if (
+            data.merchantTransactionId &&
+            String(data.merchantTransactionId) !== String(tx.merchant_transaction_id ?? "")
+          ) {
+            return Response.json({ error: "رقم عملية الدفع لا يطابق الطلب المسجل." }, { status: 502 });
+          }
+          if (data.amount != null) {
+            const gatewayAmount = Number(data.amount);
+            const storedAmount = Number(tx.amount);
+            if (
+              !Number.isFinite(gatewayAmount) ||
+              !Number.isFinite(storedAmount) ||
+              Math.abs(gatewayAmount - storedAmount) >= 0.01
+            ) {
+              return Response.json({ error: "قيمة الدفع لا تطابق قيمة الاشتراك." }, { status: 502 });
+            }
+          }
+          if (data.currency && String(data.currency).toUpperCase() !== String(tx.currency ?? "SAR").toUpperCase()) {
+            return Response.json({ error: "عملة الدفع لا تطابق عملة الاشتراك." }, { status: 502 });
           }
 
           const resultCode = data.result?.code ?? "";
