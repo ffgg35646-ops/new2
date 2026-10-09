@@ -16,6 +16,8 @@ type UserDoc = {
   verification_expires_at?: Date | null;
   verification_sent_count?: number;
   verification_paused_until?: Date | null;
+  verification_attempt_count?: number;
+  verification_attempt_paused_until?: Date | null;
   reset_token_hash?: string | null;
   reset_expires_at?: Date | null;
   created_at: Date;
@@ -89,8 +91,10 @@ function createSession(user: UserDoc): BackendSession {
 async function issueVerificationCode(user: UserDoc) {
   const count = user.verification_sent_count ?? 0;
   const pausedUntil = user.verification_paused_until?.getTime() ?? 0;
+  const attemptPausedUntil = user.verification_attempt_paused_until?.getTime() ?? 0;
   const now = Date.now();
 
+  if (attemptPausedUntil > now) throw new Error("VERIFY_ATTEMPTS_PAUSED");
   if (pausedUntil > now) throw new Error("EMAIL_SEND_PAUSED");
 
   const currentCount = pausedUntil > 0 ? 0 : count;
@@ -183,6 +187,8 @@ export async function registerUser(input: {
     verification_expires_at: null,
     verification_sent_count: 0,
     verification_paused_until: null,
+    verification_attempt_count: 0,
+    verification_attempt_paused_until: null,
     reset_token_hash: null,
     reset_expires_at: null,
     created_at: now,
@@ -199,9 +205,34 @@ export async function verifyEmailCode(email: string, code: string) {
   const user = await users.findOne({ email: normalizeEmail(email) });
 
   if (!user) throw new Error("الحساب غير موجود.");
+
+  const now = Date.now();
+  const attemptPausedUntil = user.verification_attempt_paused_until?.getTime() ?? 0;
+  if (attemptPausedUntil > now) throw new Error("VERIFY_ATTEMPTS_PAUSED");
   if (!user.verification_code_hash || !user.verification_expires_at) throw new Error("لا يوجد رمز تأكيد صالح.");
-  if (user.verification_expires_at.getTime() < Date.now()) throw new Error("رمز التأكيد انتهت صلاحيته.");
-  if (hashCode(code) !== user.verification_code_hash) throw new Error("رمز التأكيد غير صحيح.");
+  if (user.verification_expires_at.getTime() < now) throw new Error("رمز التأكيد انتهت صلاحيته.");
+
+  if (hashCode(code) !== user.verification_code_hash) {
+    await users.updateOne(
+      { _id: user._id },
+      { $inc: { verification_attempt_count: 1 }, $set: { updated_at: new Date() } },
+    );
+    const latest = await users.findOne({ _id: user._id });
+    if ((latest?.verification_attempt_count ?? 0) >= 5) {
+      await users.updateOne(
+        { _id: user._id, verification_attempt_count: { $gte: 5 } },
+        {
+          $set: {
+            verification_attempt_count: 0,
+            verification_attempt_paused_until: new Date(Date.now() + 5 * 60_000),
+            updated_at: new Date(),
+          },
+        },
+      );
+      throw new Error("VERIFY_ATTEMPTS_PAUSED");
+    }
+    throw new Error("رمز التأكيد غير صحيح.");
+  }
 
   await users.updateOne(
     { _id: user._id },
@@ -213,6 +244,8 @@ export async function verifyEmailCode(email: string, code: string) {
         verification_expires_at: null,
         verification_sent_count: 0,
         verification_paused_until: null,
+        verification_attempt_count: 0,
+        verification_attempt_paused_until: null,
         updated_at: new Date(),
       },
     },
