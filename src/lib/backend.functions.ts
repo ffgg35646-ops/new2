@@ -476,6 +476,14 @@ async function authorize(input: DbInput) {
 
 async function runDb(input: DbInput) {
   const { userId, role } = await authorize(input);
+
+  if (
+    input.collection === "office_offers" &&
+    ["update", "upsert", "delete"].includes(input.operation)
+  ) {
+    throw new Error("تعديل حالة العرض أو إنهاؤه يجب أن يتم من خلال إجراءات العرض المخصصة.");
+  }
+
   const collection = await getMongoCollection<Record<string, unknown>>(input.collection);
 
   const filters = [...(input.filters ?? [])];
@@ -1283,8 +1291,14 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: id, error: null };
       }
 
-      if (data.name === "set_property_request_status") {
+      if (
+        data.name === "set_my_property_request_status" ||
+        data.name === "set_property_request_status"
+      ) {
         if (!userId) throw new Error("not_authenticated");
+        if (role !== "individual" && role !== "admin") {
+          throw new Error("only_request_owner_can_change_status");
+        }
 
         const requestId = String(data.args?._request_id ?? "");
         const requestedStatus = String(data.args?._status ?? "");
@@ -1295,82 +1309,72 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
         const request = await requests.findOne({ id: requestId });
-
         if (!request) throw new Error("request_not_found");
 
         const ownerId = String(request.user_id ?? "");
-        let allowed = ownerId === userId;
+        if (role !== "admin" && ownerId !== userId) {
+          throw new Error("not_request_owner");
+        }
+        if (request.status !== "active") throw new Error("request_not_active");
 
-        if (!allowed && role === "office") {
-          const offices = await getMongoCollection<Record<string, unknown>>("offices");
-          const office = await offices.findOne({
-            owner_id: userId,
-            is_deleted: { $ne: true },
+        const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
+
+        if (requestedStatus === "fulfilled") {
+          const offerAwaitingConfirmation = await offers.findOne({
+            request_id: requestId,
+            status: { $in: ["accepted", "awaiting_confirmation"] },
           });
-
-          if (office) {
-            const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
-            const ownOffer = await offers.findOne({
-              request_id: requestId,
-              office_id: office.id,
-            });
-            allowed = !!ownOffer;
+          if (offerAwaitingConfirmation) {
+            throw new Error("offer_completion_confirmation_required");
           }
         }
 
-        if (!allowed) throw new Error("not_request_owner");
-
-        if (requestedStatus === "cancelled" && request.status !== "active") {
-          throw new Error("request_not_active");
-        }
-
-        if (requestedStatus === "fulfilled" && request.status !== "active") {
-          throw new Error("request_not_active");
-        }
-
         const now = new Date();
-
-        await requests.updateOne(
-          { id: requestId },
+        const update = await requests.updateOne(
+          { id: requestId, status: "active", ...(role === "admin" ? {} : { user_id: userId }) },
           {
             $set: {
               status: requestedStatus,
               updated_at: now,
               ...(requestedStatus === "fulfilled" ? { fulfilled_at: now } : {}),
+              ...(requestedStatus === "cancelled" ? { cancelled_at: now } : {}),
             },
           },
         );
 
-        const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
-        const relatedOffers = await offers
-          .find({ request_id: requestId })
+        if (!update.modifiedCount) throw new Error("request_not_active");
+
+        // Once the customer closes their request, remaining offers are ended,
+        // not reported as completed because no transaction confirmation exists.
+        const changedOffers = await offers
+          .find({
+            request_id: requestId,
+            status: { $in: ["sent", "accepted", "awaiting_confirmation"] },
+          })
           .project({ office_id: 1 })
           .toArray();
 
+        await offers.updateMany(
+          {
+            request_id: requestId,
+            status: { $in: ["sent", "accepted", "awaiting_confirmation"] },
+          },
+          { $set: { status: "ended", ended_at: now, updated_at: now } },
+        );
+
         const officeIds = [
           ...new Set(
-            relatedOffers
+            changedOffers
               .map((offer) => String(offer.office_id ?? ""))
               .filter(Boolean),
           ),
         ];
-
         const offices = await getMongoCollection<Record<string, unknown>>("offices");
         const affectedOffices = officeIds.length
-          ? await offices.find({ id: { $in: officeIds } }).project({ id: 1, owner_id: 1, name: 1 }).toArray()
+          ? await offices.find({ id: { $in: officeIds } }).project({ id: 1, owner_id: 1 }).toArray()
           : [];
-
         const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
-        const title =
-          requestedStatus === "fulfilled"
-            ? "تم إكمال الطلب العقاري"
-            : "تم إلغاء الطلب العقاري";
-        const body =
-          requestedStatus === "fulfilled"
-            ? "تم تحديد الطلب العقاري كمكتمل، ولم يعد ظاهرًا في سوق الطلبات."
-            : "تم إلغاء الطلب العقاري، ولم يعد ظاهرًا في سوق الطلبات.";
-
-        const recipientIds = [
+        const recipients = [
           ...new Set(
             affectedOffices
               .map((office) => String(office.owner_id ?? ""))
@@ -1378,34 +1382,22 @@ export const rpcRequest = createServerFn({ method: "POST" })
           ),
         ];
 
-        if (recipientIds.length) {
+        if (recipients.length) {
           await notifications.insertMany(
-            recipientIds.map((recipientId) => ({
+            recipients.map((recipientId) => ({
               id: randomUUID(),
               _id: randomUUID(),
               user_id: recipientId,
-              title,
-              body,
+              title: requestedStatus === "fulfilled" ? "أغلق العميل الطلب كمكتمل" : "ألغى العميل طلبه",
+              body: requestedStatus === "fulfilled"
+                ? "أغلق العميل الطلب. انتهت العروض المفتوحة دون تسجيلها كصفقات مكتملة."
+                : "ألغى العميل الطلب. انتهت العروض المفتوحة المرتبطة به.",
               type: "property_request",
-              link: "/office/requests",
+              link: "/office/requests?tab=sent",
               is_read: false,
               created_at: now,
             })),
           );
-        }
-
-        if (ownerId !== userId) {
-          await notifications.insertOne({
-            id: randomUUID(),
-            _id: randomUUID(),
-            user_id: ownerId,
-            title,
-            body,
-            type: "property_request",
-            link: "/requests",
-            is_read: false,
-            created_at: now,
-          });
         }
 
         return { data: requestedStatus, error: null };
@@ -1594,7 +1586,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
         };
       }
 
-      if (data.name === "respond_property_offer") {
+      if (data.name === "respond_to_property_offer" || data.name === "respond_property_offer") {
         if (!userId) throw new Error("not_authenticated");
         if (role !== "individual") throw new Error("not_individual");
 
@@ -1682,55 +1674,24 @@ export const rpcRequest = createServerFn({ method: "POST" })
         }
 
         if (requestedStatus === "accepted") {
-          await requests.updateOne(
-            { id: request.id, user_id: userId, status: "active" },
-            {
-              $set: {
-                status: "fulfilled",
-                fulfilled_at: now,
-                updated_at: now,
-              },
-            },
-          );
-
-          await offers.updateMany(
-            {
-              request_id: request.id,
-              id: { $ne: offerId },
-              status: "sent",
-            },
-            {
-              $set: {
-                status: "rejected",
-                updated_at: now,
-              },
-            },
-          );
-
           const officeId = String(offer.office_id ?? "");
           if (officeId) {
-            const offices = await getMongoCollection<Record<string, unknown>>(
-              "offices",
-            );
-            const office = await offices.findOne({ id: officeId });
-
+            const office = await getMongoCollection<Record<string, unknown>>("offices")
+              .then((collection) => collection.findOne({ id: officeId }));
             if (office?.owner_id) {
-              const notifications =
-                await getMongoCollection<Record<string, unknown>>(
-                  "notifications",
-                );
-
-              await notifications.insertOne({
-                id: randomUUID(),
-                _id: randomUUID(),
-                user_id: String(office.owner_id),
-                title: "تم قبول عرضك",
-                body: "تم قبول عرض مكتبك على الطلب العقاري وإغلاق الطلب كمكتمل.",
-                type: "property_request",
-                link: "/office/requests",
-                is_read: false,
-                created_at: now,
-              });
+              await getMongoCollection<Record<string, unknown>>("notifications").then((notifications) =>
+                notifications.insertOne({
+                  id: randomUUID(),
+                  _id: randomUUID(),
+                  user_id: String(office.owner_id),
+                  title: "تم قبول عرضك",
+                  body: "قبل العميل عرضك. القبول لا يعني اكتمال الصفقة؛ سيظهر تأكيد الإتمام بعد أن يبلّغ المكتب بإتمامها.",
+                  type: "property_offer_response",
+                  link: "/office/requests?tab=sent",
+                  is_read: false,
+                  created_at: now,
+                }),
+              );
             }
           }
         }
@@ -2468,86 +2429,244 @@ export const rpcRequest = createServerFn({ method: "POST" })
         };
       }
 
-      if (data.name === "set_office_offer_status") {
+      if (data.name === "office_request_offer_completion") {
         if (!userId || role !== "office") throw new Error("not_office_member");
 
         const offerId = String(data.args?._offer_id ?? "");
-        const requestedStatus = String(data.args?._status ?? "");
-
-        if (!offerId || !["completed", "deleted"].includes(requestedStatus)) {
-          throw new Error("invalid_offer_status");
-        }
+        if (!offerId) throw new Error("offer_not_found");
 
         const offices = await getMongoCollection<Record<string, unknown>>("offices");
-        const office = await offices.findOne({
-          owner_id: userId,
-          is_deleted: { $ne: true },
-        });
+        const office = await offices.findOne({ owner_id: userId, is_deleted: { $ne: true } });
         if (!office) throw new Error("office_not_found");
 
         const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
-        const offer = await offers.findOne({
-          id: offerId,
-          office_id: office.id,
-        });
+        const offer = await offers.findOne({ id: offerId, office_id: office.id });
         if (!offer) throw new Error("offer_not_found");
-
-        const requestId = String(offer.request_id ?? "");
-        const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
-        const request = requestId
-          ? await requests.findOne({ id: requestId })
-          : null;
-
-        if (requestedStatus === "deleted") {
-          await offers.deleteOne({ id: offerId, office_id: office.id });
-          return { data: "deleted", error: null };
+        if (!["sent", "accepted"].includes(String(offer.status))) {
+          throw new Error("offer_cannot_request_completion");
         }
 
-        if (!request) throw new Error("request_not_found");
-        if (request.status !== "active") throw new Error("request_not_active");
+        const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
+        const request = await requests.findOne({ id: String(offer.request_id ?? ""), status: "active" });
+        if (!request) throw new Error("request_not_active");
 
         const now = new Date();
+        const changed = await offers.updateOne(
+          { id: offerId, office_id: office.id, status: { $in: ["sent", "accepted"] } },
+          { $set: { status: "awaiting_confirmation", completion_requested_at: now, updated_at: now } },
+        );
+        if (!changed.modifiedCount) throw new Error("offer_status_changed");
 
+        const requestOwner = String(request.user_id ?? "");
+        if (requestOwner) {
+          await getMongoCollection<Record<string, unknown>>("notifications").then((notifications) =>
+            notifications.insertOne({
+              id: randomUUID(),
+              _id: randomUUID(),
+              user_id: requestOwner,
+              title: "تأكيد إتمام الصفقة",
+              body: String(office.name ?? "المكتب العقاري") +
+                " أبلغك بإتمام الصفقة. راجع العرض ثم أكّد الإتمام إذا تمت الصفقة فعلًا.",
+              type: "property_offer_completion",
+              link: "/requests?tab=received",
+              is_read: false,
+              created_at: now,
+            }),
+          );
+        }
+
+        return { data: "awaiting_confirmation", error: null };
+      }
+
+      if (data.name === "office_end_offer") {
+        if (!userId || role !== "office") throw new Error("not_office_member");
+
+        const offerId = String(data.args?._offer_id ?? "");
+        if (!offerId) throw new Error("offer_not_found");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({ owner_id: userId, is_deleted: { $ne: true } });
+        if (!office) throw new Error("office_not_found");
+
+        const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
+        const offer = await offers.findOne({ id: offerId, office_id: office.id });
+        if (!offer) throw new Error("offer_not_found");
+        if (!["sent", "accepted", "awaiting_confirmation"].includes(String(offer.status))) {
+          throw new Error("offer_cannot_be_ended");
+        }
+
+        const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
+        const request = await requests.findOne({ id: String(offer.request_id ?? "") });
+        if (!request) throw new Error("request_not_found");
+
+        const now = new Date();
+        const changed = await offers.updateOne(
+          { id: offerId, office_id: office.id, status: { $in: ["sent", "accepted", "awaiting_confirmation"] } },
+          { $set: { status: "ended", ended_at: now, updated_at: now } },
+        );
+        if (!changed.modifiedCount) throw new Error("offer_status_changed");
+
+        const requestOwner = String(request.user_id ?? "");
+        if (requestOwner) {
+          await getMongoCollection<Record<string, unknown>>("notifications").then((notifications) =>
+            notifications.insertOne({
+              id: randomUUID(),
+              _id: randomUUID(),
+              user_id: requestOwner,
+              title: "انتهى عرض المكتب",
+              body: String(office.name ?? "المكتب العقاري") +
+                " أنهى عرضه. لم تُسجّل الصفقة كمكتملة لعدم وجود تأكيد من الطرفين.",
+              type: "property_offer_ended",
+              link: "/requests?tab=received",
+              is_read: false,
+              created_at: now,
+            }),
+          );
+        }
+
+        return { data: "ended", error: null };
+      }
+
+      if (data.name === "office_edit_offer") {
+        if (!userId || role !== "office") throw new Error("not_office_member");
+
+        const offerId = String(data.args?._offer_id ?? "");
+        const message = String(data.args?._message ?? "").trim();
+        const rawPrice = data.args?._price;
+        const price = rawPrice == null || String(rawPrice).trim() === "" ? null : Number(rawPrice);
+
+        if (!offerId) throw new Error("offer_not_found");
+        if (message.length < 5 || message.length > 5000) throw new Error("invalid_offer_message");
+        if (price != null && (!Number.isFinite(price) || price < 0)) throw new Error("invalid_offer_price");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({ owner_id: userId, is_deleted: { $ne: true } });
+        if (!office) throw new Error("office_not_found");
+
+        const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
+        const offer = await offers.findOne({ id: offerId, office_id: office.id });
+        if (!offer) throw new Error("offer_not_found");
+        if (offer.status !== "sent") throw new Error("offer_terms_locked");
+
+        const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
+        const request = await requests.findOne({ id: String(offer.request_id ?? ""), status: "active" });
+        if (!request) throw new Error("request_not_active");
+
+        const now = new Date();
         await offers.updateOne(
-          { id: offerId, office_id: office.id },
-          {
-            $set: {
-              status: "completed",
-              completed_at: now,
-              updated_at: now,
-            },
-          },
+          { id: offerId, office_id: office.id, status: "sent" },
+          { $set: { message, price, updated_at: now } },
         );
 
-        await requests.updateOne(
-          { id: requestId, status: "active" },
+        return { data: { id: offerId, message, price }, error: null };
+      }
+
+      if (data.name === "confirm_property_offer_completion") {
+        if (!userId || role !== "individual") throw new Error("not_individual");
+
+        const offerId = String(data.args?._offer_id ?? "");
+        if (!offerId) throw new Error("offer_not_found");
+
+        const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
+        const offer = await offers.findOne({ id: offerId, status: "awaiting_confirmation" });
+        if (!offer) throw new Error("offer_not_awaiting_confirmation");
+
+        const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
+        const request = await requests.findOne({
+          id: String(offer.request_id ?? ""),
+          user_id: userId,
+          status: "active",
+        });
+        if (!request) throw new Error("request_not_active");
+
+        const now = new Date();
+        const completed = await offers.updateOne(
+          { id: offerId, status: "awaiting_confirmation" },
+          { $set: { status: "completed", completed_at: now, updated_at: now } },
+        );
+        if (!completed.modifiedCount) throw new Error("offer_status_changed");
+
+        const closed = await requests.updateOne(
+          { id: String(request.id), user_id: userId, status: "active" },
+          { $set: { status: "fulfilled", fulfilled_at: now, updated_at: now } },
+        );
+        if (!closed.modifiedCount) throw new Error("request_not_active");
+
+        const remainingOffers = await offers
+          .find({
+            request_id: String(request.id),
+            id: { $ne: offerId },
+            status: { $in: ["sent", "accepted", "awaiting_confirmation"] },
+          })
+          .project({ office_id: 1 })
+          .toArray();
+
+        await offers.updateMany(
           {
-            $set: {
-              status: "fulfilled",
-              fulfilled_at: now,
-              updated_at: now,
-            },
+            request_id: String(request.id),
+            id: { $ne: offerId },
+            status: { $in: ["sent", "accepted", "awaiting_confirmation"] },
           },
+          { $set: { status: "ended", ended_at: now, updated_at: now } },
         );
 
-        const ownerId = String(request.user_id ?? "");
-        if (ownerId && ownerId !== userId) {
-          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+        const officeIds = [
+          ...new Set(remainingOffers.map((item) => String(item.office_id ?? "")).filter(Boolean)),
+          String(offer.office_id ?? ""),
+        ].filter(Boolean);
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const affectedOffices = await offices
+          .find({ id: { $in: officeIds } })
+          .project({ id: 1, owner_id: 1 })
+          .toArray();
+        const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
+
+        for (const affectedOffice of affectedOffices) {
+          const recipientId = String(affectedOffice.owner_id ?? "");
+          if (!recipientId) continue;
+          const isWinningOffice = String(affectedOffice.id) === String(offer.office_id);
+          await notifications.insertOne({
             id: randomUUID(),
             _id: randomUUID(),
-            user_id: ownerId,
-            title: "تم إكمال الطلب العقاري",
-            body:
-              String(office.name ?? "المكتب العقاري") +
-              " حدّد الطلب الذي رد عليه كمكتمل، ولم يعد ظاهرًا في سوق الطلبات.",
-            type: "property_request",
-            link: "/requests?tab=sent&request=" + encodeURIComponent(requestId),
+            user_id: recipientId,
+            title: isWinningOffice ? "أكد العميل إتمام الصفقة" : "أُغلق طلب العميل",
+            body: isWinningOffice
+              ? "أكد العميل إتمام الصفقة؛ تم تسجيل عرضك والطلب كمكتمل."
+              : "أكمل العميل الطلب من خلال عرض آخر. تم إنهاء عرضك دون اعتباره صفقة مكتملة.",
+            type: "property_offer_completed",
+            link: "/office/requests?tab=sent",
             is_read: false,
             created_at: now,
           });
         }
 
         return { data: "completed", error: null };
+      }
+
+      if (data.name === "set_office_offer_status") {
+        if (!userId || role !== "office") throw new Error("not_office_member");
+
+        const offerId = String(data.args?._offer_id ?? "");
+        const requestedStatus = String(data.args?._status ?? "");
+        if (!offerId || !["completed", "deleted"].includes(requestedStatus)) {
+          throw new Error("invalid_offer_status");
+        }
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({ owner_id: userId, is_deleted: { $ne: true } });
+        if (!office) throw new Error("office_not_found");
+
+        const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
+        const offer = await offers.findOne({ id: offerId, office_id: office.id });
+        if (!offer) throw new Error("offer_not_found");
+
+        if (requestedStatus === "completed") {
+          throw new Error("لا يمكن تسجيل العرض كمكتمل قبل تأكيد الفردي. استخدم إبلاغ بإتمام الصفقة.");
+        }
+
+        // Keep the old delete action for compatibility with older clients.
+        await offers.deleteOne({ id: offerId, office_id: office.id });
+        return { data: "deleted", error: null };
       }
 
       if (data.name === "notify_new_property_offer") {
