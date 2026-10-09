@@ -484,6 +484,12 @@ async function runDb(input: DbInput) {
     throw new Error("تعديل حالة العرض أو إنهاؤه يجب أن يتم من خلال إجراءات العرض المخصصة.");
   }
 
+  if (input.collection === "property_inquiries" &&
+      ["update", "upsert", "delete"].includes(input.operation) &&
+      role !== "admin") {
+    throw new Error("قبول أو رفض طلب التواصل يجب أن يتم من الإجراء المخصص.");
+  }
+
   if (input.collection === "property_requests") {
     if (input.operation === "update") {
       const payload = (input.payload ?? {}) as Record<string, unknown>;
@@ -2093,8 +2099,18 @@ export const rpcRequest = createServerFn({ method: "POST" })
           throw new Error("invalid_booking_status");
         }
 
-        if (requestedStatus === "cancelled" && (cancelReason.length < 3 || cancelReason.length > 500)) {
-          throw new Error("cancel_reason_required");
+        if (
+          ["cancelled", "rejected"].includes(requestedStatus) &&
+          (cancelReason.length < 3 || cancelReason.length > 500)
+        ) {
+          throw new Error(requestedStatus === "rejected" ? "rejection_reason_required" : "cancel_reason_required");
+        }
+
+        if (
+          requestedStatus === "completed" &&
+          (cancelReason.length < 3 || cancelReason.length > 500)
+        ) {
+          throw new Error("completion_reason_required");
         }
 
         const bookings = await getMongoCollection<Record<string, unknown>>("viewing_bookings");
@@ -2161,14 +2177,6 @@ export const rpcRequest = createServerFn({ method: "POST" })
         }
 
         if (
-          requestedStatus === "completed" &&
-          !isOfficeOwner &&
-          (cancelReason.length < 3 || cancelReason.length > 500)
-        ) {
-          throw new Error("completion_reason_required");
-        }
-
-        if (
           requestedStatus === "cancelled" &&
           !["pending", "accepted"].includes(currentStatus)
         ) {
@@ -2194,17 +2202,15 @@ export const rpcRequest = createServerFn({ method: "POST" })
               status: requestedStatus,
               ...(requestedStatus === "cancelled"
                 ? { cancel_reason: cancelReason, cancelled_at: now }
-                : requestedStatus === "completed"
-                  ? {
-                      completed_at: now,
-                      ...(isOfficeOwner
-                        ? {}
-                        : {
-                            completed_by: userId,
-                            completion_reason: cancelReason,
-                          }),
-                    }
-                  : {}),
+                : requestedStatus === "rejected"
+                  ? { cancel_reason: cancelReason, rejected_at: now, rejected_by: userId }
+                  : requestedStatus === "completed"
+                    ? {
+                        completed_at: now,
+                        completed_by: userId,
+                        completion_reason: cancelReason,
+                      }
+                    : {}),
               updated_at: now,
             },
           },
@@ -2238,23 +2244,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
         let body: string;
         let notificationRecipients: string[];
 
-        if (requestedStatus === "completed" && !isOfficeOwner) {
-          title = "العميل أنهى المعاينة";
-          body =
-            clientName +
-            " أنهى معاينة " +
-            propertyLabel +
-            " · الساعة " +
-            String(booking.visit_time ?? "").slice(0, 5) +
-            " · السبب: " +
-            cancelReason;
-          notificationRecipients = [
-            String(
-              bookingOffice?.owner_id ??
-                bookingOffice?.user_id ??
-                "",
-            ),
-          ];
+        if (requestedStatus === "completed") {
+          title = "تم إنهاء المعاينة من " + actorLabel;
+          body = baseBody + " · سبب إنهاء المعاينة: " + cancelReason;
+          notificationRecipients = [recipientId];
         } else {
           title =
             requestedStatus === "cancelled"
@@ -2263,13 +2256,13 @@ export const rpcRequest = createServerFn({ method: "POST" })
                 ? "تم قبول حجز المعاينة"
                 : requestedStatus === "rejected"
                   ? "تم رفض حجز المعاينة"
-                  : "المعاينة انتهت";
+                  : "تم تحديث حجز المعاينة";
 
           body =
             requestedStatus === "cancelled"
               ? baseBody + " · سبب الإلغاء: " + cancelReason
-              : requestedStatus === "completed"
-                ? baseBody + " · تم تسجيل المعاينة كمنتهية."
+              : requestedStatus === "rejected"
+                ? baseBody + " · سبب الرفض: " + cancelReason
                 : baseBody;
 
           notificationRecipients = [recipientId];
@@ -2307,6 +2300,65 @@ export const rpcRequest = createServerFn({ method: "POST" })
           } catch (notificationError) {
             console.error("[viewing-booking-notifications]", notificationError);
           }
+        }
+
+        return { data: requestedStatus, error: null };
+      }
+
+      if (data.name === "set_property_inquiry_status") {
+        if (!userId || role !== "office") throw new Error("not_office_member");
+
+        const inquiryId = String(data.args?._inquiry_id ?? "");
+        const requestedStatus = String(data.args?._status ?? "");
+
+        if (!inquiryId || !["accepted", "rejected"].includes(requestedStatus)) {
+          throw new Error("invalid_inquiry_status");
+        }
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({ owner_id: userId, is_deleted: { $ne: true } });
+        if (!office) throw new Error("office_not_found");
+
+        const inquiries = await getMongoCollection<Record<string, unknown>>("property_inquiries");
+        const inquiry = await inquiries.findOne({ id: inquiryId, office_id: office.id });
+        if (!inquiry) throw new Error("inquiry_not_found");
+        if (String(inquiry.status ?? "new") !== "new") throw new Error("inquiry_already_handled");
+
+        const now = new Date();
+        const updated = await inquiries.updateOne(
+          { id: inquiryId, office_id: office.id, status: "new" },
+          {
+            $set: {
+              status: requestedStatus,
+              responded_by: userId,
+              responded_at: now,
+              updated_at: now,
+            },
+          },
+        );
+        if (!updated.modifiedCount) throw new Error("inquiry_already_handled");
+
+        const customerId = String(inquiry.user_id ?? "");
+        if (customerId) {
+          const properties = await getMongoCollection<Record<string, unknown>>("properties");
+          const property = await properties.findOne({ id: String(inquiry.property_id ?? "") });
+          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: customerId,
+            title: requestedStatus === "accepted" ? "تم قبول طلب التواصل" : "تم رفض طلب التواصل",
+            body:
+              String(office.name ?? "المكتب العقاري") +
+              (requestedStatus === "accepted"
+                ? " وافق على طلب تواصلك"
+                : " لم يتمكن من قبول طلب تواصلك") +
+              (property?.title ? " بخصوص " + String(property.title) : " بخصوص العقار"),
+            type: "property_inquiry_response",
+            link: "/properties/" + encodeURIComponent(String(inquiry.property_id ?? "")),
+            is_read: false,
+            created_at: now,
+            inquiry_id: inquiryId,
+          });
         }
 
         return { data: requestedStatus, error: null };
