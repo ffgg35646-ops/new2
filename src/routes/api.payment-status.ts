@@ -186,7 +186,7 @@ export const Route = createFileRoute("/api/payment-status")({
                       _id: randomUUID(),
                       user_id: String(office.owner_id),
                       title: "تم تفعيل الباقة الاحترافية",
-                      body: `تم تفعيل باقة Pro لمدة 30 يومًا. تنتهي في ${expiresAt.toLocaleDateString("ar-SA")}.`,
+                      body: `تم تفعيل باقة Pro لمدة 30 يومًا. تنتهي في ${expiresAt.toLocaleDateString("ar-SA", { timeZone: "Asia/Riyadh" })}.`,
                       type: "pro_activated",
                       link: "/office/subscription",
                       is_read: false,
