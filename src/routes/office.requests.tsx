@@ -11,6 +11,7 @@ import {
   Clock3,
   Loader2,
   MapPin,
+  Pencil,
   Phone,
   Ruler,
   Send,
@@ -1079,35 +1080,60 @@ function SentOffers({ officeId }: { officeId: string | null }) {
 function MarketOfferActions({
   offerId,
   offerStatus,
+  offerMessage,
+  offerPrice,
   onChanged,
 }: {
   offerId: string | null;
   offerStatus: string;
+  offerMessage: string;
+  offerPrice: number | null;
   onChanged: () => void;
 }) {
   const [pending, setPending] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [message, setMessage] = useState(offerMessage);
+  const [price, setPrice] = useState(offerPrice == null ? "" : String(offerPrice));
 
-  async function changeOffer(action: "request_completion" | "end") {
+  async function changeOffer(action: "request_completion" | "end" | "edit") {
     if (!offerId) {
       toast.error("تعذّر العثور على العرض");
       return;
     }
 
+    if (action === "edit" && message.trim().length < 5) {
+      toast.error("اكتب تفاصيل العرض (5 أحرف على الأقل)");
+      return;
+    }
+
     setPending(true);
     try {
-      const { error } = await supabase.rpc(
-        (action === "request_completion"
+      const rpcName =
+        action === "request_completion"
           ? "office_request_offer_completion"
-          : "office_end_offer") as never,
-        { _offer_id: offerId } as never,
-      );
+          : action === "end"
+            ? "office_end_offer"
+            : "office_edit_offer";
+      const args =
+        action === "edit"
+          ? {
+              _offer_id: offerId,
+              _message: message.trim(),
+              _price: price.trim() ? Number(price) : null,
+            }
+          : { _offer_id: offerId };
+
+      const { error } = await supabase.rpc(rpcName as never, args as never);
       if (error) throw error;
 
       toast.success(
         action === "request_completion"
           ? "تم إرسال طلب تأكيد إتمام الصفقة للعميل"
-          : "تم إنهاء العرض دون تسجيل الصفقة كمكتملة",
+          : action === "end"
+            ? "تم إنهاء العرض دون تسجيل الصفقة كمكتملة"
+            : "تم تعديل العرض",
       );
+      setEditing(false);
       onChanged();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذّر تحديث العرض");
@@ -1155,6 +1181,61 @@ function MarketOfferActions({
       <div className="rounded-xl bg-forest-soft py-2 text-center text-xs font-semibold text-forest">
         {offerStatus === "accepted" ? "قبل العميل العرض" : "تم إرسال عرضك"}
       </div>
+
+      {offerStatus === "sent" && (
+        editing ? (
+          <div className="space-y-2 rounded-xl bg-background p-3 ring-1 ring-line">
+            <label className="block text-xs font-bold">تعديل تفاصيل العرض</label>
+            <textarea
+              rows={3}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="اكتب تفاصيل العرض"
+              className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+            />
+            <input
+              type="number"
+              min="0"
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+              placeholder="السعر المقترح (اختياري)"
+              className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => void changeOffer("edit")}
+                disabled={pending}
+                className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+              >
+                حفظ التعديل
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMessage(offerMessage);
+                  setPrice(offerPrice == null ? "" : String(offerPrice));
+                  setEditing(false);
+                }}
+                disabled={pending}
+                className="rounded-xl bg-sand py-2.5 text-xs font-bold text-foreground disabled:opacity-50"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            disabled={pending}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-sand py-2.5 text-[11px] font-bold text-foreground disabled:opacity-50"
+          >
+            <Pencil className="size-4" /> تعديل العرض
+          </button>
+        )
+      )}
+
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
@@ -1223,17 +1304,24 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
 
       const { data: ownOffers, error: offersError } = await supabase
         .from("office_offers")
-        .select("id,request_id,status,created_at")
+        .select("id,request_id,status,created_at,message,price")
         .eq("office_id", officeId!)
         .order("created_at", { ascending: false });
       if (offersError) throw offersError;
 
-      const latestOfferByRequest = new Map<string, { id: string; status: string }>();
+      const latestOfferByRequest = new Map<string, {
+        id: string;
+        status: string;
+        message: string | null;
+        price: number | null;
+      }>();
       for (const offer of ownOffers ?? []) {
         if (!latestOfferByRequest.has(offer.request_id)) {
           latestOfferByRequest.set(offer.request_id, {
             id: offer.id,
             status: offer.status,
+            message: typeof offer.message === "string" ? offer.message : null,
+            price: offer.price == null ? null : Number(offer.price),
           });
         }
       }
@@ -1244,6 +1332,8 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
           return {
             ...request,
             offer_status: request.offer_sent ? "sent" : null,
+            offer_message: null,
+            offer_price: null,
           };
         }
 
@@ -1262,6 +1352,8 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
           offer_sent: offerStillTracked,
           offer_id: offerStillTracked ? latestOffer.id : null,
           offer_status: offerStillTracked ? latestOffer.status : null,
+          offer_message: offerStillTracked ? latestOffer.message : null,
+          offer_price: offerStillTracked ? latestOffer.price : null,
         };
       });
     },
@@ -1385,6 +1477,8 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               <MarketOfferActions
                 offerId={r.offer_id}
                 offerStatus={r.offer_status ?? "sent"}
+                offerMessage={r.offer_message ?? ""}
+                offerPrice={r.offer_price ?? null}
                 onChanged={() => {
                   void qc.invalidateQueries({ queryKey: ["open-requests"] });
                   void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
