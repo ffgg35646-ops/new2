@@ -55,8 +55,9 @@ function PlansPage() {
             {catalog.map((pkg) => {
               const current = currentPackage?.id === pkg.id;
               const packageIsPaid = pkg.code === "pro" || Number(pkg.price ?? 0) > 0;
-              const displayedPropertyLimit =
-                pkg.property_limit ?? (packageIsPaid ? null : FREE_PROPERTY_LIMIT);
+              const displayedPropertyLimit = packageIsPaid
+                ? pkg.property_limit ?? null
+                : FREE_PROPERTY_LIMIT;
 
               return (
                 <section
