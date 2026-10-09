@@ -32,7 +32,23 @@ type RequestRow = {
   office_offers?: OfferRow[] | null;
   accepted_offer_id?: string | null;
   accepted_office_id?: string | null;
+  completed_offer_id?: string | null;
+  completed_office_id?: string | null;
+  attachment_url?: string | null;
   end_reason?: string | null;
+};
+
+type IndividualInquiry = {
+  id: string;
+  property_id: string;
+  office_id: string;
+  type: string;
+  status: string;
+  created_at: string;
+  message: string | null;
+  contact_phone: string | null;
+  property: { title: string | null; property_number: string | null } | null;
+  office: { id: string; name: string | null; phone: string | null; whatsapp: string | null } | null;
 };
 
 type OfferRow = {
@@ -53,7 +69,7 @@ type OfferRow = {
 
 export const Route = createFileRoute("/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: search.tab === "received" ? "received" : "sent",
+    tab: search.tab === "sent" ? "sent" : "received",
     request: typeof search.request === "string" ? search.request : undefined,
     offer: typeof search.offer === "string" ? search.offer : undefined,
   }),
@@ -128,6 +144,70 @@ function RequestsPage() {
     [myRequests],
   );
 
+  const { data: personalInquiries = [] } = useQuery<IndividualInquiry[]>({
+    queryKey: ["individual-property-inquiries", userId],
+    enabled: !!userId,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("property_inquiries")
+        .select("id,property_id,office_id,type,status,created_at,message,contact_phone")
+        .eq("user_id", userId!)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      if (!rows?.length) return [];
+
+      const propertyIds = [...new Set(rows.map((row: any) => String(row.property_id ?? "")).filter(Boolean))];
+      const officeIds = [...new Set(rows.map((row: any) => String(row.office_id ?? "")).filter(Boolean))];
+      const [propertyResult, officeResult] = await Promise.all([
+        propertyIds.length
+          ? supabase.from("properties").select("id,title,property_number").in("id", propertyIds)
+          : Promise.resolve({ data: [], error: null }),
+        officeIds.length
+          ? supabase.from("offices").select("id,name,phone,whatsapp").in("id", officeIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (propertyResult.error) throw propertyResult.error;
+      if (officeResult.error) throw officeResult.error;
+
+      const propertiesById = new Map((propertyResult.data ?? []).map((row: any) => [String(row.id), row]));
+      const officesById = new Map((officeResult.data ?? []).map((row: any) => [String(row.id), row]));
+      return rows.map((row: any) => ({
+        id: String(row.id),
+        property_id: String(row.property_id ?? ""),
+        office_id: String(row.office_id ?? ""),
+        type: String(row.type ?? "question"),
+        status: String(row.status ?? "new"),
+        created_at: String(row.created_at ?? ""),
+        message: row.message == null ? null : String(row.message),
+        contact_phone: row.contact_phone == null ? null : String(row.contact_phone),
+        property: propertiesById.get(String(row.property_id ?? "")) as IndividualInquiry["property"] ?? null,
+        office: officesById.get(String(row.office_id ?? "")) as IndividualInquiry["office"] ?? null,
+      })) as IndividualInquiry[];
+    },
+  });
+
+  const acceptedMarketRequests = useMemo(
+    () => myRequests.filter((request) =>
+      !!request.accepted_offer_id && ["active", "fulfilled"].includes(request.status),
+    ),
+    [myRequests],
+  );
+  const acceptedPersonalInquiries = useMemo(
+    () => personalInquiries.filter((inquiry) => inquiry.status === "accepted"),
+    [personalInquiries],
+  );
+  const acceptedMarketRequestIds = useMemo(
+    () => new Set(acceptedMarketRequests.map((request) => request.id)),
+    [acceptedMarketRequests],
+  );
+  const displayedReceivedOffers = useMemo(
+    () => receivedOffers.filter((offer) => !acceptedMarketRequestIds.has(offer.requestId)),
+    [receivedOffers, acceptedMarketRequestIds],
+  );
+
   useEffect(() => {
     if (!myRequests.length) return;
     const targetId = search.offer ? "offer-card-" + search.offer : search.request ? "request-card-" + search.request : null;
@@ -195,11 +275,11 @@ function RequestsPage() {
   });
 
   const activeSent = myRequests.filter((request) => request.status === "active").length;
-  const receivedCount = receivedOffers.length;
+  const receivedCount = displayedReceivedOffers.length;
   const pageSize = 6;
-  const receivedPageCount = Math.max(1, Math.ceil(receivedOffers.length / pageSize));
+  const receivedPageCount = Math.max(1, Math.ceil(displayedReceivedOffers.length / pageSize));
   const currentReceivedPage = Math.min(receivedOffersPage, receivedPageCount);
-  const visibleReceivedOffers = receivedOffers.slice(
+  const visibleReceivedOffers = displayedReceivedOffers.slice(
     (currentReceivedPage - 1) * pageSize,
     currentReceivedPage * pageSize,
   );
@@ -223,6 +303,14 @@ function RequestsPage() {
           </p>
         </div>
 
+        <AcceptedPrioritySection
+          requests={acceptedMarketRequests}
+          inquiries={acceptedPersonalInquiries}
+          pending={endRequest.isPending || completeRequest.isPending}
+          onEndRequest={(id) => setEndRequestId(id)}
+          onCompleteRequest={(id) => { setCompletionRequestId(id); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
+        />
+
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
           <Tab active={tab === "sent"} label="المرسلة" count={activeSent} onClick={() => setTab("sent")} />
           <Tab active={tab === "received"} label="مستلم" count={receivedCount} onClick={() => setTab("received")} />
@@ -232,8 +320,12 @@ function RequestsPage() {
           <ListSkeleton />
         ) : tab === "sent" ? (
           (() => {
-            const activeRequests = myRequests.filter((request) => request.status === "active");
-            const historyRequests = myRequests.filter((request) => request.status !== "active");
+            const activeRequests = myRequests.filter((request) =>
+              request.status === "active" && !request.accepted_offer_id,
+            );
+            const historyRequests = myRequests.filter((request) =>
+              request.status !== "active" && !request.accepted_offer_id,
+            );
             const activePageCount = Math.max(1, Math.ceil(activeRequests.length / pageSize));
             const currentActivePage = Math.min(activeRequestsPage, activePageCount);
             const visibleActiveRequests = activeRequests.slice(
@@ -322,8 +414,12 @@ function RequestsPage() {
               </div>
             );
           })()
-        ) : receivedOffers.length ? (
-          <div className="space-y-2">
+        ) : displayedReceivedOffers.length ? (
+          <section className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-display text-sm font-extrabold">طلبات مستلمة</h2>
+              <span className="min-w-6 rounded-full bg-terracotta-soft px-2 py-1 text-center text-[10px] font-extrabold text-terracotta">{displayedReceivedOffers.length}</span>
+            </div>
             {visibleReceivedOffers.map((offer) => (
               <OfferCard
                 key={offer.id}
@@ -341,11 +437,11 @@ function RequestsPage() {
             ))}
             <PaginationControls
               page={currentReceivedPage}
-              total={receivedOffers.length}
+              total={displayedReceivedOffers.length}
               pageSize={pageSize}
               onPageChange={setReceivedOffersPage}
             />
-          </div>
+          </section>
         ) : (
           <EmptyState
             icon={ClipboardList}
@@ -405,6 +501,159 @@ function RequestsPage() {
 
       <BottomNav />
     </div>
+  );
+}
+
+function AcceptedPrioritySection({
+  requests,
+  inquiries,
+  pending,
+  onEndRequest,
+  onCompleteRequest,
+}: {
+  requests: RequestRow[];
+  inquiries: IndividualInquiry[];
+  pending: boolean;
+  onEndRequest: (id: string) => void;
+  onCompleteRequest: (id: string) => void;
+}) {
+  const total = requests.length + inquiries.length;
+  return (
+    <section className="space-y-2" aria-label="طلبات مقبولة">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-display text-sm font-extrabold">طلبات مقبولة</h2>
+        <span className="min-w-6 rounded-full bg-forest-soft px-2 py-1 text-center text-[10px] font-extrabold text-forest">{total}</span>
+      </div>
+
+      {!total && (
+        <div className="rounded-2xl bg-surface p-3 text-xs leading-6 text-muted-foreground ring-1 ring-line">
+          ستظهر هنا طلبات السوق التي وافقت على عرض مكتب، وطلبات التواصل على العقارات التي وافق عليها المكتب.
+        </div>
+      )}
+
+      {requests.map((request) => {
+        const isCompleted = request.status === "fulfilled";
+        const selectedOfferId = isCompleted
+          ? request.completed_offer_id || request.accepted_offer_id
+          : request.accepted_offer_id;
+        const offer = (request.office_offers ?? []).find((item) => item.id === selectedOfferId)
+          ?? (request.office_offers ?? []).find((item) => item.id === request.accepted_offer_id);
+        const office = offer?.offices;
+        const phone = String(office?.phone ?? "").trim();
+        const whatsapp = String(office?.whatsapp ?? office?.phone ?? "").trim();
+        return (
+          <article key={request.id} id={"accepted-request-card-" + request.id}
+            className="space-y-3 rounded-2xl bg-surface p-3 ring-2 ring-forest/20">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-display text-sm font-extrabold">
+                  {PROPERTY_KINDS.find((kind) => kind.value === request.kind)?.label ?? "عقار"} · {LISTING_TYPES.find((type) => type.value === request.listing)?.label ?? "طلب عقاري"}
+                </h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">{formatDate(request.created_at)}</p>
+              </div>
+              <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
+                isCompleted ? "bg-forest text-background" : "bg-forest-soft text-forest")}>
+                {isCompleted ? "تم اكتمال الطلب" : "تم قبول العرض"}
+              </span>
+            </div>
+
+            {request.attachment_url && (
+              <img src={request.attachment_url} alt="صورة الطلب" loading="lazy"
+                className="max-h-64 w-full rounded-xl object-cover" />
+            )}
+
+            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
+              <div className="text-[10px] font-semibold text-muted-foreground">تفاصيل الطلب</div>
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{request.description || "لا يوجد وصف إضافي."}</p>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-surface p-2">
+                  <div className="text-[10px] text-muted-foreground">الحي</div>
+                  <div className="mt-1 font-bold">{request.neighborhood || "أي حي"}</div>
+                </div>
+                <div className="rounded-lg bg-surface p-2">
+                  <div className="text-[10px] text-muted-foreground">الميزانية</div>
+                  <div className="mt-1 font-bold">{request.budget_min != null || request.budget_max != null ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س" : "غير محددة"}</div>
+                </div>
+                <div className="rounded-lg bg-surface p-2">
+                  <div className="text-[10px] text-muted-foreground">المساحة</div>
+                  <div className="mt-1 font-bold">{request.area_min != null ? "من " + request.area_min + " م²" : "غير محددة"}</div>
+                </div>
+              </div>
+            </div>
+
+            {offer && (offer.message || offer.price != null) && (
+              <div className="rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">
+                <div className="font-extrabold">بيانات العرض</div>
+                {offer.message && <p className="mt-1 whitespace-pre-wrap">{offer.message}</p>}
+                {offer.price != null && <p className="mt-1 font-extrabold">السعر المقترح: {formatPrice(offer.price)} ر.س</p>}
+              </div>
+            )}
+
+            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
+              <div className="text-[10px] font-semibold text-muted-foreground">بيانات اتصال المكتب</div>
+              <div className="mt-1 text-sm font-extrabold">{office?.name || "مكتب عقاري"}</div>
+              <div className="mt-1 text-sm" dir="ltr">{phone || "رقم المكتب غير متوفر"}</div>
+              {phone && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <a href={"tel:" + phone} className="rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background">اتصال بالمكتب</a>
+                  <a href={whatsappHref(whatsapp || phone, "مرحبًا " + (office?.name || "المكتب العقاري") + "، بخصوص طلبي العقاري")} target="_blank" rel="noreferrer"
+                    className="rounded-xl bg-[#25D366]/10 py-2.5 text-center text-xs font-bold text-[#25D366]">واتساب المكتب</a>
+                </div>
+              )}
+            </div>
+
+            {isCompleted ? (
+              <div className="rounded-xl bg-forest-soft py-2.5 text-center text-xs font-bold text-forest">تم اكتمال الطلب</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => onEndRequest(request.id)} disabled={pending}
+                  className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50">
+                  إنهاء الطلب
+                </button>
+                <button type="button" onClick={() => onCompleteRequest(request.id)} disabled={pending}
+                  className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50">
+                  تم اكتمال الطلب
+                </button>
+              </div>
+            )}
+          </article>
+        );
+      })}
+
+      {inquiries.map((inquiry) => {
+        const phone = String(inquiry.office?.phone ?? "").trim();
+        const whatsapp = String(inquiry.office?.whatsapp ?? inquiry.office?.phone ?? "").trim();
+        const inquiryLabel: Record<string, string> = { viewing: "معاينة", buy: "شراء", rent: "استئجار", question: "استفسار" };
+        return (
+          <article key={inquiry.id} id={"accepted-inquiry-card-" + inquiry.id}
+            className="space-y-3 rounded-2xl bg-surface p-3 ring-2 ring-forest/20">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-display text-sm font-extrabold">{inquiry.property?.title || "عقار المكتب"}</h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {inquiry.property?.property_number ? "رقم العقار: " + inquiry.property.property_number + " · " : ""}
+                  {inquiryLabel[inquiry.type] || "طلب تواصل"} · {formatDate(inquiry.created_at)}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">المكتب وافق على طلبك</span>
+            </div>
+            {inquiry.message && <p className="whitespace-pre-wrap rounded-xl bg-background p-3 text-sm leading-5">{inquiry.message}</p>}
+            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
+              <div className="text-[10px] font-semibold text-muted-foreground">بيانات اتصال المكتب</div>
+              <div className="mt-1 text-sm font-extrabold">{inquiry.office?.name || "مكتب عقاري"}</div>
+              <div className="mt-1 text-sm" dir="ltr">{phone || "رقم المكتب غير متوفر"}</div>
+              {phone && <div className="mt-3 grid grid-cols-2 gap-2">
+                <a href={"tel:" + phone} className="rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background">اتصال بالمكتب</a>
+                <a href={whatsappHref(whatsapp || phone, "مرحبًا " + (inquiry.office?.name || "المكتب العقاري") + "، بخصوص طلب التواصل")}
+                  target="_blank" rel="noreferrer" className="rounded-xl bg-[#25D366]/10 py-2.5 text-center text-xs font-bold text-[#25D366]">واتساب المكتب</a>
+              </div>}
+            </div>
+            <a href={"/properties/" + encodeURIComponent(inquiry.property_id)}
+              className="block rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background">تفاصيل العقار</a>
+          </article>
+        );
+      })}
+    </section>
   );
 }
 
