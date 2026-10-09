@@ -253,6 +253,16 @@ function PropertyDetail() {
       if (!Number.isFinite(scheduled.getTime()) || scheduled.getTime() <= Date.now()) {
         throw new Error("اختر موعدًا مستقبليًا");
       }
+      const sessionName =
+        typeof session?.user?.user_metadata?.full_name === "string"
+          ? session.user.user_metadata.full_name.trim()
+          : "";
+      const profileName = profile?.full_name?.trim() || "";
+      const contactName =
+        [profileName, sessionName].find(
+          (name) => !!name && !["عميل", "العميل"].includes(name),
+        ) || "عميل";
+
       const { data: row, error } = await supabase
         .from("viewing_bookings")
         .insert({
@@ -263,12 +273,7 @@ function PropertyDetail() {
           visit_time: bookingDate.slice(11, 16),
           status: "pending",
           contact_phone: contactPhone,
-          contact_name:
-            profile?.full_name?.trim() ||
-            (typeof session?.user?.user_metadata?.full_name === "string"
-              ? session.user.user_metadata.full_name.trim()
-              : "") ||
-            "عميل",
+          contact_name: contactName,
           contact_governorate_id: profile?.governorate_id || null,
         })
         .select("id")
