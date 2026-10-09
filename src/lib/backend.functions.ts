@@ -2766,29 +2766,37 @@ export const rpcRequest = createServerFn({ method: "POST" })
         );
         if (!updated.modifiedCount) throw new Error("inquiry_already_handled");
 
-        const customerId = String(inquiry.user_id ?? "");
-        if (customerId) {
-          const properties = await getMongoCollection<Record<string, unknown>>("properties");
-          const property = await properties.findOne({ id: String(inquiry.property_id ?? "") });
-          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
-            id: randomUUID(),
-            _id: randomUUID(),
-            user_id: customerId,
-            title: requestedStatus === "accepted" ? "تم قبول طلب التواصل" : "تم رفض طلب التواصل",
-            body:
-              String(office.name ?? "المكتب العقاري") +
-              (requestedStatus === "accepted"
-                ? " وافق على طلب تواصلك"
-                : " لم يتمكن من قبول طلب تواصلك") +
-              (property?.title ? " بخصوص " + String(property.title) : " بخصوص العقار"),
-            type: "property_inquiry_response",
-            link: requestedStatus === "accepted"
-              ? "/requests?tab=received"
-              : "/properties/" + encodeURIComponent(String(inquiry.property_id ?? "")),
-            is_read: false,
-            created_at: now,
-            inquiry_id: inquiryId,
-          });
+        try {
+          const customerId = String(inquiry.user_id ?? "");
+          if (customerId) {
+            const properties = await getMongoCollection<Record<string, unknown>>("properties");
+            const property = await properties.findOne({ id: String(inquiry.property_id ?? "") });
+            await getMongoCollection<Record<string, unknown>>("notifications").then((notifications) =>
+              notifications.insertOne({
+                id: randomUUID(),
+                _id: randomUUID(),
+                user_id: customerId,
+                title: requestedStatus === "accepted" ? "تم قبول طلب التواصل" : "تم رفض طلب التواصل",
+                body:
+                  String(office.name ?? "المكتب العقاري") +
+                  (requestedStatus === "accepted"
+                    ? " وافق على طلب تواصلك"
+                    : " لم يتمكن من قبول طلب تواصلك") +
+                  (property?.title ? " بخصوص " + String(property.title) : " بخصوص العقار"),
+                type: "property_inquiry_response",
+                link: requestedStatus === "accepted"
+                  ? "/requests?tab=received"
+                  : "/properties/" + encodeURIComponent(String(inquiry.property_id ?? "")),
+                is_read: false,
+                created_at: now,
+                inquiry_id: inquiryId,
+              }),
+            );
+          }
+        } catch (notificationError) {
+          // The inquiry status is already committed; a notification failure must not
+          // make the user see a false "failed" response for a successful accept/reject.
+          console.error("[property-inquiry-response-notification]", notificationError);
         }
 
         return { data: requestedStatus, error: null };
