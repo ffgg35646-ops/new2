@@ -54,7 +54,7 @@ function errorOf(error: unknown) {
   return error instanceof Error ? { message: error.message } : { message: String(error) };
 }
 
-class QueryBuilder<T = unknown> {
+class QueryBuilder<T = QueryRows> {
   private input: any;
 
   constructor(collection: string) {
