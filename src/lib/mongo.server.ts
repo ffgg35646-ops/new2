@@ -75,8 +75,7 @@ export async function storeMedia(
 
   return await new Promise<string>((resolve, reject) => {
     const upload = bucket.openUploadStream(fileName, {
-      contentType: mimeType,
-      metadata: { originalName: fileName, ownerId, visibility },
+      metadata: { originalName: fileName, ownerId, visibility, contentType: mimeType },
     });
     upload.once("error", reject);
     upload.once("finish", () => resolve(String(upload.id)));
@@ -126,9 +125,9 @@ export async function readMedia(id: string, viewerId: string | null = null) {
       resolve({
         body: Buffer.concat(chunks),
         contentType:
-          typeof files[0]?.contentType === "string" &&
-          ["image/jpeg", "image/png", "image/webp"].includes(files[0].contentType)
-            ? files[0].contentType
+          typeof file.metadata?.contentType === "string" &&
+          ["image/jpeg", "image/png", "image/webp", "application/pdf", "text/plain"].includes(file.metadata.contentType)
+            ? file.metadata.contentType
             : "application/octet-stream",
         fileName: typeof files[0]?.filename === "string" ? files[0].filename : "file",
       }),
