@@ -4943,12 +4943,33 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
     return value;
   })
   .handler(async ({ data }) => {
-    const file = data.get("file");
+    const userId = getSessionUserId();
+    if (!userId) throw new Error("يجب تسجيل الدخول لرفع الملفات.");
 
+    const file = data.get("file");
     if (!(file instanceof File)) throw new Error("الملف غير موجود.");
+    if (file.size <= 0 || file.size > 8 * 1024 * 1024) {
+      throw new Error("حجم الملف يجب أن يكون بين 1 بايت و8 ميجابايت.");
+    }
+
+    const mimeType = file.type.toLowerCase();
+    if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
+      throw new Error("الصيغة غير مدعومة. استخدم JPG أو PNG أو WEBP.");
+    }
 
     const bytes = Buffer.from(await file.arrayBuffer());
-    const id = await storeMedia(file.name, file.type || "application/octet-stream", bytes);
+    const validJpeg = mimeType === "image/jpeg" &&
+      bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    const validPng = mimeType === "image/png" &&
+      bytes.length >= 8 && bytes.subarray(0, 8).toString("hex") === "89504e470d0a1a0a";
+    const validWebp = mimeType === "image/webp" &&
+      bytes.length >= 12 && bytes.toString("ascii", 0, 4) === "RIFF" &&
+      bytes.toString("ascii", 8, 12) === "WEBP";
+    if (!validJpeg && !validPng && !validWebp) {
+      throw new Error("محتوى الصورة لا يطابق نوع الملف.");
+    }
+
+    const id = await storeMedia(file.name, mimeType, bytes, userId);
 
     return {
       data: {
@@ -5080,8 +5101,16 @@ export const getOfficeViewingClientDetails = createServerFn({ method: "POST" })
   });
 
 export const removeMedia = createServerFn({ method: "POST" })
-  .validator((value: unknown) => value as { path: string })
+  .validator((value: unknown) => {
+    if (!value || typeof value !== "object" || typeof (value as { path?: unknown }).path !== "string") {
+      throw new Error("مسار الملف غير صالح.");
+    }
+    return value as { path: string };
+  })
   .handler(async ({ data }) => {
-    await deleteMedia(data.path);
+    const userId = getSessionUserId();
+    if (!userId) throw new Error("يجب تسجيل الدخول لحذف الملفات.");
+    const deleted = await deleteMedia(data.path, userId);
+    if (!deleted) throw new Error("لا تملك صلاحية حذف هذا الملف.");
     return { data: null, error: null };
   });
