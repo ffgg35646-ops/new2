@@ -149,7 +149,7 @@ async function processPlanExpirations(request: Request) {
             _id: randomUUID(),
             user_id: String(office.owner_id),
             title: "باقة Pro ستنتهي قريبًا",
-            body: `ستنتهي الباقة الاحترافية خلال يوم أو يومين في ${expiry.toLocaleDateString("ar-SA")}. جدّد الاشتراك للحفاظ على الدردشة والمميزات الاحترافية.`,
+            body: `ستنتهي الباقة الاحترافية خلال يوم أو يومين في ${expiry.toLocaleDateString("ar-SA", { timeZone: "Asia/Riyadh" })}. جدّد الاشتراك للحفاظ على الدردشة والمميزات الاحترافية.`,
             type: "pro_expiry_reminder",
             link: "/office/subscription",
             is_read: false,
