@@ -96,6 +96,8 @@ function RequestsPage() {
   const [historyRequestsPage, setHistoryRequestsPage] = useState(1);
   const [receivedOffersPage, setReceivedOffersPage] = useState(1);
   const [endRequestId, setEndRequestId] = useState<string | null>(null);
+  const [endInquiryId, setEndInquiryId] = useState<string | null>(null);
+  const [completeInquiryId, setCompleteInquiryId] = useState<string | null>(null);
   const [completionRequestId, setCompletionRequestId] = useState<string | null>(null);
   const [completionSearch, setCompletionSearch] = useState("");
   const [selectedCompletionOfferId, setSelectedCompletionOfferId] = useState<string | null>(null);
@@ -152,7 +154,7 @@ function RequestsPage() {
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from("property_inquiries")
-        .select("id,property_id,office_id,type,status,created_at,message,contact_phone")
+        .select("id,property_id,office_id,type,status,created_at,message,contact_phone,end_reason")
         .eq("user_id", userId!)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -183,6 +185,7 @@ function RequestsPage() {
         created_at: String(row.created_at ?? ""),
         message: row.message == null ? null : String(row.message),
         contact_phone: row.contact_phone == null ? null : String(row.contact_phone),
+        end_reason: row.end_reason == null ? null : String(row.end_reason),
         property: propertiesById.get(String(row.property_id ?? "")) as IndividualInquiry["property"] ?? null,
         office: officesById.get(String(row.office_id ?? "")) as IndividualInquiry["office"] ?? null,
       })) as IndividualInquiry[];
@@ -196,7 +199,7 @@ function RequestsPage() {
     [myRequests],
   );
   const acceptedPersonalInquiries = useMemo(
-    () => personalInquiries.filter((inquiry) => inquiry.status === "accepted"),
+    () => personalInquiries.filter((inquiry) => ["accepted", "completed"].includes(inquiry.status)),
     [personalInquiries],
   );
   const acceptedMarketRequestIds = useMemo(
@@ -234,6 +237,30 @@ function RequestsPage() {
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر إنهاء الطلب"),
+  });
+
+  const updateInquiryStatus = useMutation({
+    mutationFn: async (vars: { id: string; status: "ended" | "completed"; reason: string }) => {
+      const { error } = await supabase.rpc("individual_update_property_inquiry" as never, {
+        _inquiry_id: vars.id,
+        _status: vars.status,
+        _reason: vars.reason,
+      } as never);
+      if (error) throw error;
+      return vars;
+    },
+    onSuccess: (vars) => {
+      setEndInquiryId(null);
+      setCompleteInquiryId(null);
+      toast.success(vars.status === "completed"
+        ? "تم تسجيل اكتمال طلب التواصل وإشعار المكتب"
+        : "تم إنهاء طلب التواصل وإشعار المكتب");
+      void qc.invalidateQueries({ queryKey: ["individual-property-inquiries"] });
+      void qc.invalidateQueries({ queryKey: ["office-inquiries"] });
+      void qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] });
+      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث طلب التواصل"),
   });
 
   const setOfferStatus = useMutation({
@@ -309,6 +336,8 @@ function RequestsPage() {
           pending={endRequest.isPending || completeRequest.isPending}
           onEndRequest={(id) => setEndRequestId(id)}
           onCompleteRequest={(id) => { setCompletionRequestId(id); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
+          onEndInquiry={(id) => setEndInquiryId(id)}
+          onCompleteInquiry={(id) => setCompleteInquiryId(id)}
         />
 
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
@@ -466,6 +495,31 @@ function RequestsPage() {
         onClose={() => { if (!endRequest.isPending) setEndRequestId(null); }}
         onConfirm={(reason) => { if (endRequestId) endRequest.mutate({ id: endRequestId, reason }); }}
       />
+      <CompleteViewingReasonModal
+        open={!!endInquiryId}
+        pending={updateInquiryStatus.isPending}
+        optionalReason
+        title="إنهاء طلب التواصل"
+        heading="هل تريد إنهاء طلب التواصل مع المكتب؟"
+        reasonLabel="سبب الإنهاء (اختياري)"
+        placeholder="اكتب سبب الإنهاء إن رغبت"
+        confirmLabel="تأكيد إنهاء الطلب"
+        variant="reject"
+        onClose={() => { if (!updateInquiryStatus.isPending) setEndInquiryId(null); }}
+        onConfirm={(reason) => { if (endInquiryId) updateInquiryStatus.mutate({ id: endInquiryId, status: "ended", reason }); }}
+      />
+      <CompleteViewingReasonModal
+        open={!!completeInquiryId}
+        pending={updateInquiryStatus.isPending}
+        optionalReason
+        title="اكتمال طلب التواصل"
+        heading="هل تؤكد اكتمال طلب التواصل مع المكتب؟"
+        reasonLabel="ملاحظة (اختياري)"
+        placeholder="أضف ملاحظة اختيارية"
+        confirmLabel="تأكيد اكتمال الطلب"
+        onClose={() => { if (!updateInquiryStatus.isPending) setCompleteInquiryId(null); }}
+        onConfirm={(reason) => { if (completeInquiryId) updateInquiryStatus.mutate({ id: completeInquiryId, status: "completed", reason }); }}
+      />
 
       {completionRequestId && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-3" role="dialog" aria-modal="true"
@@ -510,12 +564,16 @@ function AcceptedPrioritySection({
   pending,
   onEndRequest,
   onCompleteRequest,
+  onEndInquiry,
+  onCompleteInquiry,
 }: {
   requests: RequestRow[];
   inquiries: IndividualInquiry[];
   pending: boolean;
   onEndRequest: (id: string) => void;
   onCompleteRequest: (id: string) => void;
+  onEndInquiry: (id: string) => void;
+  onCompleteInquiry: (id: string) => void;
 }) {
   const total = requests.length + inquiries.length;
   return (
@@ -635,7 +693,9 @@ function AcceptedPrioritySection({
                   {inquiryLabel[inquiry.type] || "طلب تواصل"} · {formatDate(inquiry.created_at)}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">المكتب وافق على طلبك</span>
+              <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold", inquiry.status === "completed" ? "bg-forest text-background" : "bg-forest-soft text-forest")}>
+                {inquiry.status === "completed" ? "تم اكتمال الطلب" : "المكتب وافق على طلبك"}
+              </span>
             </div>
             {inquiry.message && <p className="whitespace-pre-wrap rounded-xl bg-background p-3 text-sm leading-5">{inquiry.message}</p>}
             <div className="rounded-xl bg-background p-3 ring-1 ring-line">
@@ -649,7 +709,17 @@ function AcceptedPrioritySection({
               </div>}
             </div>
             <a href={"/properties/" + encodeURIComponent(inquiry.property_id)}
-              className="block rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background">تفاصيل العقار</a>
+              className="block rounded-xl bg-background py-2.5 text-center text-xs font-bold text-forest ring-1 ring-line">تفاصيل العقار</a>
+            {inquiry.status === "completed" ? (
+              <div className="rounded-xl bg-forest-soft py-2.5 text-center text-xs font-bold text-forest">تم اكتمال الطلب</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => onEndInquiry(inquiry.id)} disabled={pending}
+                  className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50">إنهاء الطلب</button>
+                <button type="button" onClick={() => onCompleteInquiry(inquiry.id)} disabled={pending}
+                  className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50">تم اكتمال الطلب</button>
+              </div>
+            )}
           </article>
         );
       })}
