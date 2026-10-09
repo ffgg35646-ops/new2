@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getOfficeViewingClientDetails } from "@/lib/backend.functions";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { PaginationControls } from "@/components/PaginationControls";
@@ -214,10 +215,39 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
         }))
         .filter((booking) => ["pending", "accepted"].includes(booking.status));
 
-      const todayBookings = bookings.filter((booking) =>
+      // Older bookings can have the generic "عميل" name saved if the profile
+      // was still loading when the appointment was created. Resolve only these
+      // bookings' client details on the server, after verifying office access.
+      const clientDetails = bookings.length
+        ? await getOfficeViewingClientDetails({
+            data: {
+              officeId: officeId!,
+              bookingIds: bookings.map((booking) => String(booking.id)),
+            },
+          })
+        : { clients: [] as Array<{ bookingId: string; fullName: string; phone: string | null }> };
+      const clientsByBookingId = new Map(
+        clientDetails.clients.map((client) => [client.bookingId, client]),
+      );
+
+      const bookingsWithClient = bookings.map((booking) => {
+        const client = clientsByBookingId.get(String(booking.id));
+        const savedName = String(booking.contact_name ?? "").trim();
+        const savedNameIsFallback = !savedName || ["عميل", "العميل"].includes(savedName);
+        return {
+          ...booking,
+          contact_name: savedNameIsFallback
+            ? client?.fullName || savedName || "عميل"
+            : savedName,
+          contact_phone:
+            String(booking.contact_phone ?? "").trim() || client?.phone || null,
+        };
+      });
+
+      const todayBookings = bookingsWithClient.filter((booking) =>
         isSaudiAppointmentToday(booking.visit_date),
       );
-      const otherBookings = bookings.filter(
+      const otherBookings = bookingsWithClient.filter(
         (booking) => !isSaudiAppointmentToday(booking.visit_date),
       );
 
