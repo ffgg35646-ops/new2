@@ -128,6 +128,7 @@ function AccountPage() {
               onClose={() => setProfileOpen(false)}
               email={session?.user?.email ?? profile?.email ?? ""}
               emailVerified={!!session?.user?.email_confirmed_at}
+              avatarUrl={profile?.avatar_url}
               rows={[
                 ["الاسم الكامل", profileName],
                 ["رقم الجوال", profilePhone],
