@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Loader2, X } from "lucide-react";
+import { CheckCircle2, Loader2, X, XCircle } from "lucide-react";
 
 export function CompleteViewingReasonModal({
   open,
@@ -9,6 +9,7 @@ export function CompleteViewingReasonModal({
   reasonLabel = "سبب إنهاء المعاينة",
   placeholder = "اكتب السبب الذي تريد إرساله للمكتب",
   confirmLabel = "تأكيد إنهاء المعاينة",
+  variant = "complete",
   onClose,
   onConfirm,
 }: {
@@ -19,6 +20,7 @@ export function CompleteViewingReasonModal({
   reasonLabel?: string;
   placeholder?: string;
   confirmLabel?: string;
+  variant?: "complete" | "reject";
   onClose: () => void;
   onConfirm: (reason: string) => void;
 }) {
@@ -84,10 +86,12 @@ export function CompleteViewingReasonModal({
             onConfirm(value);
           }}
           disabled={pending || reason.trim().length < 3}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 text-sm font-bold text-background disabled:opacity-50"
+          className={`mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-background disabled:opacity-50 ${variant === "reject" ? "bg-terracotta" : "bg-forest"}`}
         >
           {pending ? (
             <Loader2 className="size-4 animate-spin" />
+          ) : variant === "reject" ? (
+            <XCircle className="size-4" />
           ) : (
             <CheckCircle2 className="size-4" />
           )}
