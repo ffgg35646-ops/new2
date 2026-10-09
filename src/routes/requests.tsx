@@ -807,6 +807,11 @@ function RequestCard({
         </span>
       </div>
       <p className="mt-2 whitespace-pre-wrap text-sm leading-5 text-muted-foreground">{request.description}</p>
+      {status === "fulfilled" && (
+        <div className="mt-2 rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">
+          تم اكتمال الطلب مع المكتب: <strong>{completedOfficeName || "اسم المكتب غير متاح"}</strong>
+        </div>
+      )}
       <div className="mt-2.5 grid grid-cols-2 gap-2">
         <Info label="الميزانية">{request.budget_min != null || request.budget_max != null ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س" : "غير محددة"}</Info>
         <Info label="المساحة">{request.area_min != null ? "من " + request.area_min + " م²" : "غير محددة"}</Info>
