@@ -113,7 +113,7 @@ async function loadSession(): Promise<SessionInfo> {
     phone:
       typeof metadata.phone === "string"
         ? metadata.phone
-        : session.user.phone ?? null,
+: null,
     email: session.user.email ?? null,
     avatar_url:
       typeof metadata.avatar_url === "string"
@@ -184,7 +184,9 @@ export function useAuth() {
       }
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+    };
   }, [qc]);
 
   const query = useQuery({

@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\const filtersSchema = z.object({");
+}
+
 const filtersSchema = z.object({
   governorateId: z.string().nullable().optional(),
   kind: z.string().nullable().optional(),
@@ -11,7 +15,7 @@ const filtersSchema = z.object({
   minArea: z.number().nullable().optional(),
   maxArea: z.number().nullable().optional(),
   rooms: z.number().nullable().optional(),
-  search: z.string().nullable().optional(),
+  search: z.string().max(120).nullable().optional(),
   featuredOnly: z.boolean().optional(),
   sort: z.enum(["newest", "price_asc", "price_desc", "area_desc"]).optional(),
   limit: z.number().int().min(1).max(100).default(30),
@@ -19,7 +23,7 @@ const filtersSchema = z.object({
 
 export const getCachedPublicProperties = createServerFn({ method: "POST" })
   .inputValidator((value: unknown) => filtersSchema.parse(value))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<any> => {
     const { getMongoCollection } = await import("@/lib/mongo.server");
     const { cachedServerData } = await import("@/lib/redis.server");
 
@@ -73,8 +77,8 @@ export const getCachedPublicProperties = createServerFn({ method: "POST" })
 
       if (data.search) {
         filter.$or = [
-          { title: { $regex: data.search, $options: "i" } },
-          { neighborhood: { $regex: data.search, $options: "i" } },
+          { title: { $regex: escapeRegex(data.search), $options: "i" } },
+          { neighborhood: { $regex: escapeRegex(data.search), $options: "i" } },
         ];
       }
 

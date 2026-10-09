@@ -124,21 +124,22 @@ function PlansPage() {
                   )}
 
                   {isOffice && !current && (
-                    <Link
-                      to={
-                        pkg.price > 0
-                          ? "/office/pay"
-                          : "/office/subscription"
-                      }
-                      search={
-                        pkg.price > 0
-                          ? { package: pkg.id }
-                          : undefined
-                      }
-                      className="mt-4 block rounded-2xl bg-forest py-3.5 text-center font-display font-bold text-background"
-                    >
-                      {pkg.price > 0 ? "الاشتراك في الباقة" : "اختيار الباقة"}
-                    </Link>
+                    pkg.price > 0 ? (
+                      <Link
+                        to="/office/pay"
+                        search={{ package: pkg.id }}
+                        className="mt-4 block rounded-2xl bg-forest py-3.5 text-center font-display font-bold text-background"
+                      >
+                        الاشتراك في الباقة
+                      </Link>
+                    ) : (
+                      <Link
+                        to="/office/subscription"
+                        className="mt-4 block rounded-2xl bg-forest py-3.5 text-center font-display font-bold text-background"
+                      >
+                        اختيار الباقة
+                      </Link>
+                    )
                   )}
 
 

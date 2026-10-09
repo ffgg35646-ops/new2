@@ -61,7 +61,10 @@ function normalizePackage(row: any): OfficePackage {
     name: String(row.name ?? "باقة"),
     description: row.description ?? null,
     price: Number(row.price ?? 0),
-    duration_days: Number(row.duration_days ?? 0),
+    duration_days:
+      String(row.code ?? "").toLowerCase() === "pro"
+        ? 30
+        : Number(row.duration_days ?? 0),
     property_limit:
       row.property_limit == null ? null : Number(row.property_limit),
     chat_enabled: Boolean(row.chat_enabled),
@@ -81,11 +84,9 @@ export function effectivePlan(
     plan_expires_at?: string | null;
   } | null,
 ): OfficePlan {
-  if (!office || office.plan !== "pro") return "free";
-  if (!office.plan_expires_at) return "pro";
-  return new Date(office.plan_expires_at).getTime() > Date.now()
-    ? "pro"
-    : "free";
+  if (!office || office.plan !== "pro" || !office.plan_expires_at) return "free";
+  const expiry = new Date(office.plan_expires_at).getTime();
+  return Number.isFinite(expiry) && expiry > Date.now() ? "pro" : "free";
 }
 
 export function usePackages(activeOnly = true) {
@@ -103,7 +104,8 @@ export function usePackages(activeOnly = true) {
       const { data, error } = await q;
       if (error) throw error;
 
-      return (data ?? []).map(normalizePackage);
+      const rows = (data ?? []) as unknown[];
+      return rows.map(normalizePackage);
     },
   });
 }
@@ -117,7 +119,11 @@ export function useMyPlan() {
   const packageQuery = useQuery({
     queryKey: ["my-package", packageId, office?.plan],
     enabled: !!office,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: true,
     queryFn: async () => {
+      let packageRow: any = null;
+
       if (packageId) {
         const { data, error } = await (supabase as any)
           .from("package_catalog")
@@ -126,29 +132,54 @@ export function useMyPlan() {
           .maybeSingle();
 
         if (error) throw error;
+        packageRow = data;
+      }
+
+      const expiryTime = office?.plan_expires_at
+        ? new Date(office.plan_expires_at).getTime()
+        : Number.NaN;
+      const packageLooksPaid =
+        office?.plan === "pro" ||
+        String(packageRow?.code ?? "") === "pro" ||
+        Number(packageRow?.price ?? 0) > 0;
+      const hasExpiredPaidPlan =
+        packageLooksPaid &&
+        (!Number.isFinite(expiryTime) || expiryTime <= Date.now());
+
+      // حتى لو لم يعمل Cron بعد، اعرض الباقة المجانية بمجرد انتهاء مدة Pro.
+      if (hasExpiredPaidPlan || !packageRow) {
+        const fallbackCode = hasExpiredPaidPlan
+          ? "free"
+          : office?.plan === "pro"
+            ? "pro"
+            : "free";
+
+        const { data, error } = await (supabase as any)
+          .from("package_catalog")
+          .select("*")
+          .eq("code", fallbackCode)
+          .maybeSingle();
+
+        if (error) throw error;
         if (data) return normalizePackage(data);
       }
 
-      const fallbackCode =
-        office?.plan === "pro" ? "pro" : "free";
-
-      const { data, error } = await (supabase as any)
-        .from("package_catalog")
-        .select("*")
-        .eq("code", fallbackCode)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data ? normalizePackage(data) : null;
+      return packageRow ? normalizePackage(packageRow) : null;
     },
   });
 
   const pkg = packageQuery.data;
 
+  const expiryTime = office?.plan_expires_at
+    ? new Date(office.plan_expires_at).getTime()
+    : Number.NaN;
+  const packageLooksPaid =
+    office?.plan === "pro" ||
+    pkg?.code === "pro" ||
+    Number(pkg?.price ?? 0) > 0;
   const expired =
-    !!office?.plan_expires_at &&
-    Number(pkg?.duration_days ?? 0) > 0 &&
-    new Date(office.plan_expires_at).getTime() <= Date.now();
+    packageLooksPaid &&
+    (!Number.isFinite(expiryTime) || expiryTime <= Date.now());
 
   const currentPlan: OfficePlan =
     expired

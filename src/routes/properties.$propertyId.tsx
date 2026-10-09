@@ -65,7 +65,7 @@ export const Route = createFileRoute("/properties/$propertyId")({
   component: PropertyDetail,
   errorComponent: ({ error }) => (
     <div role="alert" className="p-8 text-center text-sm">
-      {error.message}
+      {error instanceof Error ? error.message : String(error)}
     </div>
   ),
   notFoundComponent: () => <div className="p-8 text-center text-sm">العقار غير موجود</div>,
@@ -182,7 +182,7 @@ function PropertyDetail() {
         _office_id: data!.office_id,
       });
       if (error) throw error;
-      return result as { plan?: string; expires_at?: string | null } | null;
+      return result as { plan?: string; expires_at?: string | null; chat_enabled?: boolean } | null;
     },
     staleTime: 30_000,
   });
@@ -387,7 +387,10 @@ function PropertyDetail() {
       if (error) throw new Error("تعذّر بدء المحادثة");
       return created.id;
     },
-    onSuccess: (id) => void navigate({ to: "/chats", search: { c: id } }),
+    onSuccess: (id) => void navigate({
+      to: "/chats",
+      search: { c: id, office: data?.office_id },
+    }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر بدء المحادثة"),
   });
 

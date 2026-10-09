@@ -1,6 +1,6 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -33,14 +33,23 @@ import { cn } from "@/lib/utils";
 import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
 import { formatBookingTime, isSaudiAppointmentStarted, isSaudiAppointmentToday } from "@/lib/saudi-time";
 
+function Info({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-surface p-2 ring-1 ring-line">
+      <div className="text-[10px] font-semibold text-muted-foreground">{label}</div>
+      <div className="mt-1 break-words text-xs font-semibold text-foreground">{children}</div>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/office/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
     tab:
-      search.tab === "inbox" ||
-      search.tab === "bookings" ||
-      search.tab === "market" ||
-      search.tab === "sent"
-        ? search.tab
+      search["tab"] === "inbox" ||
+      search["tab"] === "bookings" ||
+      search["tab"] === "market" ||
+      search["tab"] === "sent"
+        ? (search["tab"] as "inbox" | "bookings" | "market" | "sent")
         : undefined,
     request: typeof search.request === "string" ? search.request : undefined,
   }),
@@ -716,7 +725,7 @@ type AcceptedContactRequest = {
   offer_price: number | null; offer_status: string;
 };
 
-function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: string | null; highlightedRequestId?: string }) {
+function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: string | null; highlightedRequestId?: string | undefined }) {
   const qc = useQueryClient();
   const [cancelRequestId, setCancelRequestId] = useState<string | null>(null);
   const { data = [], isLoading, error } = useQuery<AcceptedContactRequest[]>({

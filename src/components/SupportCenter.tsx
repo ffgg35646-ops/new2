@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
+import { uploadMedia } from "@/components/MediaUploader";
 
 type Ticket = {
   id: string;
@@ -42,35 +43,8 @@ type SupportCenterProps = {
 };
 
 async function uploadSupportFile(file: File, userId: string) {
-  const MAX_SIZE = 20 * 1024 * 1024;
-
-  if (file.size > MAX_SIZE) {
-    throw new Error("حجم الملف يتجاوز 20 ميجابايت");
-  }
-
-  const ext =
-    file.name.split(".").pop()?.replace(/[^\w.-]/g, "") || "bin";
-
-  const path = `${userId}/support/${crypto.randomUUID()}.${ext}`;
-
-  const { error } = await supabase.storage
-    .from("property-media")
-    .upload(path, file, {
-      contentType: file.type || "application/octet-stream",
-      upsert: false,
-    });
-
-  if (error) throw error;
-
-  const { data, error: signError } = await supabase.storage
-    .from("property-media")
-    .createSignedUrl(path, 60 * 60 * 24 * 365);
-
-  if (signError) throw signError;
-
-  return data.signedUrl;
+  return uploadMedia(file, userId, "support");
 }
-
 export function SupportChat({
   ticket,
   onBack,

@@ -14,7 +14,7 @@ type ProfileModalProps = {
   onClose: () => void;
   email: string;
   emailVerified: boolean;
-  avatarUrl?: string | null;
+  avatarUrl?: string | null | undefined;
   rows: ProfileRow[];
 };
 

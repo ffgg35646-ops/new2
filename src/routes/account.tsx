@@ -133,7 +133,10 @@ function AccountPage() {
                 ["الاسم الكامل", profileName],
                 ["رقم الجوال", profilePhone],
                 ["المحافظة", governorate?.name_ar ?? "—"],
-              ].map(([label, value]) => ({ label, value }))}
+              ].map(([label, value]) => ({
+                label: String(label ?? ""),
+                value: String(value ?? ""),
+              }))}
             />
 
             <section className="space-y-2">

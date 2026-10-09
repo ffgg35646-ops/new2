@@ -25,6 +25,7 @@ export type OfficeRow = {
   working_hours: string | null;
   experience_years: number;
   verification_status: string;
+  verification_badge?: boolean | null;
   completed_requests_count?: number;
   rating_avg: number | string;
   reviews_count: number;
@@ -36,6 +37,8 @@ export function useMyOffice() {
   return useQuery({
     queryKey: ["my-office-full", userId],
     enabled: !!userId,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: true,
     queryFn: async () => {
       const owned = await supabase
         .from("offices")

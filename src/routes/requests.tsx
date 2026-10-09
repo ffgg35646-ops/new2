@@ -71,9 +71,9 @@ type OfferRow = {
 
 export const Route = createFileRoute("/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: search.tab === "sent" ? "sent" : "received",
-    request: typeof search.request === "string" ? search.request : undefined,
-    offer: typeof search.offer === "string" ? search.offer : undefined,
+    tab: search["tab"] === "sent" ? ("sent" as const) : ("received" as const),
+    request: typeof search["request"] === "string" ? search["request"] : undefined,
+    offer: typeof search["offer"] === "string" ? search["offer"] : undefined,
   }),
   head: () => ({
     meta: [
@@ -92,7 +92,7 @@ function RequestsPage() {
   const { userId } = useAuth();
   const qc = useQueryClient();
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"sent" | "received">(search.tab);
+  const [tab, setTab] = useState<"sent" | "received">(search["tab"]);
   const [openOfferId, setOpenOfferId] = useState<string | null>(null);
   const [activeRequestsPage, setActiveRequestsPage] = useState(1);
   const [historyRequestsPage, setHistoryRequestsPage] = useState(1);
@@ -105,8 +105,8 @@ function RequestsPage() {
   const [selectedCompletionOfferId, setSelectedCompletionOfferId] = useState<string | null>(null);
 
   useEffect(() => {
-    setTab(search.tab);
-  }, [search.tab]);
+    setTab(search["tab"]);
+  }, [search["tab"]]);
 
   useEffect(() => {
     setActiveRequestsPage(1);
@@ -219,12 +219,12 @@ function RequestsPage() {
 
   useEffect(() => {
     if (!myRequests.length) return;
-    const targetId = search.offer ? "offer-card-" + search.offer : search.request ? "request-card-" + search.request : null;
+    const targetId = search["offer"] ? "offer-card-" + search["offer"] : search["request"] ? "request-card-" + search["request"] : null;
     if (!targetId) return;
     window.setTimeout(() => {
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 0);
-  }, [search.offer, search.request, myRequests.length, receivedOffers.length]);
+  }, [search["offer"], search["request"], myRequests.length, receivedOffers.length]);
 
   const endRequest = useMutation({
     mutationFn: async (vars: { id: string; reason: string }) => {
@@ -403,7 +403,7 @@ function RequestsPage() {
                         <RequestCard
                           key={request.id}
                           request={request}
-                          highlighted={search.request === request.id}
+                          highlighted={search["request"] === request.id}
                           pending={endRequest.isPending}
                           onEnd={() => setEndRequestId(request.id)}
                         />
@@ -436,7 +436,7 @@ function RequestsPage() {
                         <RequestCard
                           key={request.id}
                           request={request}
-                          highlighted={search.request === request.id}
+                          highlighted={search["request"] === request.id}
                           pending={endRequest.isPending}
                           onEnd={() => setEndRequestId(request.id)}
                         />
@@ -469,7 +469,7 @@ function RequestsPage() {
                   setOpenOfferId((current) => (current === offer.id ? null : offer.id))
                 }
                 onStatus={(status) => setOfferStatus.mutate({ id: offer.id, status })}
-                highlighted={search.offer === offer.id}
+                highlighted={search["offer"] === offer.id}
                 canMarkComplete={!!offer.requestAcceptedOfferId && offer.requestStatus === "active" && offer.id === offer.requestAcceptedOfferId}
                 onMarkComplete={() => { setCompletionRequestId(offer.requestId); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
               />
@@ -879,7 +879,7 @@ function OfferCard({
       <div className="mt-2.5 grid grid-cols-2 gap-2">
         <button type="button" onClick={(event) => { event.stopPropagation(); onContactToggle(); }} aria-expanded={contactOpen} aria-label="عرض رقم الاتصال" title="اتصال"
           className={cn("grid size-10 place-items-center rounded-xl ring-1 ring-line", contactOpen ? "bg-forest-soft text-forest" : "bg-surface text-forest")}><Phone className="size-4" /></button>
-        <a href={whatsappHref(office?.whatsapp || office?.phone, "مرحبًا، بخصوص العرض الذي أرسلتموه على طلبي العقاري")} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label="واتساب" title="واتساب" className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-5 text-[#25D366]" /></a>
+        <a href={whatsappHref(office?.whatsapp || office?.phone || "", "مرحبًا، بخصوص العرض الذي أرسلتموه على طلبي العقاري")} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label="واتساب" title="واتساب" className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-5 text-[#25D366]" /></a>
       </div>
       {contactOpen && (
         <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">

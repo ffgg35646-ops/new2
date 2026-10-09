@@ -7,14 +7,27 @@ const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export async function uploadMedia(file: File, userId: string, folder: string) {
-  if (!ALLOWED.includes(file.type)) throw new Error("الصيغة غير مدعومة. استخدم JPG أو PNG أو WEBP");
-  if (file.size > MAX_BYTES) throw new Error("حجم الملف يتجاوز 8 ميجابايت");
+  const allowedTypes = folder === "support"
+    ? [...ALLOWED, "application/pdf"]
+    : ALLOWED;
+  const maxBytes = folder === "support" ? 20 * 1024 * 1024 : MAX_BYTES;
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error(folder === "support"
+      ? "صيغة المرفق غير مدعومة. استخدم صورة أو PDF."
+      : "الصيغة غير مدعومة. استخدم JPG أو PNG أو WEBP");
+  }
+  if (file.size <= 0 || file.size > maxBytes) {
+    throw new Error(folder === "support"
+      ? "حجم مرفق الدعم يجب ألا يتجاوز 20 ميجابايت."
+      : "حجم الملف يتجاوز 8 ميجابايت");
+  }
   const ext = file.name.split(".").pop() ?? "jpg";
   const form = new FormData();
   form.append("file", file, file.name);
+  form.append("folder", folder);
+  form.append("uploaderId", userId);
 
   const result = await uploadMediaServer({ data: form });
-  if (result.error) throw new Error(result.error.message);
 
   const publicUrl = result.data?.publicUrl;
   if (!publicUrl) throw new Error("تعذّر إنشاء رابط المرفق.");

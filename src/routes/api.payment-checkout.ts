@@ -3,6 +3,41 @@ import { randomUUID } from "node:crypto";
 import { getMongoCollection } from "@/lib/mongo.server";
 import { getSessionUserId } from "@/lib/session.server";
 
+function getTrustedCheckoutOrigin(request: Request) {
+  if (process.env["NODE_ENV"] !== "production") {
+    try {
+      const origin = new URL(request.url);
+      if (["localhost", "127.0.0.1"].includes(origin.hostname)) return origin.origin;
+    } catch {
+      // Use the configured origin below.
+    }
+  }
+
+  const candidates = [
+    process.env["PUBLIC_APP_URL"],
+    process.env["APP_URL"],
+    process.env["VITE_PUBLIC_APP_URL"],
+    process.env["VERCEL_PROJECT_PRODUCTION_URL"]
+      ? "https://" + process.env["VERCEL_PROJECT_PRODUCTION_URL"]
+      : null,
+    process.env["VERCEL_URL"] ? "https://" + process.env["VERCEL_URL"] : null,
+  ].filter((value): value is string => typeof value === "string" && !!value.trim());
+
+  const configured = candidates[0];
+  if (!configured) {
+    throw new Error("إعداد رابط الموقع العام غير مكتمل. اضبط PUBLIC_APP_URL في إعدادات النشر.");
+  }
+
+  const url = new URL(configured.startsWith("http") ? configured : "https://" + configured);
+  if (process.env["NODE_ENV"] === "production" && url.protocol !== "https:") {
+    throw new Error("يجب ضبط PUBLIC_APP_URL على عنوان HTTPS.");
+  }
+  if (["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname)) {
+    throw new Error("عنوان العودة من بوابة الدفع غير صالح.");
+  }
+  return url.origin;
+}
+
 export const Route = createFileRoute("/api/payment-checkout")({
   server: {
     handlers: {
@@ -26,6 +61,12 @@ export const Route = createFileRoute("/api/payment-checkout")({
           });
 
           if (!pkg) return Response.json({ error: "الباقة غير موجودة" }, { status: 404 });
+          if (String(pkg.code ?? "").toLowerCase() !== "pro") {
+            return Response.json(
+              { error: "الدفع متاح للباقة الاحترافية فقط." },
+              { status: 400 },
+            );
+          }
 
           const amount = Number(pkg.price ?? 0);
           if (!Number.isFinite(amount) || amount <= 0) {
@@ -40,28 +81,7 @@ export const Route = createFileRoute("/api/payment-checkout")({
             return Response.json({ error: "إعدادات HyperPay غير مكتملة" }, { status: 500 });
           }
 
-          const merchantSettings = await getMongoCollection<Record<string, unknown>>(
-            "payment_gateway_settings",
-          ).findOne({ id: 1 });
-
-          const merchantName = String(
-            merchantSettings?.merchant_name ?? process.env["HYPERPAY_MERCHANT_NAME"] ?? "",
-          ).trim();
-          const merchantPhone = String(
-            merchantSettings?.merchant_phone ?? process.env["HYPERPAY_MERCHANT_PHONE"] ?? "",
-          ).trim();
-
-          if (!merchantName || !merchantPhone) {
-            return Response.json(
-              {
-                error:
-                  "إعدادات التاجر ناقصة: أدخل اسم التاجر ورقم هاتف التاجر من إعدادات الدفع.",
-              },
-              { status: 500 },
-            );
-          }
-
-          const origin = new URL(request.url).origin;
+          const origin = getTrustedCheckoutOrigin(request);
           const merchantTransactionId = randomUUID();
 
           const params = new URLSearchParams();
@@ -71,16 +91,17 @@ export const Route = createFileRoute("/api/payment-checkout")({
           params.set("paymentType", "DB");
           params.set("merchantTransactionId", merchantTransactionId);
           params.set("shopperResultUrl", origin + "/office/payresult");
-          params.set("merchant.name", merchantName);
-          params.set("merchant.phone", merchantPhone);
           params.set(
             "Merchant.data[" + String.fromCharCode(39) + "ignoreDescriptorValidation" + String.fromCharCode(39) + "]",
             "true",
           );
 
-          const testMode = String(
-            process.env["HYPERPAY_TEST_MODE"] ?? "EXTERNAL",
-          ).trim();
+          // بوابة LIVE لا تستقبل وضع الاختبار، حتى لو بقي المتغير مضبوطًا محليًا.
+          const isLiveGateway =
+            new URL(baseUrl).hostname.toLowerCase() === "eu-prod.oppwa.com";
+          const testMode = isLiveGateway
+            ? ""
+            : String(process.env["HYPERPAY_TEST_MODE"] ?? "").trim();
 
           if (testMode) params.set("testMode", testMode);
 
@@ -106,7 +127,7 @@ export const Route = createFileRoute("/api/payment-checkout")({
             );
           }
 
-          await getMongoCollection("payment_transactions").insertOne({
+          await (await getMongoCollection("payment_transactions")).insertOne({
             id: randomUUID(),
             checkout_id: hpData.id,
             merchant_transaction_id: merchantTransactionId,

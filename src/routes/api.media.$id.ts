@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { readMedia } from "@/lib/mongo.server";
+import { getSessionUserId } from "@/lib/session.server";
 
 export const Route = createFileRoute("/api/media/$id")({
   server: {
@@ -9,14 +10,17 @@ export const Route = createFileRoute("/api/media/$id")({
         if (!id) return new Response("Not found", { status: 404 });
 
         try {
-          const media = await readMedia(id);
+          const media = await readMedia(id, getSessionUserId());
           if (!media) return new Response("Not found", { status: 404 });
 
           return new Response(media.body as unknown as BodyInit, {
             status: 200,
             headers: {
               "Content-Type": media.contentType,
-              "Cache-Control": "public, max-age=31536000, immutable",
+              "X-Content-Type-Options": "nosniff",
+              "Cache-Control": media.isPrivate
+                ? "private, no-store"
+                : "public, max-age=31536000, immutable",
               "Content-Disposition": "inline; filename*=UTF-8''" + encodeURIComponent(media.fileName),
             },
           });

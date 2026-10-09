@@ -213,6 +213,7 @@ export function AdminShell({
                           ? { userId: result.id }
                           : { officeId: result.id }
                       }
+                      search={{ tab: "dashboard" }}
                       onClick={() => setSearch("")}
                       className="flex items-center gap-3 rounded-xl p-3 transition hover:bg-sand"
                     >
@@ -299,6 +300,7 @@ function AdminNav({
   return (
     <Link
       to={to}
+      search={{ tab: "dashboard" }}
       className={cn(
         "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-bold transition",
         active

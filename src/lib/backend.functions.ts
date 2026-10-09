@@ -65,8 +65,15 @@ const userOwned = new Set([
   "device_tokens",
   "saved_searches",
   "property_requests",
+  "support_tickets",
 ]);
 
+function likePattern(value: unknown) {
+  return String(value ?? "")
+    .split("%")
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join(".*");
+}
 function buildFilter(filters: Filter[] = []) {
   const query: Record<string, unknown> = {};
 
@@ -96,7 +103,7 @@ function buildFilter(filters: Filter[] = []) {
       case "ilike":
       case "like":
         query[filter.field] = {
-          $regex: String(filter.value ?? "").replaceAll("%", ".*"),
+          $regex: likePattern(filter.value),
           $options: "i",
         };
         break;
@@ -118,7 +125,7 @@ function parseOr(value: string | null | undefined) {
 
   const expressions = value.split(",").map((part) => part.trim()).filter(Boolean);
   const queries = expressions.map((part) => {
-    const match = part.match(/^([\w.]+)\\.(eq|ilike|like)\\.(.*)$/);
+    const match = part.match(/^([\w.]+)\.(eq|ilike|like)\.(.*)$/);
     if (!match) return null;
 
     const field = match[1];
@@ -130,7 +137,7 @@ function parseOr(value: string | null | undefined) {
 
     return {
       [field]: {
-        $regex: raw.replaceAll("%", ".*"),
+        $regex: likePattern(raw),
         $options: "i",
       },
     };
@@ -227,6 +234,31 @@ function pickFields(
 
   if ("id" in row && !("id" in output)) output.id = row.id;
 
+  return output;
+}
+
+function sanitizeOfficePrivateFields(value: unknown, userId: string | null, role: string | null): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeOfficePrivateFields(item, userId, role));
+  }
+  if (!value || typeof value !== "object") return value;
+
+  const output: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    output[key] = sanitizeOfficePrivateFields(item, userId, role);
+  }
+
+  const isOwnOffice =
+    "owner_id" in output &&
+    !!userId &&
+    String(output.owner_id ?? "") === userId;
+
+  if (role !== "admin" && !isOwnOffice) {
+    for (const key of [
+      "owner_id", "email", "commercial_register", "license_expiry",
+      "fal_license_url", "real_estate_license_url",
+    ]) delete output[key];
+  }
   return output;
 }
 
@@ -386,9 +418,10 @@ async function enrichRows(
             String(packageRow?.code ?? "") === "pro" ||
             Number(packageRow?.price ?? 0) > 0;
 
-          const packageExpired =
-            !!related.plan_expires_at &&
-            new Date(String(related.plan_expires_at)).getTime() <= Date.now();
+          const planExpiry = related.plan_expires_at
+            ? new Date(String(related.plan_expires_at)).getTime()
+            : Number.NaN;
+          const packageExpired = !Number.isFinite(planExpiry) || planExpiry <= Date.now();
 
           const isProCurrent = packageRow
             ? packageIsPro && !packageExpired
@@ -414,7 +447,7 @@ async function enrichRows(
 
 async function roleFor(userId: string) {
   const users = await getMongoCollection<Record<string, unknown>>("users");
-  const user = await users.findOne({ _id: userId });
+  const user = await users.findOne({ _id: userId } as never);
 
   if (user?.role === "admin") return "admin";
 
@@ -428,11 +461,11 @@ async function roleFor(userId: string) {
 async function authorize(input: DbInput) {
   const userId = getSessionUserId();
 
-  if (input.operation === "select" && publicReads.has(input.collection)) {
-    return { userId, role: null };
-  }
-
   const role = userId ? await roleFor(userId) : null;
+
+  if (input.operation === "select" && publicReads.has(input.collection)) {
+    return { userId, role };
+  }
 
   if (!userId) throw new Error("يجب تسجيل الدخول.");
 
@@ -459,15 +492,71 @@ async function authorize(input: DbInput) {
     input.operation === "select" &&
     !(input.collection === "property_requests" && role === "office")
   ) {
-    const hasOwnerFilter = (input.filters ?? []).some(
-      (filter) => filter.field === "user_id" || filter.field === "owner_id",
-    );
+    input.filters = [
+      ...(input.filters ?? []),
+      { field: input.collection === "profiles" ? "id" : "user_id", op: "eq", value: userId },
+    ];
+  }
 
-    if (!hasOwnerFilter) {
-      input.filters = [
-        ...(input.filters ?? []),
-        { field: "user_id", op: "eq", value: userId },
-      ];
+  if (role !== "admin" && input.operation === "select") {
+    if (["users", "payment_transactions", "reports"].includes(input.collection)) {
+      throw new Error("غير مصرح بقراءة هذه البيانات.");
+    }
+
+    if (["viewing_bookings", "property_inquiries"].includes(input.collection)) {
+      if (role === "individual") {
+        input.filters = [...(input.filters ?? []), { field: "user_id", op: "eq", value: userId }];
+      } else if (role === "office") {
+        const ownOffice = await (await getMongoCollection<Record<string, unknown>>("offices"))
+          .findOne({ owner_id: userId, is_deleted: { $ne: true } });
+        if (!ownOffice) throw new Error("not_office_member");
+        input.filters = [...(input.filters ?? []), { field: "office_id", op: "eq", value: String(ownOffice.id ?? "") }];
+      } else {
+        throw new Error("يجب تسجيل الدخول.");
+      }
+    }
+
+    if (input.collection === "office_offers") {
+      if (role === "office") {
+        const ownOffice = await (await getMongoCollection<Record<string, unknown>>("offices"))
+          .findOne({ owner_id: userId, is_deleted: { $ne: true } });
+        if (!ownOffice) throw new Error("not_office_member");
+        input.filters = [...(input.filters ?? []), { field: "office_id", op: "eq", value: String(ownOffice.id ?? "") }];
+      } else if (role === "individual") {
+        const ownedRequests = await (await getMongoCollection<Record<string, unknown>>("property_requests"))
+          .find({ user_id: userId }).project({ id: 1 }).toArray();
+        input.filters = [...(input.filters ?? []), {
+          field: "request_id", op: "in",
+          value: ownedRequests.map((row) => String(row.id ?? "")).filter(Boolean),
+        }];
+      } else {
+        throw new Error("يجب تسجيل الدخول.");
+      }
+    }
+
+    if (input.collection === "office_plan_events") {
+      if (role !== "office") throw new Error("غير مصرح بقراءة سجل الاشتراكات.");
+      const ownOffice = await (await getMongoCollection<Record<string, unknown>>("offices"))
+        .findOne({ owner_id: userId, is_deleted: { $ne: true } });
+      if (!ownOffice) throw new Error("not_office_member");
+      input.filters = [...(input.filters ?? []), { field: "office_id", op: "eq", value: String(ownOffice.id ?? "") }];
+    }
+
+    if (input.collection === "support_messages") {
+      const ownedTickets = await (await getMongoCollection<Record<string, unknown>>("support_tickets"))
+        .find({ user_id: userId }).project({ id: 1 }).toArray();
+      input.filters = [...(input.filters ?? []), {
+        field: "ticket_id", op: "in",
+        value: ownedTickets.map((row) => String(row.id ?? "")).filter(Boolean),
+      }];
+    }
+
+    if (input.collection === "office_staff") {
+      if (role !== "office") throw new Error("غير مصرح بقراءة موظفي المكتب.");
+      const ownOffice = await (await getMongoCollection<Record<string, unknown>>("offices"))
+        .findOne({ owner_id: userId, is_deleted: { $ne: true } });
+      if (!ownOffice) throw new Error("not_office_member");
+      input.filters = [...(input.filters ?? []), { field: "office_id", op: "eq", value: String(ownOffice.id ?? "") }];
     }
   }
 
@@ -542,8 +631,8 @@ async function enforceOfficePropertyLimit(
   const now = Date.now();
   const expiresAt = office.plan_expires_at
     ? new Date(String(office.plan_expires_at)).getTime()
-    : null;
-  const expired = expiresAt != null && Number.isFinite(expiresAt) && expiresAt <= now;
+    : Number.NaN;
+  const expired = !Number.isFinite(expiresAt) || expiresAt <= now;
   const packageIsPro = !!packageRow &&
     (String(packageRow.code ?? "") === "pro" || Number(packageRow.price ?? 0) > 0);
   const isProCurrent = packageIsPro && !expired;
@@ -572,6 +661,141 @@ async function enforceOfficePropertyLimit(
 
 async function runDb(input: DbInput) {
   const { userId, role } = await authorize(input);
+  const isWrite = ["insert", "update", "upsert", "delete"].includes(input.operation);
+
+  if (
+    role !== "admin" &&
+    isWrite &&
+    ["users", "user_roles", "payment_transactions", "office_plan_events",
+      "package_catalog", "governorates", "neighborhoods", "app_content"].includes(input.collection)
+  ) {
+    throw new Error("هذه العملية تحتاج إلى صلاحيات الإدارة.");
+  }
+
+  if (role !== "admin" && input.collection === "office_staff" && isWrite) {
+    throw new Error("إدارة موظفي المكتب لا تتم من خلال تعديل قاعدة البيانات العام.");
+  }
+
+  if (role !== "admin" && input.collection === "users") {
+    throw new Error("غير مصرح بقراءة بيانات الحسابات الداخلية.");
+  }
+  if (role !== "admin" && input.collection === "payment_transactions") {
+    throw new Error("غير مصرح بالوصول إلى سجلات الدفع.");
+  }
+
+  if (role !== "admin" && input.collection === "offices" && isWrite) {
+    if (role !== "office" || input.operation !== "update" || !userId) {
+      throw new Error("تعديل بيانات المكاتب محجوز لصاحب المكتب.");
+    }
+    const payload = (input.payload ?? {}) as Record<string, unknown>;
+    const allowedOfficeFields = new Set([
+      "name", "manager_name", "phone", "whatsapp", "email", "address",
+      "working_hours", "commercial_register", "license_number", "fal_license_number",
+      "description", "governorate_id", "license_expiry", "fal_license_url",
+      "real_estate_license_url", "logo_url", "updated_at",
+    ]);
+    if (Object.keys(payload).some((key) => !allowedOfficeFields.has(key))) {
+      throw new Error("تحتوي بيانات المكتب على حقول محمية.");
+    }
+    input.filters = [...(input.filters ?? []), { field: "owner_id", op: "eq", value: userId }];
+  }
+
+  if (role !== "admin" && input.collection === "profiles" && isWrite) {
+    if (input.operation !== "update" || !userId) {
+      throw new Error("تعديل الملف الشخصي يجب أن يتم من خلال الإجراء المخصص.");
+    }
+    const payload = (input.payload ?? {}) as Record<string, unknown>;
+    const allowedProfileFields = new Set(["full_name", "phone", "avatar_url", "governorate_id", "updated_at"]);
+    if (Object.keys(payload).some((key) => !allowedProfileFields.has(key))) {
+      throw new Error("تحتوي بيانات الملف الشخصي على حقول محمية.");
+    }
+    input.filters = [...(input.filters ?? []), { field: "id", op: "eq", value: userId }];
+  }
+
+  if (role !== "admin" && input.collection === "notifications" && isWrite) {
+    if (input.operation !== "update" || !userId) {
+      throw new Error("إنشاء الإشعارات أو حذفها محجوز للخادم.");
+    }
+    const payload = (input.payload ?? {}) as Record<string, unknown>;
+    if (Object.keys(payload).some((key) => !["is_read", "updated_at"].includes(key))) {
+      throw new Error("لا يمكن تعديل محتوى الإشعار.");
+    }
+    input.filters = [...(input.filters ?? []), { field: "user_id", op: "eq", value: userId }];
+  }
+
+  if (role !== "admin" && input.collection === "reports" && isWrite) {
+    if (!userId || input.operation !== "insert") {
+      throw new Error("إرسال البلاغات يتطلب تسجيل الدخول؛ وتعديلها محجوز للإدارة.");
+    }
+  }
+  if (role !== "admin" && input.collection === "support_tickets" && isWrite) {
+    if (!userId || input.operation !== "insert") {
+      throw new Error("إنشاء تذكرة دعم يتطلب تسجيل الدخول؛ وتعديلها محجوز لفريق الدعم.");
+    }
+  }
+  if (role !== "admin" && input.collection === "support_messages" && isWrite) {
+    if (!userId || input.operation !== "insert") {
+      throw new Error("إرسال رسالة دعم يتطلب تسجيل الدخول.");
+    }
+  }
+
+  if (role !== "admin" && input.collection === "property_requests" && isWrite) {
+    if (!userId || role !== "individual" || input.operation !== "update") {
+      throw new Error("تعديل طلب البحث متاح لصاحبه فقط.");
+    }
+    const payload = (input.payload ?? {}) as Record<string, unknown>;
+    const allowedRequestFields = new Set([
+      "kind", "listing", "neighborhood", "budget_min", "budget_max", "area_min",
+      "description", "attachment_url", "updated_at",
+    ]);
+    if (Object.keys(payload).some((key) => !allowedRequestFields.has(key))) {
+      throw new Error("تحتوي بيانات الطلب على حقول محمية.");
+    }
+    input.filters = [...(input.filters ?? []), { field: "user_id", op: "eq", value: userId }];
+  }
+
+  if (role !== "admin" && input.collection === "properties" && isWrite) {
+    if (input.operation === "delete" || input.operation === "upsert") {
+      throw new Error("حذف العقار أو استبداله يجب أن يتم من خلال الإجراء المخصص.");
+    }
+    if (role !== "office" || !userId) throw new Error("تسجيل العقارات متاح للمكتب فقط.");
+    if (input.operation === "update") {
+      const payload = (input.payload ?? {}) as Record<string, unknown>;
+      const forbidden = new Set([
+        "id", "_id", "office_id", "owner_id", "is_deleted", "is_featured", "created_at",
+        "views_count", "favorites_count", "updated_at",
+      ]);
+      if (Object.keys(payload).some((key) => forbidden.has(key))) {
+        throw new Error("تحتوي بيانات العقار على حقول محمية.");
+      }
+      const ownOffice = await (await getMongoCollection<Record<string, unknown>>("offices"))
+        .findOne({ owner_id: userId, is_deleted: { $ne: true } });
+      if (!ownOffice) throw new Error("office_not_found");
+      input.filters = [...(input.filters ?? []), { field: "office_id", op: "eq", value: String(ownOffice.id ?? "") }];
+    }
+  }
+
+  if (
+    role !== "admin" &&
+    ["favorites", "follows", "saved_searches", "device_tokens", "property_views", "office_reviews"].includes(input.collection) &&
+    isWrite
+  ) {
+    if (!userId) throw new Error("يجب تسجيل الدخول.");
+    if (["favorites", "follows", "saved_searches", "property_views", "office_reviews"].includes(input.collection) &&
+        role !== "individual") {
+      throw new Error("هذه العملية متاحة للحساب الفردي فقط.");
+    }
+    if (input.operation === "upsert") throw new Error("استخدم إجراءات الحساب المخصصة لتعديل هذا السجل.");
+    if (input.operation === "update" || input.operation === "delete") {
+      if (input.operation === "update") {
+        const payload = (input.payload ?? {}) as Record<string, unknown>;
+        if (["id", "_id", "user_id", "owner_id", "created_at"].some((key) => key in payload)) {
+          throw new Error("لا يمكن نقل ملكية هذا السجل.");
+        }
+      }
+      input.filters = [...(input.filters ?? []), { field: "user_id", op: "eq", value: userId }];
+    }
+  }
 
   if (
     input.collection === "office_offers" &&
@@ -697,10 +921,16 @@ async function runDb(input: DbInput) {
     if (input.collection === "conversation_blocks" && input.operation === "insert") {
       const list = Array.isArray(input.payload) ? input.payload : [input.payload];
       for (const row of list) {
-        const conversationId = String((row as Record<string, unknown> | null)?.conversation_id ?? "");
+        if (!row || typeof row !== "object" || Array.isArray(row)) {
+          throw new Error("بيانات الحظر غير صالحة.");
+        }
+        const block = row as Record<string, unknown>;
+        const conversationId = String(block.conversation_id ?? "");
         if (!allowedConversationIds.includes(conversationId)) {
           throw new Error("not_conversation_member");
         }
+        // The caller cannot block as another conversation participant.
+        block.blocker_id = userId;
       }
     }
 
@@ -734,8 +964,7 @@ async function runDb(input: DbInput) {
   if (
     input.collection === "property_requests" &&
     input.operation === "select" &&
-    role === "office" &&
-    !filters.some((filter) => filter.field === "status")
+    role === "office"
   ) {
     filters.push({ field: "status", op: "eq", value: "active" });
   }
@@ -823,9 +1052,10 @@ async function runDb(input: DbInput) {
             ? String(packageRow.code ?? "") === "pro" ||
               Number(packageRow.price ?? 0) > 0
             : office.plan === "pro";
-          const expired =
-            !!office.plan_expires_at &&
-            new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+          const planExpiry = office.plan_expires_at
+            ? new Date(String(office.plan_expires_at)).getTime()
+            : Number.NaN;
+          const expired = !Number.isFinite(planExpiry) || planExpiry <= Date.now();
           return packageIsPro && !expired;
         })
         .map((office) => String(office.id ?? office._id ?? ""))
@@ -910,9 +1140,10 @@ async function runDb(input: DbInput) {
             String(packageRow?.code ?? "") === "pro" ||
             Number(packageRow?.price ?? 0) > 0;
 
-          const packageExpired =
-            !!office.plan_expires_at &&
-            new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+          const planExpiry = office.plan_expires_at
+            ? new Date(String(office.plan_expires_at)).getTime()
+            : Number.NaN;
+          const packageExpired = !Number.isFinite(planExpiry) || planExpiry <= Date.now();
 
           const isProCurrent = packageRow
             ? packageIsPro && !packageExpired
@@ -946,7 +1177,10 @@ async function runDb(input: DbInput) {
     );
 
     const output = relatedRows.map((row) =>
-      project(row, input.select ?? null),
+      project(
+        sanitizeOfficePrivateFields(row, userId, role) as Record<string, unknown>,
+        input.select ?? null,
+      ),
     );
 
     if (input.single || input.maybeSingle) {
@@ -1008,9 +1242,10 @@ async function runDb(input: DbInput) {
           ? String(packageRow.code ?? "") === "pro" ||
             Number(packageRow.price ?? 0) > 0
           : office.plan === "pro";
-        const expired =
-          !!office.plan_expires_at &&
-          new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+        const expiryTime = office.plan_expires_at
+          ? new Date(String(office.plan_expires_at)).getTime()
+          : Number.NaN;
+        const expired = !Number.isFinite(expiryTime) || expiryTime <= Date.now();
         const chatEnabled = packageRow
           ? Boolean(packageRow.chat_enabled) && packageIsPro && !expired
           : packageIsPro && !expired;
@@ -1023,6 +1258,20 @@ async function runDb(input: DbInput) {
     }
 
     if (input.collection === "properties") {
+      if (role !== "admin") {
+        if (role !== "office" || !userId) throw new Error("تسجيل العقارات متاح للمكتب فقط.");
+        const ownOffice = await (await getMongoCollection<Record<string, unknown>>("offices"))
+          .findOne({ owner_id: userId, is_deleted: { $ne: true } });
+        if (!ownOffice) throw new Error("office_not_found");
+        for (const doc of docs) {
+          doc.office_id = String(ownOffice.id ?? "");
+          doc.is_featured = false;
+          doc.is_deleted = false;
+          doc.views_count = 0;
+          doc.favorites_count = 0;
+          delete doc.owner_id;
+        }
+      }
       await enforceOfficePropertyLimit(userId, role, docs);
     }
 
@@ -1183,6 +1432,44 @@ async function runDb(input: DbInput) {
       for (const doc of docs) {
         doc.id = userId;
         doc._id = userId;
+      }
+    }
+
+    if (role !== "admin" && userId &&
+        ["favorites", "follows", "saved_searches", "device_tokens", "property_views", "office_reviews"].includes(input.collection)) {
+      for (const doc of docs) {
+        doc.user_id = userId;
+        delete doc.owner_id;
+      }
+    }
+
+    if (role !== "admin" && userId && input.collection === "reports") {
+      for (const doc of docs) {
+        doc.user_id = userId;
+        delete doc.status;
+        delete doc.reviewed_by;
+        delete doc.admin_notes;
+      }
+    }
+
+    if (role !== "admin" && userId && input.collection === "support_tickets") {
+      for (const doc of docs) {
+        doc.user_id = userId;
+        doc.status = "open";
+        delete doc.assigned_to;
+        delete doc.admin_notes;
+      }
+    }
+
+    if (input.collection === "support_messages") {
+      const tickets = await getMongoCollection<Record<string, unknown>>("support_tickets");
+      for (const doc of docs) {
+        const ticket = await tickets.findOne({ id: String(doc.ticket_id ?? "") });
+        if (!ticket) throw new Error("support_ticket_not_found");
+        if (role !== "admin" && String(ticket.user_id ?? "") !== String(userId ?? "")) {
+          throw new Error("not_support_ticket_owner");
+        }
+        doc.sender_id = role === "admin" ? String(doc.sender_id ?? userId ?? "") : userId;
       }
     }
 
@@ -1490,9 +1777,10 @@ async function runDb(input: DbInput) {
           ? String(packageRow.code ?? "") === "pro" ||
             Number(packageRow.price ?? 0) > 0
           : office.plan === "pro";
-        const expired =
-          !!office.plan_expires_at &&
-          new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+        const expiryTime = office.plan_expires_at
+          ? new Date(String(office.plan_expires_at)).getTime()
+          : Number.NaN;
+        const expired = !Number.isFinite(expiryTime) || expiryTime <= Date.now();
         const featuredLimit =
           packageIsPro && !expired ? Number(packageRow?.featured_limit ?? 0) : 0;
 
@@ -1622,9 +1910,68 @@ async function runDb(input: DbInput) {
   throw new Error("Unsupported database operation.");
 }
 
+const allowedDbCollections = new Set([
+  "users", "profiles", "user_roles", "offices", "properties", "property_images",
+  "property_requests", "office_offers", "property_inquiries", "viewing_bookings",
+  "favorites", "follows", "notifications", "device_tokens", "saved_searches",
+  "governorates", "neighborhoods", "office_reviews", "package_catalog", "app_content",
+  "conversations", "messages", "conversation_blocks", "property_views", "office_staff",
+  "office_plan_events", "payment_transactions", "reports", "support_tickets", "support_messages",
+]);
+
+function validateDbInput(value: unknown): DbInput {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("طلب قاعدة البيانات غير صالح.");
+  }
+  const input = value as Record<string, unknown>;
+  if (typeof input.collection !== "string" || !allowedDbCollections.has(input.collection)) {
+    throw new Error("مجموعة البيانات غير مدعومة.");
+  }
+  if (!["select", "insert", "update", "upsert", "delete"].includes(String(input.operation))) {
+    throw new Error("عملية قاعدة البيانات غير مدعومة.");
+  }
+  if (input.filters !== undefined) {
+    if (!Array.isArray(input.filters) || input.filters.length > 50) throw new Error("عدد فلاتر البحث غير صالح.");
+    for (const item of input.filters) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("فلتر البحث غير صالح.");
+      const filter = item as Record<string, unknown>;
+      if (typeof filter.field !== "string" ||
+          !/^[A-Za-z_][A-Za-z0-9_.]{0,127}$/.test(filter.field) ||
+          !["eq", "neq", "gt", "gte", "lt", "lte", "in", "ilike", "like", "contains"].includes(String(filter.op))) {
+        throw new Error("فلتر البحث غير صالح.");
+      }
+      const safeScalar = (part: unknown) => part == null || ["string", "number", "boolean"].includes(typeof part);
+      if (Array.isArray(filter.value)) {
+        if (filter.value.length > 500 || !filter.value.every(safeScalar)) throw new Error("قيمة فلتر البحث غير صالحة.");
+      } else if (!safeScalar(filter.value)) {
+        throw new Error("قيمة فلتر البحث غير صالحة.");
+      }
+    }
+  }
+  if (input.orders !== undefined && (
+    !Array.isArray(input.orders) || input.orders.length > 10 ||
+    input.orders.some((item) => !item || typeof item !== "object" ||
+      typeof (item as Record<string, unknown>).field !== "string" ||
+      !/^[A-Za-z_][A-Za-z0-9_.]{0,127}$/.test(String((item as Record<string, unknown>).field)))
+  )) throw new Error("ترتيب النتائج غير صالح.");
+
+  for (const field of ["limit", "offset"] as const) {
+    const amount = input[field];
+    if (amount != null && (!Number.isSafeInteger(amount) || Number(amount) < 0 ||
+        (field === "limit" && Number(amount) > 1000) ||
+        (field === "offset" && Number(amount) > 100000))) {
+      throw new Error("حدود البحث غير صالحة.");
+    }
+  }
+  if (Array.isArray(input.payload) && input.payload.length > 20) {
+    throw new Error("عدد السجلات في العملية أكبر من المسموح.");
+  }
+  return input as unknown as DbInput;
+}
+
 export const dbRequest = createServerFn({ method: "POST" })
-  .validator((value: unknown) => value as DbInput)
-  .handler(async ({ data }) => {
+  .validator(validateDbInput)
+  .handler(async ({ data }): Promise<any> => {
     try {
       return await runDb(data);
     } catch (error) {
@@ -1640,7 +1987,7 @@ export const dbRequest = createServerFn({ method: "POST" })
 
 export const rpcRequest = createServerFn({ method: "POST" })
   .validator((value: unknown) => value as { name: string; args?: Record<string, unknown> })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<any> => {
     try {
       const userId = getSessionUserId();
       const role = userId ? await roleFor(userId) : null;
@@ -1650,7 +1997,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         const args = data.args ?? {};
         const users = await getMongoCollection<Record<string, unknown>>("users");
-        const user = await users.findOne({ _id: userId });
+        const user = await users.findOne({ _id: userId } as never);
 
         if (!user) throw new Error("الحساب غير موجود.");
 
@@ -1709,7 +2056,6 @@ export const rpcRequest = createServerFn({ method: "POST" })
                 license_number: office.license_number ?? null,
                 commercial_register: office.commercial_register ?? null,
                 governorate_id: args._governorate_id ?? null,
-                plan: office.plan ?? "free",
                 verification_status: "pending",
                 is_deleted: false,
                 updated_at: new Date(),
@@ -1717,6 +2063,8 @@ export const rpcRequest = createServerFn({ method: "POST" })
               $setOnInsert: {
                 id: randomUUID(),
                 created_at: new Date(),
+                plan: "free",
+                plan_expires_at: null,
               },
             },
             { upsert: true },
@@ -1745,17 +2093,13 @@ export const rpcRequest = createServerFn({ method: "POST" })
         });
 
         if (!pkg) throw new Error("package_not_available");
+        if (String(pkg.code ?? "").toLowerCase() !== "free" || Number(pkg.price ?? 0) > 0) {
+          throw new Error("تفعيل الباقة المدفوعة يتطلب تأكيد نجاح الدفع من HyperPay.");
+        }
 
-        const plan =
-          String(pkg.code ?? "") === "pro" || Number(pkg.price ?? 0) > 0
-            ? "pro"
-            : "free";
+        const plan = "free";
 
-        const durationDays = Number(pkg.duration_days ?? 0);
-        const expiresAt =
-          durationDays > 0
-            ? new Date(Date.now() + durationDays * 86_400_000)
-            : null;
+        const expiresAt = null;
 
         await offices.updateOne(
           { id: office.id },
@@ -1847,7 +2191,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         if (office.owner_id) {
           try {
-            await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+            await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
               id: randomUUID(),
               _id: randomUUID(),
               user_id: String(office.owner_id),
@@ -2611,7 +2955,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             const office = await offices.findOne({ id: officeId });
 
             if (office?.owner_id) {
-              await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+              await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
                 id: randomUUID(),
                 _id: randomUUID(),
                 user_id: String(office.owner_id),
@@ -2686,7 +3030,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           String(booking.contact_name ?? "العميل").trim() || "العميل";
         const contactPhone = String(booking.contact_phone ?? "").trim();
 
-        await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+        await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
           id: randomUUID(),
           _id: randomUUID(),
           user_id: office.owner_id,
@@ -2937,9 +3281,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             : "";
 
           try {
-            await getMongoCollection<Record<string, unknown>>(
-              "notifications",
-            ).insertOne({
+            await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
               id: randomUUID(),
               _id: randomUUID(),
               user_id: officeOwnerId,
@@ -3259,7 +3601,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             (property?.title ? " بخصوص " + String(property.title) : " بخصوص العقار") +
             (!isCompleted && reason ? ". سبب الإنهاء: " + reason : "") +
             (isCompleted && reason ? ". ملاحظة العميل: " + reason : "");
-          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+          await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
             id: randomUUID(),
             _id: randomUUID(),
             user_id: recipientId,
@@ -3387,7 +3729,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           question: "استفسار",
         };
 
-        await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+        await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
           id: randomUUID(),
           _id: randomUUID(),
           user_id: office.owner_id,
@@ -3456,11 +3798,11 @@ export const rpcRequest = createServerFn({ method: "POST" })
           ? String(packageRow.code ?? "") === "pro" ||
             Number(packageRow.price ?? 0) > 0
           : office.plan === "pro";
+        const hasActiveExpiry = !!expiresAt &&
+          Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() > Date.now();
         const chatEnabled = packageRow
-          ? Boolean(packageRow.chat_enabled) &&
-            packageIsPro &&
-            (!expiresAt || expiresAt.getTime() > Date.now())
-          : packageIsPro && (!expiresAt || expiresAt.getTime() > Date.now());
+          ? Boolean(packageRow.chat_enabled) && packageIsPro && hasActiveExpiry
+          : packageIsPro && hasActiveExpiry;
 
         if (!chatEnabled) throw new Error("chat_not_available");
 
@@ -3476,7 +3818,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const messageId = randomUUID();
         const now = new Date();
 
-        await getMongoCollection<Record<string, unknown>>("messages").insertOne({
+        await (await getMongoCollection<Record<string, unknown>>("messages")).insertOne({
           id: messageId,
           _id: messageId,
           conversation_id: conversationId,
@@ -3507,7 +3849,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               ? String(profile?.full_name ?? "عميل")
               : String(office.name ?? "مكتب عقاري");
 
-          await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+          await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
             id: randomUUID(),
             _id: randomUUID(),
             user_id: recipientId,
@@ -4302,9 +4644,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
           ? String(packageRow.code ?? "") === "pro" ||
             Number(packageRow.price ?? 0) > 0
           : office?.plan === "pro";
-        const expired =
-          !!office?.plan_expires_at &&
-          new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+        const planExpiry = office?.plan_expires_at
+          ? new Date(String(office.plan_expires_at)).getTime()
+          : Number.NaN;
+        const expired = !Number.isFinite(planExpiry) || planExpiry <= Date.now();
         const effectivePro = packageIsPro && !expired;
         const chatEnabled = packageRow
           ? Boolean(packageRow.chat_enabled) && effectivePro
@@ -4624,12 +4967,60 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
     return value;
   })
   .handler(async ({ data }) => {
-    const file = data.get("file");
+    const userId = getSessionUserId();
+    if (!userId) throw new Error("يجب تسجيل الدخول لرفع الملفات.");
 
+    const file = data.get("file");
     if (!(file instanceof File)) throw new Error("الملف غير موجود.");
 
+    const requestedOwnerId = data.get("uploaderId");
+    if (typeof requestedOwnerId === "string" && requestedOwnerId !== userId) {
+      throw new Error("جلسة المستخدم لا تطابق صاحب الملف.");
+    }
+
+    const folder = data.get("folder");
+    if (typeof folder !== "string" || !["properties", "requests", "licenses", "support"].includes(folder)) {
+      throw new Error("نوع مجلد الرفع غير مدعوم.");
+    }
+
+    const maxBytes = folder === "support" ? 20 * 1024 * 1024 : 8 * 1024 * 1024;
+    if (file.size <= 0 || file.size > maxBytes) {
+      throw new Error(folder === "support"
+        ? "حجم مرفق الدعم يجب ألا يتجاوز 20 ميجابايت."
+        : "حجم الملف يجب أن يكون بين 1 بايت و8 ميجابايت.");
+    }
+
+    const mimeType = file.type.toLowerCase();
+    const supportedTypes = folder === "support"
+      ? ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+      : ["image/jpeg", "image/png", "image/webp"];
+    if (!supportedTypes.includes(mimeType)) {
+      throw new Error(folder === "support"
+        ? "صيغة مرفق الدعم غير مدعومة. استخدم صورة أو PDF."
+        : "الصيغة غير مدعومة. استخدم JPG أو PNG أو WEBP.");
+    }
+
     const bytes = Buffer.from(await file.arrayBuffer());
-    const id = await storeMedia(file.name, file.type || "application/octet-stream", bytes);
+    const validJpeg = mimeType === "image/jpeg" &&
+      bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    const validPng = mimeType === "image/png" &&
+      bytes.length >= 8 && bytes.subarray(0, 8).toString("hex") === "89504e470d0a1a0a";
+    const validWebp = mimeType === "image/webp" &&
+      bytes.length >= 12 && bytes.toString("ascii", 0, 4) === "RIFF" &&
+      bytes.toString("ascii", 8, 12) === "WEBP";
+    const validPdf = mimeType === "application/pdf" &&
+      bytes.length >= 5 && bytes.toString("ascii", 0, 5) === "%PDF-";
+    if (!validJpeg && !validPng && !validWebp && !validPdf) {
+      throw new Error("محتوى الملف لا يطابق نوعه.");
+    }
+
+    const id = await storeMedia(
+      file.name,
+      mimeType,
+      bytes,
+      userId,
+      folder === "licenses" || folder === "support" ? "private" : "public",
+    );
 
     return {
       data: {
@@ -4761,8 +5152,16 @@ export const getOfficeViewingClientDetails = createServerFn({ method: "POST" })
   });
 
 export const removeMedia = createServerFn({ method: "POST" })
-  .validator((value: unknown) => value as { path: string })
+  .validator((value: unknown) => {
+    if (!value || typeof value !== "object" || typeof (value as { path?: unknown }).path !== "string") {
+      throw new Error("مسار الملف غير صالح.");
+    }
+    return value as { path: string };
+  })
   .handler(async ({ data }) => {
-    await deleteMedia(data.path);
+    const userId = getSessionUserId();
+    if (!userId) throw new Error("يجب تسجيل الدخول لحذف الملفات.");
+    const deleted = await deleteMedia(data.path, userId);
+    if (!deleted) throw new Error("لا تملك صلاحية حذف هذا الملف.");
     return { data: null, error: null };
   });
