@@ -88,14 +88,28 @@ begin
       raise exception 'offer_property_cannot_be_changed';
     end if;
 
+    select pr.user_id, pr.status::text
+    into v_request_owner, v_request_status
+    from public.property_requests pr
+    where pr.id = old.request_id;
+
+    v_current_office := public.office_member_office_id();
+
+    -- Only the owning office can edit the actual offer terms, and only while
+    -- the offer is still sent and the customer's request is active.
+    if new.message is distinct from old.message
+       or new.price is distinct from old.price
+       or new.notes is distinct from old.notes then
+      if v_current_office is null or v_current_office <> old.office_id then
+        raise exception 'only_offer_owner_can_edit';
+      end if;
+
+      if old.status <> 'sent' or v_request_status <> 'active' then
+        raise exception 'offer_terms_are_locked';
+      end if;
+    end if;
+
     if new.status is distinct from old.status then
-      select pr.user_id, pr.status::text
-      into v_request_owner, v_request_status
-      from public.property_requests pr
-      where pr.id = old.request_id;
-
-      v_current_office := public.office_member_office_id();
-
       if v_current_office is not null and v_current_office = old.office_id then
         if old.status not in ('sent', 'accepted', 'awaiting_confirmation')
            or new.status not in ('awaiting_confirmation', 'ended', 'deleted') then
