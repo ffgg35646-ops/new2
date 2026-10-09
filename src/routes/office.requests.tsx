@@ -232,14 +232,21 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
         };
       }
 
-      const todayBookings = bookings.filter((booking) =>
+      const activeBookings = bookings.filter(
+        (booking) => booking.status !== "cancelled",
+      );
+      const cancelledBookings = bookings.filter(
+        (booking) => booking.status === "cancelled",
+      );
+      const todayBookings = activeBookings.filter((booking) =>
         isSaudiAppointmentToday(booking.visit_date),
       );
-      const otherBookings = bookings.filter(
+      const otherBookings = activeBookings.filter(
         (booking) => !isSaudiAppointmentToday(booking.visit_date),
       );
 
-      return [...todayBookings, ...otherBookings];
+      // Keep cancelled appointments at the bottom, after all non-cancelled bookings.
+      return [...todayBookings, ...otherBookings, ...cancelledBookings];
     },
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
