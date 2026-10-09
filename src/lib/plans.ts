@@ -104,7 +104,8 @@ export function usePackages(activeOnly = true) {
       const { data, error } = await q;
       if (error) throw error;
 
-      return (data ?? []).map(normalizePackage);
+      const rows = (data ?? []) as unknown[];
+      return rows.map(normalizePackage);
     },
   });
 }
