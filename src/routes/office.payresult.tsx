@@ -18,7 +18,7 @@ export const Route = createFileRoute("/office/payresult")({
 function ResultPage() {
   const { id, resourcePath } = Route.useSearch();
   const qc = useQueryClient();
-  const [state, setState] = useState<"checking" | "success" | "failed">("checking");
+  const [state, setState] = useState<"checking" | "success" | "failed" | "pending">("checking");
   const [message, setMessage] = useState("");
   const done = useRef(false);
 
@@ -61,12 +61,27 @@ function ResultPage() {
           const data = await checkOnce(12000);
           if (data?.success) {
             setState("success");
-            setMessage("تم استلام دفعتك وتفعيل الباقة الاحترافية 🎉");
+            setMessage("تم استلام دفعتك وتفعيل الباقة الاحترافية لمدة 30 يومًا 🎉");
             void qc.invalidateQueries();
-          } else {
-            setState("failed");
-            setMessage(data?.description || "لم تكتمل عملية الدفع");
+            return;
           }
+
+          if (data?.pending) {
+            if (attempt < 3) {
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+              continue;
+            }
+
+            setState("pending");
+            setMessage(
+              data.description ||
+                "الدفع ما زال قيد المعالجة. لم يتم تفعيل الباقة حتى تأكيد نجاح العملية.",
+            );
+            return;
+          }
+
+          setState("failed");
+          setMessage(data?.description || "لم يكتمل الدفع، ولم يتم تفعيل الباقة.");
           return;
         } catch {
           if (attempt === 3) {
@@ -105,11 +120,27 @@ function ResultPage() {
           </>
         )}
 
+        {state === "pending" && (
+          <>
+            <Loader2 className="size-16 text-terracotta" />
+            <h1 className="mt-4 font-display text-xl font-extrabold">الدفع قيد التحقق</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+            <Link
+              to="/office/subscription"
+              className="mt-6 rounded-2xl bg-forest px-6 py-3 text-sm font-bold text-background"
+            >
+              العودة إلى الباقة والاشتراك
+            </Link>
+          </>
+        )}
+
         {state === "failed" && (
           <>
             <XCircle className="size-16 text-terracotta" />
             <h1 className="mt-4 font-display text-xl font-extrabold">لم يكتمل الدفع</h1>
-            <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {message} لم يتم تفعيل الباقة.
+            </p>
             <Link
               to="/office/pay"
               className="mt-6 rounded-2xl bg-forest px-6 py-3 text-sm font-bold text-background"
