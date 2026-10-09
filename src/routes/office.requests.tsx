@@ -357,7 +357,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Clock3 className="size-3.5" />
-                      {formatBookingTime(booking.visit_time)}
+                      {formatBookingTime(booking.visit_time)} · توقيت السعودية
                     </span>
                   </div>
                 </div>
