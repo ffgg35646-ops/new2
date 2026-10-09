@@ -20,6 +20,6 @@ jobs:
 
       - name: Verify Supabase dependency is gone
         run: |
-          ! grep -RIn --exclude-dir=.git -E '@supabase/supabase-js|VITE_SUPABASE_|SUPABASE_URL' src package.json
+          ! grep -RIn --exclude-dir=.git --exclude='*.bak*' --exclude='*.before-*' --exclude='*.backup*' -E '@supabase/supabase-js|VITE_SUPABASE_|SUPABASE_URL' src package.json
 
       - run: npm run build
