@@ -205,8 +205,12 @@ function RequestsPage() {
     [personalInquiries],
   );
   const acceptedMarketRequestIds = useMemo(
-    () => new Set(acceptedMarketRequests.map((request) => request.id)),
-    [acceptedMarketRequests],
+    () => new Set(myRequests
+      .filter((request) =>
+        !!request.accepted_offer_id && ["active", "fulfilled"].includes(request.status),
+      )
+      .map((request) => request.id)),
+    [myRequests],
   );
   const displayedReceivedOffers = useMemo(
     () => receivedOffers.filter((offer) => !acceptedMarketRequestIds.has(offer.requestId)),
