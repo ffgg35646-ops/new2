@@ -179,6 +179,7 @@ function OfficeChatPage() {
             </Link>
             <Link
               to="/office/requests"
+              search={{ tab: "inbox", request: undefined }}
               className="mt-2 block rounded-2xl bg-sand py-3 text-xs font-semibold text-forest"
             >
               عرض طلبات التواصل الواردة
