@@ -130,7 +130,7 @@ function OfficeChatPage() {
             .from("messages")
             .select("id", { count: "exact", head: true })
             .eq("conversation_id", c.id)
-            .neq("sender_id", c.user_id)
+            .eq("sender_id", c.user_id)
             .is("read_at", null);
 
           c.unreadCount = count ?? 0;
@@ -147,7 +147,14 @@ function OfficeChatPage() {
       <AppHeader showSearch={false} />
 
       <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-4">
-        <h1 className="font-display text-xl font-extrabold">الدردشة</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="font-display text-xl font-extrabold">الدردشة</h1>
+          {!!conversations.data?.length && (
+            <span className="rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">
+              {conversations.data.length} محادثة
+            </span>
+          )}
+        </div>
 
         {isLoading ? (
           <div className="grid place-items-center py-16">
@@ -183,12 +190,15 @@ function OfficeChatPage() {
           </div>
         ) : conversations.data?.length ? (
           <ul className="space-y-2">
-            {conversations.data.map((c) => (
+            {conversations.data.map((c, index) => (
               <li key={c.id}>
                 <button
                   onClick={() => setActiveId(c.id)}
                   className="flex w-full items-center gap-3 rounded-2xl bg-surface p-3.5 text-right ring-1 ring-line"
                 >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-sand text-xs font-extrabold text-forest">
+                    {index + 1}
+                  </span>
                   <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-soft font-display font-extrabold text-forest">
                     {(c.client?.full_name || "؟").charAt(0)}
                   </span>
