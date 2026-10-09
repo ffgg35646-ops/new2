@@ -250,14 +250,20 @@ class Channel {
 }
 class StorageBucket {
   constructor(private readonly name: string) { void name; }
-  async upload(_path: string, file: File) {
+  async upload(
+    path: string,
+    file: File,
+    _options?: { contentType?: string; upsert?: boolean },
+  ) {
     const form = new FormData();
     form.append("file", file, file.name);
+    const parts = path.split("/").filter(Boolean);
+    form.append("uploaderId", parts[0] ?? "");
+    form.append("folder", parts[1] === "support" ? "support" : parts[1] === "licenses" ? "licenses" : "properties");
     try {
       const result = await uploadMedia({ data: form });
-
       return {
-        data: result.data,
+        data: result.data ? { path: result.data.path } : null,
         error: result.error,
       };
     } catch (error) {
