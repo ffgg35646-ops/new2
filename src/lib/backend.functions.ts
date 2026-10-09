@@ -4223,6 +4223,71 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: ids.length, error: null };
       }
 
+      if (data.name === "office_chat_clients") {
+        if (!userId || role !== "office") throw new Error("not_office_member");
+
+        const officeId = String(data.args?._office_id ?? "");
+        if (!officeId) throw new Error("office_not_found");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          id: officeId,
+          is_deleted: { $ne: true },
+        });
+        if (!office) throw new Error("office_not_found");
+
+        const isOwner = String(office.owner_id ?? "") === userId;
+        const staff = isOwner
+          ? null
+          : await (await getMongoCollection<Record<string, unknown>>("office_staff"))
+              .findOne({ office_id: officeId, user_id: userId, is_active: true });
+        if (!isOwner && !staff) throw new Error("not_office_member");
+
+        const conversations = await getMongoCollection<Record<string, unknown>>("conversations");
+        const conversationRows = await conversations
+          .find({ office_id: officeId })
+          .project({ user_id: 1 })
+          .toArray();
+        const clientIds = [
+          ...new Set(
+            conversationRows
+              .map((row) => String(row.user_id ?? ""))
+              .filter(Boolean),
+          ),
+        ];
+
+        if (!clientIds.length) return { data: [], error: null };
+
+        const [profiles, users] = await Promise.all([
+          getMongoCollection<Record<string, unknown>>("profiles")
+            .then((collection) =>
+              collection.find({ id: { $in: clientIds } })
+                .project({ id: 1, full_name: 1 })
+                .toArray(),
+            ),
+          getMongoCollection<Record<string, unknown>>("users")
+            .then((collection) =>
+              collection.find({ _id: { $in: clientIds } })
+                .project({ _id: 1, full_name: 1 })
+                .toArray(),
+            ),
+        ]);
+
+        const profileById = new Map(profiles.map((row) => [String(row.id ?? ""), row]));
+        const userById = new Map(users.map((row) => [String(row._id ?? ""), row]));
+        return {
+          data: clientIds.map((id) => ({
+            id,
+            full_name: String(
+              profileById.get(id)?.full_name ??
+              userById.get(id)?.full_name ??
+              "عميل",
+            ),
+          })),
+          error: null,
+        };
+      }
+
       if (data.name === "office_effective_plan") {
         if (!userId) throw new Error("يجب تسجيل الدخول.");
 
