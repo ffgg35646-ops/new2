@@ -1815,7 +1815,7 @@ function PoliciesTab() {
   const [privacy, setPrivacy] = useState("");
   const [terms, setTerms] = useState("");
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!data) return;
 
     setPrivacy(data.privacy);
