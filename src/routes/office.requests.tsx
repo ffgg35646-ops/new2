@@ -725,7 +725,7 @@ type AcceptedContactRequest = {
   offer_price: number | null; offer_status: string;
 };
 
-function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: string | null; highlightedRequestId?: string }) {
+function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: string | null; highlightedRequestId?: string | undefined }) {
   const qc = useQueryClient();
   const [cancelRequestId, setCancelRequestId] = useState<string | null>(null);
   const { data = [], isLoading, error } = useQuery<AcceptedContactRequest[]>({
