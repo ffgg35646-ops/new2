@@ -23,7 +23,7 @@ type Tab =
   | "dashboard"
   | "offices"
   | "geo"
-  | "reports"
+  | "plans"
   | "support"
   | "privacy"
   | "terms";
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/admin")({
     tab:
       search["tab"] === "offices" ||
       search["tab"] === "geo" ||
-      search["tab"] === "reports" ||
+      search["tab"] === "plans" ||
       search["tab"] === "support" ||
       search["tab"] === "privacy" ||
       search["tab"] === "terms"
@@ -113,7 +113,7 @@ function AdminPage() {
         {tab === "dashboard" && <AdminDashboard />}
         {tab === "offices" && <OfficesTab />}
         {tab === "geo" && <GeoTab />}
-        {tab === "reports" && <ReportsTab />}
+        {tab === "plans" && <PlansTab />}
         {tab === "support" && <AdminSupport />}
         {tab === "privacy" && (
           <LegalAdminTab title="سياسة الخصوصية" />
@@ -172,11 +172,6 @@ function AdminDashboard() {
       label: "حجوزات المعاينة",
       value: stats.isLoading ? "—" : stats.data?.bookings ?? 0,
       icon: Plus,
-    },
-    {
-      label: "بلاغات مفتوحة",
-      value: stats.isLoading ? "—" : stats.data?.openReports ?? 0,
-      icon: Flag,
     },
   ];
 
@@ -544,6 +539,242 @@ function LegalAdminTab({ title }: { title: string }) {
           <Save className="size-4" />
           {save.isPending ? "جارٍ الحفظ..." : "حفظ"}
         </button>
+      </div>
+    </section>
+  );
+}
+
+function PlansTab() {
+  const qc = useQueryClient();
+  const [selectedPackages, setSelectedPackages] = useState<Record<string, string>>({});
+
+  const { data: packages = [], isLoading: packagesLoading, isError: packagesError } = useQuery({
+    queryKey: ["admin-package-catalog"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("package_catalog")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string;
+        code?: string | null;
+        name: string;
+        description?: string | null;
+        price?: number | string | null;
+        duration_days?: number | string | null;
+        property_limit?: number | null;
+        is_active?: boolean;
+      }>;
+    },
+  });
+
+  const { data: offices = [], isLoading: officesLoading, isError: officesError } = useQuery({
+    queryKey: ["admin-package-offices"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("offices")
+        .select("id,name,phone,package_id,plan,plan_expires_at,is_deleted")
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string;
+        name: string;
+        phone?: string | null;
+        package_id?: string | null;
+        plan?: string | null;
+        plan_expires_at?: string | null;
+      }>;
+    },
+  });
+
+  const { data: requests = [] } = useQuery({
+    queryKey: ["admin-package-requests"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("office_plan_events")
+        .select("id,office_id,created_at,action,note")
+        .eq("action", "request")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; office_id: string }>;
+    },
+  });
+
+  const assignPackage = useMutation({
+    mutationFn: async (vars: { officeId: string; packageId: string }) => {
+      const { error } = await (supabase as any).rpc("admin_set_office_package", {
+        _office_id: vars.officeId,
+        _package_id: vars.packageId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تم تحديث باقة المكتب");
+      void qc.invalidateQueries({ queryKey: ["admin-package-catalog"] });
+      void qc.invalidateQueries({ queryKey: ["admin-package-offices"] });
+      void qc.invalidateQueries({ queryKey: ["admin-package-requests"] });
+      void qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "تعذّر تحديث الباقة");
+    },
+  });
+
+  const pendingOfficeIds = new Set(requests.map((request) => String(request.office_id)));
+
+  if (packagesLoading || officesLoading) {
+    return (
+      <div className="rounded-2xl bg-surface p-5 text-center text-sm text-muted-foreground ring-1 ring-line">
+        جارٍ تحميل الباقات والمكاتب...
+      </div>
+    );
+  }
+
+  if (packagesError || officesError) {
+    return (
+      <div className="rounded-2xl bg-destructive/5 p-4 text-sm text-destructive ring-1 ring-line">
+        تعذّر تحميل بيانات الباقات. حدّث الصفحة وحاول مرة أخرى.
+      </div>
+    );
+  }
+
+  return (
+    <section className="space-y-4" dir="rtl">
+      <header>
+        <h1 className="font-display text-xl font-extrabold">الباقات</h1>
+        <p className="mt-1 text-xs text-muted-foreground">
+          متابعة باقات المكاتب وتعيين الباقة المناسبة لكل مكتب.
+        </p>
+      </header>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+          <Package className="size-5 text-forest" />
+          <div className="mt-2 font-display text-xl font-extrabold">{packages.length}</div>
+          <div className="text-xs text-muted-foreground">إجمالي الباقات</div>
+        </div>
+        <div className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+          <Building2 className="size-5 text-forest" />
+          <div className="mt-2 font-display text-xl font-extrabold">{offices.length}</div>
+          <div className="text-xs text-muted-foreground">المكاتب المسجلة</div>
+        </div>
+        <div className="col-span-2 rounded-2xl bg-surface p-3.5 ring-1 ring-line md:col-span-1">
+          <ShieldCheck className="size-5 text-terracotta" />
+          <div className="mt-2 font-display text-xl font-extrabold">{pendingOfficeIds.size}</div>
+          <div className="text-xs text-muted-foreground">طلبات ترقية تنتظر المراجعة</div>
+        </div>
+      </div>
+
+      {packages.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {packages.map((pkg) => (
+            <div key={pkg.id} className="rounded-2xl bg-surface p-3 ring-1 ring-line">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold">{pkg.name}</span>
+                <span className="ms-auto text-xs font-extrabold text-forest">
+                  {Number(pkg.price ?? 0) <= 0
+                    ? "مجانًا"
+                    : String(Number(pkg.price).toLocaleString("ar-SA")) + " ريال"}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {Number(pkg.duration_days ?? 0) > 0
+                  ? "المدة: " + String(pkg.duration_days) + " يوم"
+                  : "بدون تاريخ انتهاء"}
+                {" · "}
+                العقارات: {pkg.property_limit == null ? "غير محدودة" : pkg.property_limit}
+              </p>
+              {!pkg.is_active && (
+                <p className="mt-1 text-[10px] font-semibold text-terracotta">غير متاحة للاشتراكات الجديدة</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div>
+        <h2 className="mb-2 font-display text-base font-extrabold">باقات المكاتب</h2>
+        {offices.length ? (
+          <div className="space-y-2.5">
+            {offices.map((office) => {
+              const currentPackage =
+                packages.find((pkg) => String(pkg.id) === String(office.package_id)) ??
+                packages.find((pkg) => String(pkg.code ?? "") === (office.plan === "pro" ? "pro" : "free"));
+              const selectedPackageId =
+                selectedPackages[office.id] ?? currentPackage?.id ?? "";
+              const hasRequest = pendingOfficeIds.has(office.id);
+
+              return (
+                <div key={office.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-bold">{office.name}</span>
+                        {hasRequest && (
+                          <span className="shrink-0 rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-bold text-terracotta">
+                            طلب ترقية
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {office.phone || "بدون رقم"}
+                        {" · الباقة الحالية: "}
+                        {currentPackage?.name ?? (office.plan === "pro" ? "احترافية" : "مجانية")}
+                      </p>
+                      {office.plan_expires_at && (
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          تاريخ الانتهاء: {new Date(office.plan_expires_at).toLocaleDateString("ar-SA")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <select
+                      value={selectedPackageId}
+                      onChange={(event) =>
+                        setSelectedPackages((current) => ({
+                          ...current,
+                          [office.id]: event.target.value,
+                        }))
+                      }
+                      className="min-w-0 flex-1 rounded-xl bg-background px-3 py-2.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-forest"
+                    >
+                      <option value="">اختر الباقة</option>
+                      {packages.map((pkg) => (
+                        <option key={pkg.id} value={pkg.id} disabled={!pkg.is_active}>
+                          {pkg.name} — {Number(pkg.price ?? 0) <= 0
+                            ? "مجانًا"
+                            : String(Number(pkg.price).toLocaleString("ar-SA")) + " ريال"}
+                          {!pkg.is_active ? " (غير متاحة)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => assignPackage.mutate({ officeId: office.id, packageId: selectedPackageId })}
+                      disabled={
+                        assignPackage.isPending ||
+                        !selectedPackageId ||
+                        selectedPackageId === currentPackage?.id ||
+                        !packages.some((pkg) => String(pkg.id) === selectedPackageId && pkg.is_active)
+                      }
+                      className="rounded-xl bg-forest px-4 py-2.5 text-xs font-bold text-background disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {assignPackage.isPending ? "جارٍ التحديث..." : "تحديث الباقة"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState icon={Building2} title="لا توجد مكاتب مسجلة" />
+        )}
       </div>
     </section>
   );
