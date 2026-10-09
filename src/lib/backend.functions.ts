@@ -1078,26 +1078,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
         if (!request) throw new Error("request_not_found");
 
         const ownerId = String(request.user_id ?? "");
-        let allowed = ownerId === userId;
-
-        if (!allowed && role === "office") {
-          const offices = await getMongoCollection<Record<string, unknown>>("offices");
-          const office = await offices.findOne({
-            owner_id: userId,
-            is_deleted: { $ne: true },
-          });
-
-          if (office) {
-            const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
-            const ownOffer = await offers.findOne({
-              request_id: requestId,
-              office_id: office.id,
-            });
-            allowed = !!ownOffer;
-          }
-        }
-
-        if (!allowed) throw new Error("not_request_owner");
+        if (ownerId !== userId) throw new Error("not_request_owner");
 
         if (requestedStatus === "cancelled" && request.status !== "active") {
           throw new Error("request_not_active");
@@ -2370,13 +2351,27 @@ export const rpcRequest = createServerFn({ method: "POST" })
             ? " · السعر " + String(offer.price) + " ريال"
             : "";
 
-        await getMongoCollection<Record<string, unknown>>(
+        const notifications = await getMongoCollection<Record<string, unknown>>(
           "notifications",
-        ).insertOne({
+        );
+        const previousNumberedNotifications = await notifications
+          .find({
+            user_id: request.user_id,
+            title: { $regex: /^طلب مستلم جديد [0-9]+$/ },
+          })
+          .project({ title: 1 })
+          .toArray();
+        const offerNumber =
+          previousNumberedNotifications.reduce((highest, notification) => {
+            const match = String(notification.title ?? "").match(/^طلب مستلم جديد ([0-9]+)$/);
+            return match ? Math.max(highest, Number(match[1])) : highest;
+          }, 0) + 1;
+
+        await notifications.insertOne({
           id: randomUUID(),
           _id: randomUUID(),
           user_id: request.user_id,
-          title: "مكتب يريد التواصل معك",
+          title: "طلب مستلم جديد " + offerNumber,
           body:
             String(office.name ?? "مكتب عقاري") +
             " أرسل لك عرضًا جديدًا على طلبك العقاري" +
@@ -2384,7 +2379,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             priceText +
             (offer.message ? " · " + String(offer.message).slice(0, 160) : ""),
           type: "property_offer",
-          link: "/requests?tab=received&request=" + encodeURIComponent(String(request.id)),
+          link: "/requests?tab=received&offer=" + encodeURIComponent(offerId),
           is_read: false,
           created_at: new Date(),
         });
