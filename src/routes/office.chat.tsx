@@ -183,7 +183,11 @@ function OfficeChatPage() {
             </Link>
           </section>
         ) : activeId ? (
-          <ChatThread conversationId={activeId} onBack={() => setActiveId(null)} />
+          <ChatThread
+            conversationId={activeId}
+            title={conversations.data?.find((conversation) => conversation.id === activeId)?.client?.full_name ?? "العميل"}
+            onBack={() => setActiveId(null)}
+          />
         ) : conversations.isLoading ? (
           <div className="grid place-items-center py-16">
             <Loader2 className="size-5 animate-spin text-forest" />
