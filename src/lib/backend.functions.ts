@@ -2824,8 +2824,15 @@ export const rpcRequest = createServerFn({ method: "POST" })
         try {
           const customerId = String(inquiry.user_id ?? "");
           if (customerId) {
-            const properties = await getMongoCollection<Record<string, unknown>>("properties");
-            const property = await properties.findOne({ id: String(inquiry.property_id ?? "") });
+            let propertyTitle = "";
+            try {
+              const properties = await getMongoCollection<Record<string, unknown>>("properties");
+              const property = await properties.findOne({ id: String(inquiry.property_id ?? "") });
+              propertyTitle = String(property?.title ?? "");
+            } catch (propertyLookupError) {
+              console.error("[property-inquiry-response-property]", propertyLookupError);
+            }
+
             await getMongoCollection<Record<string, unknown>>("notifications").then((notifications) =>
               notifications.insertOne({
                 id: randomUUID(),
@@ -2837,7 +2844,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
                   (requestedStatus === "accepted"
                     ? " وافق على طلب تواصلك"
                     : " لم يتمكن من قبول طلب تواصلك") +
-                  (property?.title ? " بخصوص " + String(property.title) : " بخصوص العقار"),
+                  (propertyTitle ? " بخصوص " + propertyTitle : " بخصوص العقار"),
                 type: "property_inquiry_response",
                 link: requestedStatus === "accepted"
                   ? "/requests?tab=received"
