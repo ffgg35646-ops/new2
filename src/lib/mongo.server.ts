@@ -63,14 +63,14 @@ export async function ensureMongoIndexes() {
   await createMongoIndexes(db);
 }
 
-export async function storeMedia(fileName: string, mimeType: string, bytes: Buffer) {
+export async function storeMedia(fileName: string, mimeType: string, bytes: Buffer, ownerId: string) {
   const db = await getMongoDb();
   const bucket = new GridFSBucket(db, { bucketName: "media" });
 
   return await new Promise<string>((resolve, reject) => {
     const upload = bucket.openUploadStream(fileName, {
       contentType: mimeType,
-      metadata: { originalName: fileName },
+      metadata: { originalName: fileName, ownerId },
     });
     upload.once("error", reject);
     upload.once("finish", () => resolve(String(upload.id)));
@@ -105,11 +105,19 @@ export async function readMedia(id: string) {
   });
 }
 
-export async function deleteMedia(id: string) {
+export async function deleteMedia(id: string, ownerId: string) {
   const db = await getMongoDb();
   const bucket = new GridFSBucket(db, { bucketName: "media" });
   const { ObjectId } = await import("mongodb");
   if (!ObjectId.isValid(id)) return false;
-  await bucket.delete(new ObjectId(id));
+
+  const objectId = new ObjectId(id);
+  const file = await db.collection("media.files").findOne(
+    { _id: objectId },
+    { projection: { "metadata.ownerId": 1 } },
+  );
+  if (!file || String(file.metadata?.ownerId ?? "") !== ownerId) return false;
+
+  await bucket.delete(objectId);
   return true;
 }
