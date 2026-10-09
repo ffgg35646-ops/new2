@@ -39,7 +39,6 @@ function BookingsPage() {
   const [finishId, setFinishId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [activeBookingsPage, setActiveBookingsPage] = useState(1);
-  const [historyBookingsPage, setHistoryBookingsPage] = useState(1);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -49,7 +48,6 @@ function BookingsPage() {
 
   useEffect(() => {
     setActiveBookingsPage(1);
-    setHistoryBookingsPage(1);
   }, [userId]);
 
   const { data = [], isLoading } = useQuery({
@@ -64,6 +62,7 @@ function BookingsPage() {
           "id,property_id,office_id,visit_date,visit_time,status,office_note,cancel_reason,completion_reason,contact_phone,created_at,properties(title,price,neighborhood),offices(name,phone,whatsapp)",
         )
         .eq("user_id", userId!)
+        .in("status", ["pending", "accepted"])
         .order("visit_date", { ascending: false })
         .order("visit_time", { ascending: false })
         .limit(100);
@@ -188,23 +187,7 @@ function BookingsPage() {
           <ListSkeleton />
         ) : data.length ? (
           (() => {
-            const historyStatuses = new Set([
-              "rejected",
-              "completed",
-              "cancelled",
-              "appointment_ended",
-            ]);
-
-            const isHistoryBooking = (booking: any) => {
-              const status = String(booking.status ?? "");
-              return historyStatuses.has(status);
-            };
-
-            const activeBookings = data.filter(
-              (booking: any) => !isHistoryBooking(booking),
-            );
-
-            const historyBookings = data.filter(isHistoryBooking);
+            const activeBookings = data;
             const pageSize = 6;
             const activePageCount = Math.max(1, Math.ceil(activeBookings.length / pageSize));
             const currentActivePage = Math.min(activeBookingsPage, activePageCount);
@@ -212,14 +195,7 @@ function BookingsPage() {
               (currentActivePage - 1) * pageSize,
               currentActivePage * pageSize,
             );
-            const historyPageCount = Math.max(1, Math.ceil(historyBookings.length / pageSize));
-            const currentHistoryPage = Math.min(historyBookingsPage, historyPageCount);
-            const visibleHistoryBookings = historyBookings.slice(
-              (currentHistoryPage - 1) * pageSize,
-              currentHistoryPage * pageSize,
-            );
-
-            const renderBooking = (booking: any, history = false) => {
+            const renderBooking = (booking: any) => {
               const property = booking.properties as {
                 title: string;
                 price: number | string;
@@ -240,21 +216,16 @@ function BookingsPage() {
               const status =
                 String(booking.status ?? "").trim() || "pending";
               const canEdit =
-                !history &&
                 !started &&
                 ["pending", "accepted"].includes(status);
               const canFinish =
-                !history &&
                 status === "accepted" &&
                 started;
 
               return (
                 <article
                   key={booking.id}
-                  className={cn(
-                    "rounded-2xl bg-surface p-3 ring-1 ring-line",
-                    history && "opacity-95",
-                  )}
+                  className="rounded-2xl bg-surface p-3 ring-1 ring-line"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -265,13 +236,7 @@ function BookingsPage() {
                         {office?.name ?? "مكتب عقاري"}
                       </div>
                     </div>
-                    <StatusBadge
-                      status={
-                        history && started && ["pending", "accepted"].includes(status)
-                          ? "appointment_ended"
-                          : status
-                      }
-                    />
+                    <StatusBadge status={status} />
                   </div>
 
                   <div className="mt-2.5 grid grid-cols-2 gap-2">
@@ -319,7 +284,7 @@ function BookingsPage() {
                     </div>
                   )}
 
-                  {(!history && (canEdit || canFinish)) && (
+                  {(canEdit || canFinish) && (
                     <div
                       className={cn(
                         "mt-3 grid gap-2",
@@ -354,13 +319,13 @@ function BookingsPage() {
                     </div>
                   )}
 
-                  {isToday && !history && !started && (
+                  {isToday && !started && (
                     <div className="mt-3 rounded-2xl bg-forest-soft p-3 text-center text-[11px] font-semibold text-forest">
                       لديك معاينة اليوم الساعة {formatBookingTime(booking.visit_time)}
                     </div>
                   )}
 
-                  {!history && !started && (
+                  {!started && (
                     <button
                       type="button"
                       onClick={() => setCancelId(booking.id)}
@@ -408,33 +373,7 @@ function BookingsPage() {
                   )}
                 </section>
 
-                {historyBookings.length > 0 && (
-                  <section className="border-t border-line pt-5">
-                    <div className="mb-2.5 flex items-end justify-between">
-                      <div>
-                        <h2 className="font-display text-sm font-extrabold">سجل المعاينات</h2>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          المعاينات المنتهية والمكتملة والملغاة
-                        </p>
-                      </div>
-                      <span className="text-[11px] font-semibold text-muted-foreground">
-                        {historyBookings.length}
-                      </span>
-                    </div>
 
-                    <>
-                    <div className="space-y-2">
-                      {visibleHistoryBookings.map((booking: any) => renderBooking(booking, true))}
-                    </div>
-                    <PaginationControls
-                      page={currentHistoryPage}
-                      total={historyBookings.length}
-                      pageSize={pageSize}
-                      onPageChange={setHistoryBookingsPage}
-                    />
-                  </>
-                  </section>
-                )}
               </div>
             );
           })()
