@@ -25,6 +25,7 @@ export type OfficeRow = {
   working_hours: string | null;
   experience_years: number;
   verification_status: string;
+  verification_badge?: boolean | null;
   completed_requests_count?: number;
   rating_avg: number | string;
   reviews_count: number;
