@@ -16,6 +16,7 @@ export const Route = createFileRoute("/api/media/$id")({
             status: 200,
             headers: {
               "Content-Type": media.contentType,
+              "X-Content-Type-Options": "nosniff",
               "Cache-Control": "public, max-age=31536000, immutable",
               "Content-Disposition": "inline; filename*=UTF-8''" + encodeURIComponent(media.fileName),
             },
