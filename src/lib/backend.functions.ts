@@ -2858,6 +2858,102 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: "awaiting_confirmation", error: null };
       }
 
+      if (data.name === "office_cancel_accepted_offer") {
+        if (!userId || role !== "office") throw new Error("not_office_member");
+
+        const offerId = String(data.args?._offer_id ?? "");
+        const reason = String(data.args?._reason ?? "").trim().slice(0, 3000);
+        if (!offerId) throw new Error("offer_not_found");
+        if (reason.length < 3) throw new Error("اكتب سبب إلغاء العرض (3 أحرف على الأقل).");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({ owner_id: userId, is_deleted: { $ne: true } });
+        if (!office) throw new Error("office_not_found");
+
+        const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
+        const offer = await offers.findOne({
+          id: offerId,
+          office_id: String(office.id),
+          status: { $in: ["accepted", "awaiting_confirmation"] },
+        });
+        if (!offer) throw new Error("هذا العرض لم يعد مقبولًا أو سبق إلغاؤه.");
+
+        const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
+        const requestId = String(offer.request_id ?? "");
+        const request = await requests.findOne({
+          id: requestId,
+          status: "active",
+          accepted_offer_id: offerId,
+          accepted_office_id: String(office.id),
+        });
+        if (!request) throw new Error("الطلب لم يعد مرتبطًا بهذا العرض.");
+
+        const now = new Date();
+        const changedOffer = await offers.updateOne(
+          {
+            id: offerId,
+            office_id: String(office.id),
+            status: String(offer.status),
+          },
+          {
+            $set: {
+              status: "ended",
+              end_reason: reason,
+              ended_by_office_id: String(office.id),
+              ended_at: now,
+              updated_at: now,
+            },
+          },
+        );
+        if (!changedOffer.modifiedCount) throw new Error("offer_status_changed");
+
+        const reopenedRequest = await requests.updateOne(
+          {
+            id: requestId,
+            status: "active",
+            accepted_offer_id: offerId,
+            accepted_office_id: String(office.id),
+          },
+          {
+            $unset: {
+              accepted_offer_id: "",
+              accepted_office_id: "",
+              offer_accepted_at: "",
+            },
+            $set: { updated_at: now },
+          },
+        );
+        if (!reopenedRequest.modifiedCount) {
+          await offers.updateOne(
+            { id: offerId, office_id: String(office.id), status: "ended", ended_by_office_id: String(office.id) },
+            { $set: { status: String(offer.status), updated_at: now }, $unset: { end_reason: "", ended_by_office_id: "", ended_at: "" } },
+          );
+          throw new Error("الطلب تغيّرت حالته، حدّث الصفحة وحاول مرة أخرى.");
+        }
+
+        const requestOwner = String(request.user_id ?? "");
+        if (requestOwner) {
+          const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
+          await notifications.insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: requestOwner,
+            title: "ألغى المكتب العرض الذي وافقت عليه",
+            body:
+              "قام مكتب " + String(office.name ?? "عقاري") +
+              " بإلغاء عرضه على طلبك. سبب الإلغاء: " + reason,
+            type: "property_offer_cancelled",
+            link: "/requests?tab=received",
+            request_id: requestId,
+            offer_id: offerId,
+            is_read: false,
+            created_at: now,
+          });
+        }
+
+        return { data: "cancelled", error: null };
+      }
+
       if (data.name === "office_end_offer") {
         if (!userId || role !== "office") throw new Error("not_office_member");
 
