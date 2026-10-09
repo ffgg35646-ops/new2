@@ -28,7 +28,7 @@ export type BackendUser = {
   id: string;
   email: string;
   email_confirmed_at: string | null;
-  user_metadata: { full_name?: string; phone?: string | null; role?: string | null };
+  user_metadata: { full_name?: string | undefined; phone?: string | null; role?: string | null };
 };
 
 export type BackendSession = {
