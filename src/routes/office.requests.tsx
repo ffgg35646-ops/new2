@@ -1141,7 +1141,7 @@ function SentOffers({ officeId }: { officeId: string | null }) {
                   completedByAnotherOffice ? "اكتمل مع مكتب آخر" :
                   row.status === "awaiting_confirmation" ? "بانتظار تأكيد الفردي" :
                   row.status === "rejected" ? "مرفوض" :
-                  row.end_reason ? "عرض ملغي بسبب" : "عرض منتهي / مسحوب من السوق"}
+                  row.end_reason ? "تم إلغاء العرض" : "عرض منتهي / مسحوب من السوق"}
               </span>
             </div>
 
