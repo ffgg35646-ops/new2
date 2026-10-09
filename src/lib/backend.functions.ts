@@ -2294,9 +2294,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
                 cancel_reason:
                   requestedStatus === "cancelled" ? cancelReason : null,
                 completion_reason:
-                  requestedStatus === "completed" && !isOfficeOwner
-                    ? cancelReason
-                    : null,
+                  requestedStatus === "completed" ? cancelReason : null,
               })),
             );
           } catch (notificationError) {
