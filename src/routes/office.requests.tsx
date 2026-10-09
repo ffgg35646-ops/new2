@@ -699,6 +699,18 @@ function TabButton({
   );
 }
 
+type AcceptedPropertyInquiry = {
+  id: string;
+  property_id: string;
+  type: string;
+  status: string;
+  created_at: string;
+  message: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  properties: { title: string | null; property_number: string | null } | null;
+};
+
 type AcceptedContactRequest = {
   id: string; accepted_offer_id: string; user_id: string; kind: string | null; listing: string | null;
   governorate_name: string | null; neighborhood: string | null; budget_min: number | null; budget_max: number | null;
@@ -717,6 +729,28 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
       const { data, error } = await supabase.rpc("office_accepted_property_requests" as never);
       if (error) throw error;
       return (Array.isArray(data) ? data : []) as AcceptedContactRequest[];
+    },
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+  });
+
+  const {
+    data: acceptedInquiries = [],
+    isLoading: acceptedInquiriesLoading,
+    error: acceptedInquiriesError,
+  } = useQuery<AcceptedPropertyInquiry[]>({
+    queryKey: ["office-accepted-property-inquiries", officeId],
+    enabled: !!officeId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("property_inquiries")
+        .select("id,property_id,type,status,created_at,message,contact_name,contact_phone,properties(title,property_number)")
+        .eq("office_id", officeId!)
+        .eq("status", "accepted")
+        .order("updated_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return (data ?? []) as unknown as AcceptedPropertyInquiry[];
     },
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
@@ -748,13 +782,17 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
       document.getElementById("accepted-request-card-" + highlightedRequestId)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 0);
   }, [highlightedRequestId, data.length]);
-  if (isLoading) return <ListSkeleton />;
-  if (error) return <div role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">تعذّر تحميل طلبات التواصل المقبولة: {error instanceof Error ? error.message : "خطأ غير معروف"}</div>;
+  if (isLoading || acceptedInquiriesLoading) return <ListSkeleton />;
+  if (error || acceptedInquiriesError) {
+    const loadError = error ?? acceptedInquiriesError;
+    return <div role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">تعذّر تحميل الطلبات المقبولة: {loadError instanceof Error ? loadError.message : "خطأ غير معروف"}</div>;
+  }
+  const acceptedTotal = data.length + acceptedInquiries.length;
   return (
     <section className="space-y-2" aria-label="طلبات مقبولة">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-sm font-extrabold">طلبات مقبولة</h2>
-        <span className="min-w-6 rounded-full bg-forest-soft px-2 py-1 text-center text-[10px] font-extrabold text-forest">{data.length}</span>
+        <span className="min-w-6 rounded-full bg-forest-soft px-2 py-1 text-center text-[10px] font-extrabold text-forest">{acceptedTotal}</span>
       </div>
       {data.length ? data.map((request) => {
         const phone = String(request.client_phone ?? "").trim();
@@ -796,9 +834,53 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
             </div>
           </article>
         );
-      }) : (
+      }) : null}
+      {acceptedInquiries.map((inquiry) => {
+        const property = inquiry.properties;
+        const phone = String(inquiry.contact_phone ?? "").trim();
+        const inquiryType: Record<string, string> = {
+          viewing: "معاينة",
+          buy: "شراء",
+          rent: "استئجار",
+          question: "استفسار",
+        };
+        return (
+          <article key={"accepted-inquiry-" + inquiry.id}
+            className="space-y-3 rounded-2xl bg-surface p-3 ring-1 ring-line">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="truncate font-display text-sm font-extrabold">{property?.title || "عقار المكتب"}</h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {property?.property_number ? "رقم العقار: " + property.property_number + " · " : ""}
+                  {inquiryType[inquiry.type] || "طلب تواصل"} · {timeAgo(inquiry.created_at)}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">
+                تم قبول طلب التواصل
+              </span>
+            </div>
+            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
+              <div className="text-[10px] font-semibold text-muted-foreground">اسم العميل وتفاصيل طلبه</div>
+              <div className="mt-1 text-sm font-extrabold">{inquiry.contact_name || "عميل"}</div>
+              {inquiry.message && <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{inquiry.message}</p>}
+            </div>
+            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
+              <div className="text-[10px] font-semibold text-muted-foreground">بيانات اتصال العميل</div>
+              <div className="mt-1 text-sm font-extrabold" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
+              {phone && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <a href={"tel:" + phone} className="rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background">اتصال</a>
+                  <a href={whatsappHref(phone, "مرحبًا " + (inquiry.contact_name || "عميل") + "، بخصوص " + (property?.title || "طلب التواصل"))}
+                    target="_blank" rel="noreferrer" className="rounded-xl bg-[#25D366]/10 py-2.5 text-center text-xs font-bold text-[#25D366]">واتساب</a>
+                </div>
+              )}
+            </div>
+          </article>
+        );
+      })}
+      {!acceptedTotal && (
         <div className="rounded-2xl bg-surface p-3 text-xs leading-6 text-muted-foreground ring-1 ring-line">
-          لا توجد طلبات مقبولة حتى الآن. عندما يقبل الفردي عرض مكتبك، سيظهر الطلب هنا بالأولوية.
+          لا توجد طلبات مقبولة حتى الآن. عندما توافق على طلب تواصل سيظهر هنا، بدلًا من اختفائه من الطلبات المستلمة.
         </div>
       )}
       <CompleteViewingReasonModal
