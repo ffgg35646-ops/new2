@@ -16,16 +16,16 @@ import {
 import { Link, useLocation } from "@tanstack/react-router";
 
 const items = [
-  { label: "الرئيسية", href: "/admin", icon: LayoutDashboard },
-  { label: "المكاتب", href: "/admin/offices", icon: Building2 },
-  { label: "الباقات", href: "/admin?tab=plans", icon: Package },
-  { label: "الأفراد", href: "/admin/individuals", icon: Users },
-  { label: "المحافظات والأحياء", href: "/admin?tab=geo", icon: MapPin },
-  { label: "الدعم", href: "/admin?tab=support", icon: Headphones },
-  { label: "الإشعارات", href: "/admin/notifications", icon: Bell },
-  { label: "المدفوعات", href: "/admin/payments", icon: CreditCard },
-  { label: "الخصوصية", href: "/admin?tab=privacy", icon: ShieldCheck },
-  { label: "الشروط", href: "/admin?tab=terms", icon: FileText },
+  { label: "الرئيسية", href: "/admin", to: "/admin", search: { tab: "dashboard" }, icon: LayoutDashboard },
+  { label: "المكاتب", href: "/admin/offices", to: "/admin/offices", search: { tab: "dashboard" }, icon: Building2 },
+  { label: "الباقات", href: "/admin?tab=plans", to: "/admin", search: { tab: "plans" }, icon: Package },
+  { label: "الأفراد", href: "/admin/individuals", to: "/admin/individuals", search: { tab: "dashboard" }, icon: Users },
+  { label: "المحافظات والأحياء", href: "/admin?tab=geo", to: "/admin", search: { tab: "geo" }, icon: MapPin },
+  { label: "الدعم", href: "/admin?tab=support", to: "/admin", search: { tab: "support" }, icon: Headphones },
+  { label: "الإشعارات", href: "/admin/notifications", to: "/admin/notifications", search: { tab: "dashboard" }, icon: Bell },
+  { label: "المدفوعات", href: "/admin/payments", to: "/admin/payments", search: { tab: "dashboard" }, icon: CreditCard },
+  { label: "الخصوصية", href: "/admin?tab=privacy", to: "/admin", search: { tab: "privacy" }, icon: ShieldCheck },
+  { label: "الشروط", href: "/admin?tab=terms", to: "/admin", search: { tab: "terms" }, icon: FileText },
 ] as const;
 
 function activeItem(
@@ -73,6 +73,8 @@ function Navigation({
         ({
           label,
           href,
+          to,
+          search: navSearch,
           icon: Icon,
         }) => {
           const active = activeItem(
@@ -84,7 +86,8 @@ function Navigation({
           return (
             <Link
               key={href}
-              to={href as never}
+              to={to as never}
+              search={navSearch as never}
               preload="intent"
               onClick={onNavigate}
               className={[
@@ -162,7 +165,7 @@ export function AdminChrome({
               <Link
                 to="/admin/notifications"
                 search={{ tab: "dashboard" }}
-preload="intent"
+                preload="intent"
                 className="ms-auto grid size-10 place-items-center rounded-full bg-surface ring-1 ring-line"
                 aria-label="الإشعارات"
               >
