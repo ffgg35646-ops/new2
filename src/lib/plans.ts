@@ -191,7 +191,7 @@ export function useOfficePropertiesCount(officeId?: string | null) {
         .from("properties")
         .select("id", { count: "exact", head: true })
         .eq("office_id", officeId!)
-        .eq("is_deleted", false);
+        .neq("is_deleted", true);
 
       if (error) throw error;
       return count ?? 0;
