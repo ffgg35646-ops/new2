@@ -3358,6 +3358,122 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
     };
   });
 
+
+export const getOfficeViewingClientDetails = createServerFn({ method: "POST" })
+  .inputValidator((value: unknown) => value as {
+    officeId: string;
+    bookingIds: string[];
+  })
+  .handler(async ({ data }) => {
+    const userId = getSessionUserId();
+    if (!userId) throw new Error("يجب تسجيل الدخول.");
+
+    const officeId = String(data.officeId ?? "").trim();
+    const bookingIds = Array.isArray(data.bookingIds)
+      ? [...new Set(
+          data.bookingIds
+            .filter((id): id is string => typeof id === "string")
+            .map((id) => id.trim())
+            .filter(Boolean),
+        )].slice(0, 100)
+      : [];
+
+    if (!officeId || !bookingIds.length) return { clients: [] };
+
+    const offices = await getMongoCollection<Record<string, unknown>>("offices");
+    const office = await offices.findOne({
+      id: officeId,
+      owner_id: userId,
+      is_deleted: { $ne: true },
+    });
+
+    const staff = office
+      ? null
+      : await (await getMongoCollection<Record<string, unknown>>("office_staff"))
+          .findOne({ office_id: officeId, user_id: userId, is_active: true });
+
+    if (!office && !staff) throw new Error("not_office_member");
+
+    const bookingCollection = await getMongoCollection<Record<string, unknown>>(
+      "viewing_bookings",
+    );
+    const bookings = await bookingCollection
+      .find({
+        office_id: officeId,
+        $or: [
+          { id: { $in: bookingIds } },
+          { _id: { $in: bookingIds } },
+        ],
+      })
+      .project({ _id: 1, id: 1, user_id: 1, contact_name: 1, contact_phone: 1 })
+      .toArray();
+
+    const userIds = [
+      ...new Set(
+        bookings
+          .map((booking) => booking.user_id)
+          .filter((id): id is string => typeof id === "string" && !!id.trim()),
+      ),
+    ];
+
+    if (!userIds.length) {
+      return {
+        clients: bookings.map((booking) => ({
+          bookingId: String(booking.id ?? booking._id ?? ""),
+          fullName: typeof booking.contact_name === "string" &&
+              !["عميل", "العميل"].includes(booking.contact_name.trim())
+            ? booking.contact_name.trim()
+            : "",
+          phone: typeof booking.contact_phone === "string" ? booking.contact_phone : null,
+        })),
+      };
+    }
+
+    const [users, profiles] = await Promise.all([
+      (await getMongoCollection<Record<string, unknown>>("users"))
+        .find({ _id: { $in: userIds } })
+        .project({ _id: 1, full_name: 1, phone: 1 })
+        .toArray(),
+      (await getMongoCollection<Record<string, unknown>>("profiles"))
+        .find({ id: { $in: userIds } })
+        .project({ _id: 1, id: 1, full_name: 1, phone: 1 })
+        .toArray(),
+    ]);
+
+    const userById = new Map(
+      users.map((user) => [String(user._id), user]),
+    );
+    const profileById = new Map(
+      profiles.map((profile) => [String(profile.id ?? profile._id), profile]),
+    );
+    const textValue = (value: unknown) =>
+      typeof value === "string" ? value.trim() : "";
+
+    return {
+      clients: bookings.map((booking) => {
+        const bookingId = String(booking.id ?? booking._id ?? "");
+        const linkedUserId = String(booking.user_id ?? "");
+        const user = userById.get(linkedUserId);
+        const profile = profileById.get(linkedUserId);
+        const savedName = textValue(booking.contact_name);
+        const nameIsFallback = !savedName || ["عميل", "العميل"].includes(savedName);
+
+        return {
+          bookingId,
+          fullName:
+            textValue(profile?.full_name) ||
+            textValue(user?.full_name) ||
+            (nameIsFallback ? "" : savedName),
+          phone:
+            textValue(booking.contact_phone) ||
+            textValue(profile?.phone) ||
+            textValue(user?.phone) ||
+            null,
+        };
+      }),
+    };
+  });
+
 export const removeMedia = createServerFn({ method: "POST" })
   .validator((value: unknown) => value as { path: string })
   .handler(async ({ data }) => {
