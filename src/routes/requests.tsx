@@ -301,7 +301,9 @@ function RequestsPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تأكيد اكتمال الطلب"),
   });
 
-  const activeSent = myRequests.filter((request) => request.status === "active").length;
+  const activeSent = myRequests.filter((request) =>
+    request.status === "active" && !request.accepted_offer_id,
+  ).length;
   const receivedCount = displayedReceivedOffers.length;
   const pageSize = 6;
   const receivedPageCount = Math.max(1, Math.ceil(displayedReceivedOffers.length / pageSize));
@@ -353,7 +355,8 @@ function RequestsPage() {
               request.status === "active" && !request.accepted_offer_id,
             );
             const historyRequests = myRequests.filter((request) =>
-              request.status !== "active" && !request.accepted_offer_id,
+              request.status !== "active" &&
+              !(request.accepted_offer_id && request.status === "fulfilled"),
             );
             const activePageCount = Math.max(1, Math.ceil(activeRequests.length / pageSize));
             const currentActivePage = Math.min(activeRequestsPage, activePageCount);
