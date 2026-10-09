@@ -112,13 +112,21 @@ export async function readMedia(id: string, viewerId: string | null = null) {
     file.metadata?.visibility === "private" || !!referencedOffice;
   if (privateMedia) {
     const expectedOwner = String(referencedOffice?.owner_id ?? file.metadata?.ownerId ?? "");
-    if (!viewerId || !expectedOwner || viewerId !== expectedOwner) return null;
+    let isAdmin = false;
+    if (viewerId) {
+      const [adminUser, adminRole] = await Promise.all([
+        db.collection("users").findOne({ _id: viewerId, role: "admin" }, { projection: { _id: 1 } }),
+        db.collection("user_roles").findOne({ user_id: viewerId, role: "admin" }, { projection: { _id: 1 } }),
+      ]);
+      isAdmin = !!adminUser || !!adminRole;
+    }
+    if (!viewerId || !expectedOwner || (viewerId !== expectedOwner && !isAdmin)) return null;
   }
 
   const stream = bucket.openDownloadStream(objectId);
   const chunks: Buffer[] = [];
 
-  return await new Promise<{ body: Buffer; contentType: string; fileName: string }>((resolve, reject) => {
+  return await new Promise<{ body: Buffer; contentType: string; fileName: string; isPrivate: boolean }>((resolve, reject) => {
     stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
     stream.on("error", reject);
     stream.on("end", () =>
@@ -129,7 +137,8 @@ export async function readMedia(id: string, viewerId: string | null = null) {
           ["image/jpeg", "image/png", "image/webp", "application/pdf", "text/plain"].includes(file.metadata.contentType)
             ? file.metadata.contentType
             : "application/octet-stream",
-        fileName: typeof files[0]?.filename === "string" ? files[0].filename : "file",
+        fileName: typeof file.filename === "string" ? file.filename : "file",
+        isPrivate: privateMedia,
       }),
     );
   });
