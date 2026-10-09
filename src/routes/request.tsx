@@ -256,14 +256,14 @@ function RequestPage() {
           {userId && (
             <div>
               <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                مرفق الطلب
+                صورة توضيحية للطلب (اختياري)
               </span>
               <MediaUploader
                 userId={userId}
                 folder="requests"
                 value={attachment}
                 onChange={(urls) => setAttachment(urls.slice(0, 1))}
-                label="إرفاق مخطط أو صورة (اختياري)"
+                label="إضافة صورة تظهر مباشرة مع الطلب في السوق"
               />
             </div>
           )}
