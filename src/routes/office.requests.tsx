@@ -31,7 +31,6 @@ import {
   listingLabel,
 } from "@/lib/constants";
 import { formatArea, formatDate, formatPrice, timeAgo } from "@/lib/format";
-import { notifyWhatsApp } from "@/lib/notify-whatsapp";
 import { useMyOffice, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
 import { CancelReasonModal } from "@/components/CancelReasonModal";
