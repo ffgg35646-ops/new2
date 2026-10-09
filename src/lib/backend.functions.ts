@@ -71,11 +71,9 @@ const userOwned = new Set([
 function likePattern(value: unknown) {
   return String(value ?? "")
     .split("%")
-    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\function buildFilter(filters: Filter[] = []) {
-  const query: Record<string, unknown> = {};"))
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join(".*");
 }
-
 function buildFilter(filters: Filter[] = []) {
   const query: Record<string, unknown> = {};
 
