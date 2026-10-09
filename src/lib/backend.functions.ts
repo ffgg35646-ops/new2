@@ -1451,9 +1451,13 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         const args = data.args ?? {};
         const description = String(args._description ?? "").trim();
+        const durationDays = Number(args._duration_days ?? 7);
 
         if (description.length < 10) {
           throw new Error("description_required");
+        }
+        if (durationDays !== 7 && durationDays !== 30) {
+          throw new Error("request_duration_invalid");
         }
 
         const governorateId = args._governorate_id;
