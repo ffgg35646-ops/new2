@@ -184,7 +184,9 @@ export function useAuth() {
       }
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+    };
   }, [qc]);
 
   const query = useQuery({
