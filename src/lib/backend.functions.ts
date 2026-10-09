@@ -986,6 +986,68 @@ async function runDb(input: DbInput) {
 
     await collection.insertMany(docs);
 
+    if (input.collection === "properties") {
+      try {
+        const publishedProperties = docs.filter(
+          (property) => property.is_published === true && property.is_deleted !== true,
+        );
+
+        if (publishedProperties.length) {
+          const offices = await getMongoCollection<Record<string, unknown>>("offices");
+          const follows = await getMongoCollection<Record<string, unknown>>("follows");
+          const notifications = await getMongoCollection<Record<string, unknown>>("notifications");
+
+          for (const property of publishedProperties) {
+            const officeId = String(property.office_id ?? "");
+            const propertyId = String(property.id ?? property._id ?? "");
+            if (!officeId || !propertyId) continue;
+
+            const office = await offices.findOne({
+              id: officeId,
+              is_deleted: { $ne: true },
+            });
+            if (!office) continue;
+
+            const followerRows = await follows
+              .find({ office_id: officeId, notify: true })
+              .project({ user_id: 1 })
+              .toArray();
+            const recipients = [
+              ...new Set(
+                followerRows
+                  .map((row) => String(row.user_id ?? ""))
+                  .filter((recipientId) => recipientId && recipientId !== String(office.owner_id ?? "")),
+              ),
+            ];
+            if (!recipients.length) continue;
+
+            const officeName = String(office.name ?? "المكتب العقاري").trim() || "المكتب العقاري";
+            const propertyTitle = String(property.title ?? "عرض عقاري جديد").trim() || "عرض عقاري جديد";
+            const createdAt = new Date();
+
+            await notifications.insertMany(
+              recipients.map((recipientId) => ({
+                id: randomUUID(),
+                _id: randomUUID(),
+                user_id: recipientId,
+                title: \`عرض جديد من مكتب \${officeName}\`,
+                body: \`نشر مكتب \${officeName} عرضًا جديدًا: \${propertyTitle}\`,
+                type: "office_property",
+                link: \`/properties/\${encodeURIComponent(propertyId)}\`,
+                is_read: false,
+                created_at: createdAt,
+                office_id: officeId,
+                property_id: propertyId,
+              })),
+            );
+          }
+        }
+      } catch (notificationError) {
+        console.error("[office-property-notifications]", notificationError);
+        // فشل إرسال الإشعار لا يجب أن يفشل نشر العقار نفسه.
+      }
+    }
+
     if (input.collection === "property_views") {
       const properties = await getMongoCollection<Record<string, unknown>>("properties");
       await Promise.all(
@@ -1447,6 +1509,89 @@ export const rpcRequest = createServerFn({ method: "POST" })
         });
 
         return { data: null, error: null };
+      }
+
+      if (data.name === "admin_set_office_package") {
+        if (role !== "admin") throw new Error("not_admin");
+
+        const officeId = String(data.args?._office_id ?? "");
+        const packageId = String(data.args?._package_id ?? "");
+        if (!officeId || !packageId) throw new Error("بيانات الباقة غير مكتملة.");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({
+          id: officeId,
+          is_deleted: { $ne: true },
+        });
+        if (!office) throw new Error("المكتب غير موجود.");
+
+        const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
+        const pkg = await packages.findOne({
+          id: packageId,
+          is_active: true,
+        });
+        if (!pkg) throw new Error("package_not_available");
+
+        const plan =
+          String(pkg.code ?? "") === "pro" || Number(pkg.price ?? 0) > 0
+            ? "pro"
+            : "free";
+        const durationDays = Number(pkg.duration_days ?? 0);
+        const startedAt = new Date();
+        const expiresAt =
+          durationDays > 0
+            ? new Date(startedAt.getTime() + durationDays * 86_400_000)
+            : null;
+
+        await offices.updateOne(
+          { id: officeId },
+          {
+            $set: {
+              package_id: pkg.id,
+              plan,
+              plan_started_at: startedAt,
+              plan_expires_at: expiresAt,
+              updated_at: startedAt,
+            },
+          },
+        );
+
+        const events = await getMongoCollection<Record<string, unknown>>("office_plan_events");
+        await events.updateMany(
+          { office_id: officeId, action: "request" },
+          { $set: { action: "request_approved", resolved_at: startedAt } },
+        );
+        await events.insertOne({
+          id: randomUUID(),
+          _id: randomUUID(),
+          office_id: officeId,
+          action: "package_changed",
+          plan,
+          package_id: pkg.id,
+          expires_at: expiresAt,
+          created_at: startedAt,
+          note: "تعيين إداري: " + String(pkg.name ?? "باقة"),
+        });
+
+        if (office.owner_id) {
+          try {
+            await getMongoCollection<Record<string, unknown>>("notifications").insertOne({
+              id: randomUUID(),
+              _id: randomUUID(),
+              user_id: String(office.owner_id),
+              title: "تم تحديث باقة مكتبك",
+              body: "تم تعيين " + String(pkg.name ?? "باقة") + " لمكتبك.",
+              type: "package_change",
+              link: "/office/subscription",
+              is_read: false,
+              created_at: startedAt,
+            });
+          } catch (notificationError) {
+            console.error("[admin-package-notification]", notificationError);
+          }
+        }
+
+        return { data: { office_id: officeId, package_id: pkg.id, plan }, error: null };
       }
 
       if (data.name === "create_property_request") {
