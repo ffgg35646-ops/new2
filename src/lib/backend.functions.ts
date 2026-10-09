@@ -680,16 +680,97 @@ async function runDb(input: DbInput) {
     queryParts.length > 1 ? { $and: queryParts } : queryParts[0] ?? {};
 
   if (input.operation === "select") {
-    let cursor = collection.find(mongoQuery);
+    const prioritizePropertyListings =
+      input.collection === "properties" &&
+      role !== "office" &&
+      !input.single &&
+      !input.maybeSingle &&
+      !input.head &&
+      input.limit != null &&
+      !!input.select &&
+      input.select.includes("offices(");
 
-    for (const order of input.orders ?? []) {
-      cursor = cursor.sort(order.field, order.ascending ? 1 : -1);
+    let rows: Record<string, unknown>[];
+    if (prioritizePropertyListings) {
+      // Load the active Pro office IDs first, so Pro listings are ranked before
+      // regular offices even when regular listings are newer and numerous.
+      const [officeRows, packageRows] = await Promise.all([
+        getMongoCollection<Record<string, unknown>>("offices")
+          .then((offices) =>
+            offices.find({ is_deleted: { $ne: true } })
+              .project({ id: 1, package_id: 1, plan: 1, plan_expires_at: 1 })
+              .toArray(),
+          ),
+        getMongoCollection<Record<string, unknown>>("package_catalog")
+          .then((packages) =>
+            packages.find({})
+              .project({ id: 1, code: 1, price: 1 })
+              .toArray(),
+          ),
+      ]);
+
+      const packagesById = new Map(
+        packageRows.map((pkg) => [String(pkg.id ?? ""), pkg]),
+      );
+      const packagesByCode = new Map(
+        packageRows.map((pkg) => [String(pkg.code ?? ""), pkg]),
+      );
+      const proOfficeIds = officeRows
+        .filter((office) => {
+          const packageRow =
+            packagesById.get(String(office.package_id ?? "")) ??
+            packagesByCode.get(String(office.plan === "pro" ? "pro" : "free"));
+          const packageIsPro = packageRow
+            ? String(packageRow.code ?? "") === "pro" ||
+              Number(packageRow.price ?? 0) > 0
+            : office.plan === "pro";
+          const expired =
+            !!office.plan_expires_at &&
+            new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+          return packageIsPro && !expired;
+        })
+        .map((office) => String(office.id ?? office._id ?? ""))
+        .filter(Boolean);
+
+      const requestedOrders = input.orders ?? [];
+      const effectiveOrders = requestedOrders.some(
+        (order) => !["is_featured", "created_at"].includes(order.field),
+      )
+        ? requestedOrders
+        : [{ field: "created_at", ascending: false }];
+
+      const fetchTier = async (officeFilter: Record<string, unknown>) => {
+        let tierQuery = collection.find({
+          $and: [mongoQuery, officeFilter],
+        });
+        for (const order of effectiveOrders) {
+          tierQuery = tierQuery.sort(order.field, order.ascending ? 1 : -1);
+        }
+        const fetchLimit =
+          Math.max(0, Number(input.limit ?? 0) + Number(input.offset ?? 0));
+        return tierQuery.limit(fetchLimit).toArray();
+      };
+
+      const [proRows, regularRows] = await Promise.all([
+        fetchTier({ office_id: { $in: proOfficeIds } }),
+        fetchTier({ office_id: { $nin: proOfficeIds } }),
+      ]);
+      const offset = Math.max(0, Number(input.offset ?? 0));
+      const limit = Math.max(0, Number(input.limit ?? 0));
+      rows = [...proRows, ...regularRows].slice(offset, offset + limit);
+    } else {
+      let cursor = collection.find(mongoQuery);
+
+      for (const order of input.orders ?? []) {
+        cursor = cursor.sort(order.field, order.ascending ? 1 : -1);
+      }
+
+      if (input.offset && input.offset > 0) cursor = cursor.skip(input.offset);
+      if (input.limit != null) cursor = cursor.limit(Math.max(0, input.limit));
+
+      rows = await cursor.toArray();
     }
 
-    if (input.offset && input.offset > 0) cursor = cursor.skip(input.offset);
-    if (input.limit != null) cursor = cursor.limit(Math.max(0, input.limit));
-
-    const rows = await cursor.toArray();
     if (input.collection === "viewing_bookings") {
       for (const row of rows) {
         if (!String(row.status ?? "").trim()) row.status = "pending";
@@ -803,6 +884,44 @@ async function runDb(input: DbInput) {
 
       return item;
     });
+
+    if (input.collection === "conversations") {
+      if (!userId || role !== "individual") {
+        throw new Error("الدردشة متاحة لحساب الفردي فقط.");
+      }
+
+      const offices = await getMongoCollection<Record<string, unknown>>("offices");
+      const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
+      for (const doc of docs) {
+        const officeId = String(doc.office_id ?? "");
+        if (!officeId) throw new Error("office_not_found");
+
+        const office = await offices.findOne({
+          id: officeId,
+          is_deleted: { $ne: true },
+        });
+        if (!office) throw new Error("office_not_found");
+
+        const packageRow = office.package_id
+          ? await packages.findOne({ id: String(office.package_id) })
+          : await packages.findOne({ code: office.plan === "pro" ? "pro" : "free" });
+        const packageIsPro = packageRow
+          ? String(packageRow.code ?? "") === "pro" ||
+            Number(packageRow.price ?? 0) > 0
+          : office.plan === "pro";
+        const expired =
+          !!office.plan_expires_at &&
+          new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+        const chatEnabled = packageRow
+          ? Boolean(packageRow.chat_enabled) && packageIsPro && !expired
+          : packageIsPro && !expired;
+        if (!chatEnabled) {
+          throw new Error("الدردشة متاحة للمكاتب المشتركة في باقة احترافية سارية فقط.");
+        }
+
+        doc.user_id = userId;
+      }
+    }
 
     if (input.collection === "properties") {
       await enforceOfficePropertyLimit(userId, role, docs);
@@ -1241,6 +1360,60 @@ async function runDb(input: DbInput) {
 
   if (input.operation === "update") {
     const payload = (input.payload ?? {}) as Record<string, unknown>;
+
+    if (input.collection === "properties" && role !== "admin") {
+      if (role !== "office" || !userId) {
+        throw new Error("تعديل العقارات متاح للمكتب العقاري فقط.");
+      }
+
+      const offices = await getMongoCollection<Record<string, unknown>>("offices");
+      const office = await offices.findOne({
+        owner_id: userId,
+        is_deleted: { $ne: true },
+      });
+      if (!office) throw new Error("office_not_found");
+
+      const targetRows = await collection
+        .find(mongoQuery)
+        .project({ _id: 1, id: 1, office_id: 1, is_featured: 1, is_deleted: 1 })
+        .toArray();
+      const officeId = String(office.id ?? "");
+      if (targetRows.some((row) => String(row.office_id ?? "") !== officeId)) {
+        throw new Error("لا يمكنك تعديل عقار تابع لمكتب آخر.");
+      }
+
+      if (payload.is_featured === true) {
+        const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
+        const packageRow = office.package_id
+          ? await packages.findOne({ id: String(office.package_id) })
+          : await packages.findOne({ code: office.plan === "pro" ? "pro" : "free" });
+        const packageIsPro = packageRow
+          ? String(packageRow.code ?? "") === "pro" ||
+            Number(packageRow.price ?? 0) > 0
+          : office.plan === "pro";
+        const expired =
+          !!office.plan_expires_at &&
+          new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+        const featuredLimit =
+          packageIsPro && !expired ? Number(packageRow?.featured_limit ?? 0) : 0;
+
+        if (featuredLimit <= 0) throw new Error("featured_requires_pro");
+
+        const targetIds = targetRows.map((row) => row._id).filter((id) => id != null);
+        const alreadyFeaturedOutsideTarget = await collection.countDocuments({
+          office_id: officeId,
+          is_featured: true,
+          is_deleted: { $ne: true },
+          _id: { $nin: targetIds },
+        });
+        const newlyFeatured = targetRows.filter(
+          (row) => row.is_featured !== true && row.is_deleted !== true,
+        ).length;
+        if (alreadyFeaturedOutsideTarget + newlyFeatured > featuredLimit) {
+          throw new Error("featured_limit_reached");
+        }
+      }
+    }
 
     const result = await collection.updateMany(
       mongoQuery,
@@ -3176,9 +3349,19 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const expiresAt = office.plan_expires_at
           ? new Date(String(office.plan_expires_at))
           : null;
-        const chatEnabled =
-          office.plan === "pro" &&
-          (!expiresAt || expiresAt.getTime() > Date.now());
+        const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
+        const packageRow = office.package_id
+          ? await packages.findOne({ id: String(office.package_id) })
+          : await packages.findOne({ code: office.plan === "pro" ? "pro" : "free" });
+        const packageIsPro = packageRow
+          ? String(packageRow.code ?? "") === "pro" ||
+            Number(packageRow.price ?? 0) > 0
+          : office.plan === "pro";
+        const chatEnabled = packageRow
+          ? Boolean(packageRow.chat_enabled) &&
+            packageIsPro &&
+            (!expiresAt || expiresAt.getTime() > Date.now())
+          : packageIsPro && (!expiresAt || expiresAt.getTime() > Date.now());
 
         if (!chatEnabled) throw new Error("chat_not_available");
 
@@ -3946,12 +4129,28 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         const officeId = data.args?._office_id ?? data.args?.office_id;
         const offices = await getMongoCollection<Record<string, unknown>>("offices");
-        const office = await offices.findOne({ id: officeId });
+        const office = await offices.findOne({ id: officeId, is_deleted: { $ne: true } });
+        const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
+        const packageRow = office?.package_id
+          ? await packages.findOne({ id: String(office.package_id) })
+          : await packages.findOne({ code: office?.plan === "pro" ? "pro" : "free" });
+        const packageIsPro = packageRow
+          ? String(packageRow.code ?? "") === "pro" ||
+            Number(packageRow.price ?? 0) > 0
+          : office?.plan === "pro";
+        const expired =
+          !!office?.plan_expires_at &&
+          new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+        const effectivePro = packageIsPro && !expired;
+        const chatEnabled = packageRow
+          ? Boolean(packageRow.chat_enabled) && effectivePro
+          : effectivePro;
 
         return {
           data: {
-            plan: office?.plan ?? "free",
+            plan: effectivePro ? "pro" : "free",
             expires_at: office?.plan_expires_at ?? null,
+            chat_enabled: chatEnabled,
           },
           error: null,
         };
