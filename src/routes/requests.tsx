@@ -590,7 +590,9 @@ function AcceptedPrioritySection({
     <section className="space-y-2" aria-label="طلبات مقبولة">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-sm font-extrabold">طلبات مقبولة</h2>
-        <span className="min-w-6 rounded-full bg-forest-soft px-2 py-1 text-center text-[10px] font-extrabold text-forest">{total}</span>
+        {total > 0 && (
+          <span className="min-w-6 rounded-full bg-forest-soft px-2 py-1 text-center text-[10px] font-extrabold text-forest" aria-label={String(total) + " طلب مقبول"}>{total > 99 ? "99+" : total}</span>
+        )}
       </div>
 
       {!total && (
