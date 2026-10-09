@@ -30,9 +30,11 @@ type MessageRow = {
 export function ChatThread({
   conversationId,
   onBack,
+  title,
 }: {
   conversationId: string;
   onBack: () => void;
+  title?: string;
 }) {
   const { userId } = useAuth();
   const qc = useQueryClient();
@@ -475,14 +477,19 @@ export function ChatThread({
   return (
     <section className="rounded-3xl bg-surface p-3 ring-1 ring-line">
       <div className="flex items-center justify-between gap-2">
-        <button
-          onClick={onBack}
-          className="text-xs font-semibold text-forest"
-        >
-          ← كل المحادثات
-        </button>
+        <div className="min-w-0 flex-1">
+          <button
+            onClick={onBack}
+            className="text-xs font-semibold text-forest"
+          >
+            ← كل المحادثات
+          </button>
+          {title && (
+            <div className="mt-1 truncate text-sm font-extrabold">{title}</div>
+          )}
+        </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <span className="text-[10px] text-muted-foreground">
             {otherOnline ? "متصل الآن" : "غير متصل"}
           </span>
