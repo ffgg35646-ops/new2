@@ -25,7 +25,9 @@ export function timeAgo(iso: string | null | undefined) {
 
 export function formatDate(iso: string | null | undefined) {
   if (!iso) return "—";
+  // All app dates are presented in Saudi Arabia time, never the device time zone.
   return new Date(iso).toLocaleDateString("ar-SA-u-nu-latn", {
+    timeZone: "Asia/Riyadh",
     year: "numeric",
     month: "short",
     day: "numeric",
