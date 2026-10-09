@@ -2504,8 +2504,8 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
         const offer = await offers.findOne({ id: offerId, office_id: office.id });
         if (!offer) throw new Error("offer_not_found");
-        if (!["sent", "accepted"].includes(String(offer.status))) {
-          throw new Error("offer_cannot_request_completion");
+        if (offer.status !== "accepted") {
+          throw new Error("يجب أن يقبل الفردي العرض أولًا قبل طلب تأكيد إتمام الصفقة.");
         }
 
         const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
@@ -2514,7 +2514,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         const now = new Date();
         const changed = await offers.updateOne(
-          { id: offerId, office_id: office.id, status: { $in: ["sent", "accepted"] } },
+          { id: offerId, office_id: office.id, status: "accepted" },
           { $set: { status: "awaiting_confirmation", completion_requested_at: now, updated_at: now } },
         );
         if (!changed.modifiedCount) throw new Error("offer_status_changed");
