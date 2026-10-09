@@ -19,7 +19,7 @@ const filtersSchema = z.object({
 
 export const getCachedPublicProperties = createServerFn({ method: "POST" })
   .inputValidator((value: unknown) => filtersSchema.parse(value))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<any> => {
     const { getMongoCollection } = await import("@/lib/mongo.server");
     const { cachedServerData } = await import("@/lib/redis.server");
 
