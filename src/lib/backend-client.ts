@@ -354,8 +354,10 @@ const auth = {
 };
 
 export const backend = {
-  from<T = unknown>(collection: string) { return new QueryBuilder<T>(collection); },
-  rpc(name: string, args?: Record<string, unknown>) { return rpcRequest({ data: { name, args } }); },
+  from<T = QueryRows>(collection: string) { return new QueryBuilder<T>(collection); },
+  rpc(name: string, args?: Record<string, unknown>): Promise<Result<any>> {
+    return rpcRequest({ data: { name, args } }) as unknown as Promise<Result<any>>;
+  },
   channel(name: string) { return new Channel(name); },
   removeChannel(channel: Channel) { channel.unsubscribe(); },
   storage: { from(name: string) { return new StorageBucket(name); } },
