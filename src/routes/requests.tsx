@@ -406,11 +406,11 @@ function RequestCard({
         </span>
       </div>
 
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-5 text-muted-foreground">
         {request.description}
       </p>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-2.5 grid grid-cols-2 gap-2">
         <Info label="الميزانية">
           {request.budget_min != null || request.budget_max != null
             ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س"
@@ -424,7 +424,7 @@ function RequestCard({
       </div>
 
       {isActive && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => onStatus("fulfilled")}
@@ -528,7 +528,7 @@ function OfferCard({
       )}
 
       {canRespond && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => onStatus("accepted")}
@@ -548,7 +548,7 @@ function OfferCard({
         </div>
       )}
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-2.5 grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={(event) => {
@@ -645,7 +645,7 @@ function WhatsAppIcon({ className = "" }: { className?: string }) {
 
 function Info({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
+    <div className="rounded-2xl bg-background p-2.5 ring-1 ring-line">
       <div className="text-[10px] text-muted-foreground">{label}</div>
       <div className="mt-1 text-xs font-bold">{children}</div>
     </div>
