@@ -10,6 +10,7 @@ export function CompleteViewingReasonModal({
   placeholder = "اكتب السبب الذي تريد إرساله للمكتب",
   confirmLabel = "تأكيد إنهاء المعاينة",
   variant = "complete",
+  optionalReason = false,
   onClose,
   onConfirm,
 }: {
@@ -21,6 +22,7 @@ export function CompleteViewingReasonModal({
   placeholder?: string;
   confirmLabel?: string;
   variant?: "complete" | "reject";
+  optionalReason?: boolean;
   onClose: () => void;
   onConfirm: (reason: string) => void;
 }) {
@@ -82,10 +84,10 @@ export function CompleteViewingReasonModal({
           type="button"
           onClick={() => {
             const value = reason.trim();
-            if (value.length < 3) return;
+            if (!optionalReason && value.length < 3) return;
             onConfirm(value);
           }}
-          disabled={pending || reason.trim().length < 3}
+          disabled={pending || (!optionalReason && reason.trim().length < 3)}
           className={`mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-background disabled:opacity-50 ${variant === "reject" ? "bg-terracotta" : "bg-forest"}`}
         >
           {pending ? (
