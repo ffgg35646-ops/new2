@@ -151,7 +151,7 @@ class Channel {
   ) {
     this.callback = callback;
 
-    const match = config.filter?.match(/^([a-zA-Z0-9_]+)=eq\\.(.*)$/);
+    const match = config.filter?.match(/^([a-zA-Z0-9_]+)=eq\.(.*)$/);
     this.filterField = match?.[1] ?? null;
     this.filterValue = match?.[2] ? decodeURIComponent(match[2]) : null;
 
