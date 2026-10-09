@@ -23,7 +23,7 @@ export const Route = createFileRoute("/plans")({
     ],
   }),
   component: () => (
-    <RoleGuard allow={["office", "admin"]}>
+    <RoleGuard allow={["office"]}>
       <PlansPage />
     </RoleGuard>
   ),
