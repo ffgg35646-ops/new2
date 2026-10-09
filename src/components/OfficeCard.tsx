@@ -69,7 +69,7 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
       {isPro && !isOffice && !isAdmin && (
         <Link
           to="/chats"
-          search={{ office: office.id }}
+          search={{ c: undefined, office: office.id }}
           aria-label={"فتح محادثة مع " + office.name}
           title={"شات مع " + office.name}
           className="grid size-9 shrink-0 place-items-center rounded-full bg-forest-soft text-forest ring-1 ring-forest/20 transition hover:bg-forest hover:text-background"
