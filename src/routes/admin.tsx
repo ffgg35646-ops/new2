@@ -603,7 +603,9 @@ function PlansTab() {
     setPrice(String(pkg.price ?? 0));
     setDuration(String(pkg.duration_days ?? 0));
     setPropertyLimit(
-      pkg.property_limit == null ? "" : String(pkg.property_limit)
+      Number(pkg.price ?? 0) > 0 || pkg.code === "pro"
+        ? pkg.property_limit == null ? "" : String(pkg.property_limit)
+        : "5"
     );
     setFeaturedLimit(String(pkg.featured_limit ?? 0));
     setChatEnabled(Boolean(pkg.chat_enabled));
