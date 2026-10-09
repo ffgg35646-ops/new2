@@ -120,6 +120,8 @@ export function useMyPlan() {
   const packageQuery = useQuery({
     queryKey: ["my-package", packageId, office?.plan],
     enabled: !!office,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: true,
     queryFn: async () => {
       let packageRow: any = null;
 
