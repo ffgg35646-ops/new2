@@ -62,7 +62,7 @@ async function processPlanExpirations(request: Request) {
       if (!officeId) continue;
 
       if (expiry.getTime() <= now.getTime()) {
-        const update: Record<string, unknown> = {
+        const update: Record<string, any> = {
           $set: {
             plan: "free",
             last_plan_expired_at: now,
