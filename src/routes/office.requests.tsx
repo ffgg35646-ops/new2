@@ -938,61 +938,6 @@ function SentOffers({ officeId }: { officeId: string | null }) {
 }
 
 
-function MarketOfferActions({
-  requestId,
-  offerId,
-  onChanged,
-}: {
-  requestId: string;
-  offerId: string | null;
-  onChanged: () => void;
-}) {
-  const [pending, setPending] = useState(false);
-
-  async function setRequestStatus(status: "fulfilled" | "cancelled") {
-    setPending(true);
-    try {
-      const { error } = await supabase.rpc(
-        "set_property_request_status" as never,
-        { _request_id: requestId, _status: status } as never,
-      );
-      if (error) throw error;
-      toast.success(status === "fulfilled" ? "تم تسجيل الطلب كمكتمل" : "تم حذف الطلب من سوق الطلبات");
-      onChanged();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تعذّر تحديث الطلب");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <div className="mt-2.5 space-y-2">
-      <div className="rounded-xl bg-forest-soft py-2 text-center text-xs font-semibold text-forest">
-        تم إرسال عرضك
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => void setRequestStatus("fulfilled")}
-          disabled={pending}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-[11px] font-bold text-background disabled:opacity-50"
-        >
-          <CheckCircle2 className="size-4" /> طلب مكتمل
-        </button>
-        <button
-          type="button"
-          onClick={() => void setRequestStatus("cancelled")}
-          disabled={pending}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-[11px] font-bold text-terracotta disabled:opacity-50"
-        >
-          <Trash2 className="size-4" /> حذف الطلب
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function MarketRequests({ officeId }: { officeId: string | null }) {
   const qc = useQueryClient();
   const { data: membership } = useMyOffice();
@@ -1038,7 +983,12 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   const sendOffer = useMutation({
     mutationFn: async (requestId: string) => {
       if (!officeId) throw new Error("مكتبك غير متاح");
-      if (message.trim().length < 5) throw new Error("اكتب رسالة العرض");
+      if (message.trim().length < 5) {
+        throw new Error("اكتب سببًا واضحًا يجعل العميل يختار مكتبك");
+      }
+      if (price.trim() && (!Number.isFinite(Number(price)) || Number(price) <= 0)) {
+        throw new Error("أدخل سعرًا صحيحًا أو اتركه فارغًا");
+      }
       const { data: offer, error } = await supabase
         .from("office_offers")
         .insert({
@@ -1067,11 +1017,12 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
       }
     },
     onSuccess: () => {
-      toast.success("تم إرسال عرضك للعميل");
+      toast.success("تم قبول الطلب وإرسال عرضك للعميل");
       setOpenId(null);
       setMessage("");
       setPrice("");
-      qc.invalidateQueries({ queryKey: ["open-requests"] });
+      void qc.invalidateQueries({ queryKey: ["open-requests"] });
+      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر إرسال العرض"),
   });
@@ -1080,6 +1031,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   if (!data?.length) return <EmptyState icon={ClipboardList} title="لا توجد طلبات نشطة حاليًا" />;
 
   const details = data.find((request) => request.id === detailsId) ?? null;
+  const offerRequest = data.find((request) => request.id === openId) ?? null;
 
   return (
     <div className="space-y-2.5">
@@ -1093,109 +1045,43 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               </span>
               <span className="text-[10px] text-muted-foreground">{timeAgo(r.created_at)}</span>
             </div>
-            <div className="mt-2 rounded-xl bg-background p-3 ring-1 ring-line">
-              <div className="text-xs font-bold">{r.client_name}</div>
-              {r.client_phone && (
-                <div className="mt-0.5 text-[11px] text-muted-foreground">
-                  {r.client_phone}
-                </div>
-              )}
-            </div>
+            {r.attachment_url && (
+              <div className="mt-3 overflow-hidden rounded-2xl bg-background ring-1 ring-line">
+                <img
+                  src={r.attachment_url}
+                  alt="صورة طلب العميل"
+                  loading="lazy"
+                  className="block max-h-72 w-full object-cover"
+                />
+              </div>
+            )}
 
             <button
               type="button"
-              onClick={() => setDetailsId(r.id)}
+              onClick={() => {
+                setDetailsId(r.id);
+                if (!viewed.current.has(r.id)) {
+                  viewed.current.add(r.id);
+                  void supabase.rpc(
+                    "mark_property_request_view" as never,
+                    { _request_id: r.id } as never,
+                  );
+                }
+              }}
               className="mt-2.5 flex w-full items-center justify-between rounded-xl bg-forest-soft px-3 py-2.5 text-xs font-bold text-forest"
             >
-              <span>عرض تفاصيل الطلب كاملة</span>
+              <span>عرض التفاصيل</span>
               <span>‹</span>
             </button>
 
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{r.description}</p>
-            <div className="mt-1.5 text-[11px] text-muted-foreground">
-              {r.neighborhood ? r.neighborhood + " · " : ""}
-              {r.area_min ? "من " + formatArea(r.area_min) + " · " : ""}
-              {r.budget_min || r.budget_max
-                ? formatPrice(r.budget_min) + " - " + formatPrice(r.budget_max) + " ر.س"
-                : "بدون ميزانية محددة"}
-            </div>
 
-            {r.client_phone && (
-              <div className="mt-2 flex gap-2">
-                <a
-                  href={"tel:" + r.client_phone}
-                  className="flex-1 rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"
-                >
-                  <Phone className="mx-auto mb-1 size-3.5" />
-                  اتصال بالعميل
-                </a>
-                <a
-                  href={whatsappHref(r.client_phone, "مرحبًا " + r.client_name + "، بخصوص طلب العقار")}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 rounded-xl bg-sand py-2.5 text-center text-xs font-bold"
-                >
-                  <MessageCircle className="mx-auto mb-1 size-3.5" />
-                  واتساب
-                </a>
-              </div>
-            )}
+
 
             {sent ? (
-              <MarketOfferActions
-                requestId={r.id}
-                offerId={r.offer_id}
-                onChanged={() => {
-                  void qc.invalidateQueries({ queryKey: ["open-requests"] });
-                }}
-              />
-            ) : openId === r.id ? (
-              <div className="mt-2.5 space-y-2">
-                <textarea
-                  rows={3}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="اكتب تفاصيل العرض المناسب للعميل"
-                  className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
-                />
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="السعر المقترح (اختياري)"
-                  className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
-                />
-                <button
-                  onClick={() => sendOffer.mutate(r.id)}
-                  disabled={sendOffer.isPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-sm font-bold text-background disabled:opacity-60"
-                >
-                  {sendOffer.isPending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                  إرسال العرض
-                </button>
+              <div className="mt-2.5 rounded-xl bg-forest-soft p-3 text-center text-xs leading-6 font-bold text-forest">
+                تم إرسال عرضك للعميل. سيظل الطلب في السوق حتى ينهيه صاحبه.
               </div>
-            ) : (
-              <button
-                onClick={() => {
-                  setOpenId(r.id);
-
-                  if (!viewed.current.has(r.id)) {
-                    viewed.current.add(r.id);
-                    void supabase.rpc(
-                      "mark_property_request_view" as never,
-                      { _request_id: r.id } as never,
-                    );
-                  }
-                }}
-                className="mt-2.5 w-full rounded-xl bg-terracotta py-2.5 text-sm font-bold text-background"
-              >
-                إرسال عرض
-              </button>
-            )}
+            ) : null}
           </div>
         );
       })}
@@ -1234,7 +1120,6 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
             <section className="rounded-2xl bg-background p-3.5 ring-1 ring-line">
               <div className="text-[10px] font-semibold text-muted-foreground">العميل</div>
               <div className="mt-1 text-sm font-extrabold">{details.client_name}</div>
-              {details.client_phone && <div className="mt-1 text-xs text-muted-foreground">{details.client_phone}</div>}
             </section>
 
             <section className="grid grid-cols-2 gap-2">
@@ -1276,49 +1161,116 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
             </section>
 
             {details.attachment_url && (
-              <a
-                href={details.attachment_url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex w-full items-center justify-center rounded-2xl bg-sand py-3 text-sm font-bold text-forest"
-              >
-                فتح المرفق المضاف
-              </a>
+              <img
+                src={details.attachment_url}
+                alt="صورة طلب العميل"
+                loading="lazy"
+                className="max-h-64 w-full rounded-2xl object-cover"
+              />
             )}
 
             <div className="text-[11px] leading-6 text-muted-foreground">
               نُشر الطلب: {formatDate(details.created_at)} · آخر موعد: {details.expires_at ? formatDate(details.expires_at) : "غير محدد"} · {details.views_count} مشاهدة
             </div>
 
-            {details.client_phone && (
-              <div className="flex gap-2">
-                <a href={"tel:" + details.client_phone} className="flex-1 rounded-2xl bg-forest py-3.5 text-center text-sm font-bold text-background">
-                  <Phone className="mx-auto mb-1 size-4" /> اتصال
-                </a>
-                <a
-                  href={whatsappHref(details.client_phone, "مرحبًا " + details.client_name + "، بخصوص طلب العقار")}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 rounded-2xl bg-sand py-3.5 text-center text-sm font-bold"
-                >
-                  <MessageCircle className="mx-auto mb-1 size-4" /> واتساب
-                </a>
-              </div>
-            )}
 
             {!details.offer_sent && (
               <button
                 type="button"
                 onClick={() => {
                   setDetailsId(null);
+                  setMessage("");
+                  setPrice("");
                   setOpenId(details.id);
                 }}
                 className="w-full rounded-2xl bg-terracotta py-3.5 text-sm font-bold text-background"
               >
-                إرسال عرض للعميل
+                قبول
               </button>
             )}
           </div>
+        </div>
+      </div>
+    )}
+
+    {offerRequest && !offerRequest.offer_sent && (
+      <div
+        className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-3"
+        role="dialog"
+        aria-modal="true"
+        aria-label="سبب اختيار مكتبك"
+        onClick={() => setOpenId(null)}
+      >
+        <div
+          className="max-h-[88vh] w-full max-w-md space-y-3 overflow-y-auto rounded-[28px] bg-surface p-4 shadow-2xl ring-1 ring-line"
+          onClick={(event) => event.stopPropagation()}
+          dir="rtl"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-semibold text-muted-foreground">قبول طلب السوق</div>
+              <h2 className="mt-1 font-display text-lg font-extrabold">
+                ما السبب الذي يجعل العميل يختارك؟
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                وضّح ما يميز مكتبك وكيف ستلبي طلب العميل. سيصل هذا الكلام للعميل مع اسم مكتبك.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpenId(null)}
+              className="grid size-9 shrink-0 place-items-center rounded-full bg-background ring-1 ring-line"
+              aria-label="إغلاق"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+
+          <section className="rounded-2xl bg-background p-3 ring-1 ring-line">
+            <div className="text-[10px] font-semibold text-muted-foreground">العميل</div>
+            <div className="mt-1 text-sm font-bold">{offerRequest.client_name}</div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              {kindLabel(offerRequest.kind)} · {listingLabel(offerRequest.listing)}
+            </div>
+          </section>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-bold">لماذا يختار العميل مكتبك؟</span>
+            <textarea
+              rows={4}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="اكتب سببًا واضحًا ومقنعًا، مثل خبرة المكتب أو مناسبة العرض لطلب العميل..."
+              className="w-full rounded-2xl bg-sand px-3 py-3 text-sm leading-6 outline-none focus:ring-2 focus:ring-forest"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-bold">السعر المقترح (اختياري)</span>
+            <input
+              type="number"
+              min="1"
+              inputMode="decimal"
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+              placeholder="اكتب السعر إن كان مناسبًا"
+              className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => sendOffer.mutate(offerRequest.id)}
+            disabled={sendOffer.isPending || message.trim().length < 5}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-terracotta py-3.5 text-sm font-bold text-background disabled:opacity-60"
+          >
+            {sendOffer.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
+            تأكيد القبول وإرسال العرض
+          </button>
         </div>
       </div>
     )}
