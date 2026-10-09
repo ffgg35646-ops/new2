@@ -216,7 +216,7 @@ function RequestsPage() {
             }
 
             return (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {activeRequests.length > 0 && (
                   <section>
                     <div className="mb-2 flex items-center justify-between">
@@ -375,7 +375,7 @@ function RequestCard({
     <div
       id={"request-card-" + request.id}
       className={cn(
-        "rounded-3xl bg-surface p-4 ring-1 ring-line",
+        "rounded-2xl bg-surface p-3 ring-1 ring-line",
         highlighted && "ring-2 ring-forest",
       )}
     >
