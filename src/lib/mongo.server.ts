@@ -12,9 +12,9 @@ function getConfig() {
 
 async function createMongoIndexes(db: Db) {
   await Promise.all([
-    db.collection("users").createIndex({ email: 1 }, { unique: true }),
+    db.collection<any>("users").createIndex({ email: 1 }, { unique: true }),
     db.collection("profiles").createIndex({ id: 1 }, { unique: true }),
-    db.collection("user_roles").createIndex({ user_id: 1, role: 1 }, { unique: true }),
+    db.collection<any>("user_roles").createIndex({ user_id: 1, role: 1 }, { unique: true }),
     db.collection("notifications").createIndex({ user_id: 1, created_at: -1 }),
     db.collection("properties").createIndex({ property_number: 1 }),
     db.collection("properties").createIndex({
@@ -105,7 +105,7 @@ export async function readMedia(id: string, viewerId: string | null = null) {
   // License documents uploaded before private-media support are also protected
   // while referenced from an office's license fields.
   const mediaPaths = [id, "/api/media/" + id];
-  const referencedOffice = await db.collection("offices").findOne(
+  const referencedOffice = await db.collection<any>("offices").findOne(
     {
       $or: [
         { fal_license_url: { $in: mediaPaths } },
@@ -122,8 +122,8 @@ export async function readMedia(id: string, viewerId: string | null = null) {
     let isAdmin = false;
     if (viewerId) {
       const [adminUser, adminRole] = await Promise.all([
-        db.collection("users").findOne({ _id: viewerId, role: "admin" }, { projection: { _id: 1 } }),
-        db.collection("user_roles").findOne({ user_id: viewerId, role: "admin" }, { projection: { _id: 1 } }),
+        db.collection<any>("users").findOne({ _id: viewerId, role: "admin" }, { projection: { _id: 1 } }),
+        db.collection<any>("user_roles").findOne({ user_id: viewerId, role: "admin" }, { projection: { _id: 1 } }),
       ]);
       isAdmin = !!adminUser || !!adminRole;
     }
