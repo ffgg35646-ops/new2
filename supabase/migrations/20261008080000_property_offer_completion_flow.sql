@@ -1,6 +1,22 @@
 -- Separate a property's request lifecycle from each office's individual offer.
 -- An office may request completion, but only the requester confirms the final completion.
 
+-- Older "completed" offer states were set by the office alone, so they cannot be
+-- treated as customer-confirmed. Reclassify them as ended before installing the
+-- stricter status guard. Also archive outstanding offers for already-closed requests.
+update public.office_offers
+set status = 'ended'
+where status = 'completed'
+   or (
+     status in ('sent', 'accepted', 'awaiting_confirmation')
+     and exists (
+       select 1
+       from public.property_requests pr
+       where pr.id = office_offers.request_id
+         and pr.status::text in ('fulfilled', 'cancelled')
+     )
+   );
+
 create or replace function public.security_protect_request()
 returns trigger
 language plpgsql
