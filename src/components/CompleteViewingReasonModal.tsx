@@ -4,11 +4,21 @@ import { CheckCircle2, Loader2, X } from "lucide-react";
 export function CompleteViewingReasonModal({
   open,
   pending = false,
+  title = "تسجيل انتهاء المعاينة",
+  heading = "لماذا أنهيت المعاينة؟",
+  reasonLabel = "سبب إنهاء المعاينة",
+  placeholder = "اكتب السبب الذي تريد إرساله للمكتب",
+  confirmLabel = "تأكيد إنهاء المعاينة",
   onClose,
   onConfirm,
 }: {
   open: boolean;
   pending?: boolean;
+  title?: string;
+  heading?: string;
+  reasonLabel?: string;
+  placeholder?: string;
+  confirmLabel?: string;
   onClose: () => void;
   onConfirm: (reason: string) => void;
 }) {
@@ -25,7 +35,7 @@ export function CompleteViewingReasonModal({
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-3"
       role="dialog"
       aria-modal="true"
-      aria-label="إنهاء المعاينة"
+      aria-label={title}
       onClick={onClose}
     >
       <div
@@ -36,10 +46,10 @@ export function CompleteViewingReasonModal({
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[10px] font-semibold text-muted-foreground">
-              تسجيل انتهاء المعاينة
+              {title}
             </div>
             <h2 className="mt-1 font-display text-base font-extrabold">
-              لماذا أنهيت المعاينة؟
+              {heading}
             </h2>
           </div>
           <button
@@ -54,14 +64,14 @@ export function CompleteViewingReasonModal({
 
         <label className="mt-4 block">
           <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-            سبب إنهاء المعاينة
+            {reasonLabel}
           </span>
           <textarea
             autoFocus
             rows={4}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="اكتب السبب الذي تريد إرساله للمكتب"
+            placeholder={placeholder}
             className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
           />
         </label>
@@ -81,7 +91,7 @@ export function CompleteViewingReasonModal({
           ) : (
             <CheckCircle2 className="size-4" />
           )}
-          تأكيد إنهاء المعاينة
+          {confirmLabel}
         </button>
       </div>
     </div>
