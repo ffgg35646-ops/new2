@@ -484,6 +484,28 @@ async function runDb(input: DbInput) {
     throw new Error("تعديل حالة العرض أو إنهاؤه يجب أن يتم من خلال إجراءات العرض المخصصة.");
   }
 
+  if (input.collection === "property_requests") {
+    if (input.operation === "update") {
+      const payload = (input.payload ?? {}) as Record<string, unknown>;
+      if (Object.prototype.hasOwnProperty.call(payload, "status")) {
+        throw new Error("تغيير حالة الطلب يجب أن يتم من خلال الإجراء المخصص لصاحب الطلب.");
+      }
+      if (role !== "admin") {
+        if (role !== "individual" || !userId) {
+          throw new Error("فقط صاحب الطلب يمكنه تعديله.");
+        }
+        input.filters = [
+          ...(input.filters ?? []),
+          { field: "user_id", op: "eq", value: userId },
+        ];
+      }
+    } else if (input.operation === "delete" || input.operation === "upsert") {
+      if (role !== "admin") {
+        throw new Error("استخدم إجراءات الطلب المخصصة لإلغاء الطلب أو تعديله.");
+      }
+    }
+  }
+
   const collection = await getMongoCollection<Record<string, unknown>>(input.collection);
 
   const filters = [...(input.filters ?? [])];
@@ -637,6 +659,43 @@ async function runDb(input: DbInput) {
 
       return item;
     });
+
+    if (input.collection === "office_offers") {
+      if (!userId || role !== "office") {
+        throw new Error("فقط المكتب يمكنه إرسال عرض.");
+      }
+
+      const offices = await getMongoCollection<Record<string, unknown>>("offices");
+      const ownOffice = await offices.findOne({ owner_id: userId, is_deleted: { $ne: true } });
+      if (!ownOffice) throw new Error("office_not_found");
+
+      const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
+      for (const doc of docs) {
+        const requestId = String(doc.request_id ?? "");
+        if (!requestId) throw new Error("request_not_found");
+
+        const request = await requests.findOne({ id: requestId, status: "active" });
+        if (!request) throw new Error("request_not_active");
+        if (String(request.user_id ?? "") === userId) {
+          throw new Error("cannot_offer_on_own_request");
+        }
+
+        const message = String(doc.message ?? "").trim();
+        if (message.length < 5 || message.length > 5000) {
+          throw new Error("اكتب تفاصيل العرض (5 أحرف على الأقل).");
+        }
+
+        const price = doc.price == null || String(doc.price).trim() === "" ? null : Number(doc.price);
+        if (price != null && (!Number.isFinite(price) || price < 0)) {
+          throw new Error("السعر المقترح غير صالح.");
+        }
+
+        doc.office_id = String(ownOffice.id);
+        doc.message = message;
+        doc.price = price;
+        doc.status = "sent";
+      }
+    }
 
     if (
       userId &&
