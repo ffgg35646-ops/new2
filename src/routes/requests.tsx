@@ -57,6 +57,7 @@ type OfferRow = {
   price: number | null;
   status: string;
   created_at: string;
+  end_reason?: string | null;
   offices: { id: string; name: string; phone: string | null; whatsapp: string | null } | null;
   properties: { id: string; title: string } | null;
   requestId: string;
@@ -121,7 +122,7 @@ function RequestsPage() {
       const { data, error } = await supabase
         .from("property_requests")
         .select(
-          "*, office_offers(id,message,price,status,created_at,offices(id,name,phone,whatsapp),properties(id,title))",
+          "*, office_offers(id,message,price,status,created_at,end_reason,offices(id,name,phone,whatsapp),properties(id,title))",
         )
         .order("created_at", { ascending: false })
         .limit(100);
@@ -851,7 +852,7 @@ function OfferCard({
           <button type="button" onClick={onMarkComplete} disabled={pending} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"><CheckCircle2 className="size-4" /> الطلب مكتمل</button>
         </div>
       )}
-      {offer.status === "ended" && <p className="mt-2.5 rounded-xl bg-terracotta-soft p-3 text-xs leading-5 text-terracotta">انتهى هذا العرض لأن الطلب لم يعد متاحًا للتقديم عليه.</p>}
+      {offer.status === "ended" && <p className="mt-2.5 rounded-xl bg-terracotta-soft p-3 text-xs leading-5 text-terracotta">{offer.end_reason ? "ألغى المكتب عرضه. سبب الإلغاء: " + offer.end_reason : "انتهى هذا العرض لأن الطلب لم يعد متاحًا للتقديم عليه."}</p>}
       {offer.status === "completed" && <p className="mt-2.5 rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">تم تسجيل هذا المكتب باعتباره المكتب الذي اكتمل الطلب من خلاله.</p>}
       <div className="mt-2.5 grid grid-cols-2 gap-2">
         <button type="button" onClick={(event) => { event.stopPropagation(); onContactToggle(); }} aria-expanded={contactOpen} aria-label="عرض رقم الاتصال" title="اتصال"
