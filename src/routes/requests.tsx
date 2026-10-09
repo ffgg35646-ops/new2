@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ClipboardList, Copy, Phone, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardList, Copy, Phone, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -49,6 +49,7 @@ export const Route = createFileRoute("/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
     tab: search.tab === "received" ? "received" : "sent",
     request: typeof search.request === "string" ? search.request : undefined,
+    offer: typeof search.offer === "string" ? search.offer : undefined,
   }),
   head: () => ({
     meta: [
@@ -108,14 +109,19 @@ function RequestsPage() {
   );
 
   useEffect(() => {
-    if (!search.request || !myRequests.length) return;
+    const targetId = search.offer
+      ? "offer-card-" + search.offer
+      : search.request
+        ? "request-card-" + search.request
+        : null;
+    if (!targetId || !myRequests.length) return;
     window.setTimeout(() => {
-      document.getElementById("request-card-" + search.request)?.scrollIntoView({
+      document.getElementById(targetId)?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
     }, 0);
-  }, [search.request, myRequests.length]);
+  }, [search.offer, search.request, myRequests.length, tab]);
 
   const setRequestStatus = useMutation({
     mutationFn: async (vars: { id: string; status: "cancelled" | "fulfilled" }) => {
@@ -166,7 +172,7 @@ function RequestsPage() {
 
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
           <Tab active={tab === "sent"} label="المرسلة" count={activeSent} onClick={() => setTab("sent")} />
-          <Tab active={tab === "received"} label="مستلم" count={receivedCount} onClick={() => setTab("received")} />
+          <Tab active={tab === "received"} label="الطلبات المستلمة" count={receivedCount} onClick={() => setTab("received")} />
         </div>
 
         {isLoading ? (
@@ -355,7 +361,7 @@ function RequestCard({
                   : "bg-forest-soft text-forest",
           )}
         >
-          {REQUEST_STATUS[status] ?? status}
+          {status === "fulfilled" ? "منتهي" : (REQUEST_STATUS[status] ?? status)}
         </span>
       </div>
 
@@ -376,25 +382,15 @@ function RequestCard({
         <Info label="العروض">{offerCount}</Info>
       </div>
 
-      {isActive && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => onStatus("fulfilled")}
-            disabled={pending}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
-          >
-            <CheckCircle2 className="size-4" /> طلب مكتمل
-          </button>
-          <button
-            type="button"
-            onClick={() => onStatus("cancelled")}
-            disabled={pending}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
-          >
-            <Trash2 className="size-4" /> حذف الطلب
-          </button>
-        </div>
+          {isActive && (
+        <button
+          type="button"
+          onClick={() => onStatus("fulfilled")}
+          disabled={pending}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-terracotta py-2.5 text-xs font-bold text-background disabled:opacity-50"
+        >
+          <CheckCircle2 className="size-4" /> إنهاء الطلب
+        </button>
       )}
     </div>
   );
@@ -417,7 +413,10 @@ function OfferCard({
   const canRespond = offer.status === "sent" && offer.requestStatus === "active";
 
   return (
-    <div className="rounded-3xl bg-surface p-4 ring-1 ring-line">
+    <div
+      id={"offer-card-" + offer.id}
+      className="rounded-3xl bg-surface p-4 ring-1 ring-line"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="font-display text-sm font-extrabold">
