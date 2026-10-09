@@ -123,14 +123,14 @@ function OfficeDashboard() {
             )}
           </div>
           <p className="mt-3 text-xs opacity-90">
-            {stats?.published ?? 0} إعلان نشط — {newRequests} طلب جديد — {stats?.views ?? 0} مشاهدة
+            {stats?.published ?? 0} إعلان نشط — {newRequests} طلب مستلم/مقبول — {stats?.views ?? 0} مشاهدة
             — {stats?.favorites ?? 0} عملية حفظ
           </p>
         </section>
 
         <section className="grid grid-cols-4 gap-2">
           <Stat icon={Home} label="نشط" value={stats?.published ?? 0} />
-          <Stat icon={ClipboardList} label="طلبات جديدة" value={newRequests} />
+          <Stat icon={ClipboardList} label="طلبات مستلمة ومقبولة" value={newRequests} />
           <Stat icon={Eye} label="مشاهدات" value={stats?.views ?? 0} />
           <Stat icon={Heart} label="حفظ" value={stats?.favorites ?? 0} />
         </section>
