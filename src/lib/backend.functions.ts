@@ -239,6 +239,27 @@ function pickFields(
   return output;
 }
 
+function sanitizeOfficePrivateFields(value: unknown, userId: string | null, role: string | null): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeOfficePrivateFields(item, userId, role));
+  }
+  if (!value || typeof value !== "object") return value;
+
+  const output: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    output[key] = sanitizeOfficePrivateFields(item, userId, role);
+  }
+
+  if (role !== "admin" && "owner_id" in output &&
+      String(output.owner_id ?? "") !== String(userId ?? "")) {
+    for (const key of [
+      "owner_id", "email", "commercial_register", "license_expiry",
+      "fal_license_url", "real_estate_license_url",
+    ]) delete output[key];
+  }
+  return output;
+}
+
 const relationRules: Record<
   string,
   { localField: string; foreignField: string; many?: boolean }
