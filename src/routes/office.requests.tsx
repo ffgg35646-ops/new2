@@ -94,6 +94,38 @@ function OfficeRequests() {
     },
   });
 
+  const { data: bookingsCount = 0 } = useQuery({
+    queryKey: ["office-bookings-tab-count", officeId],
+    enabled: !!officeId,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("viewing_bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("office_id", officeId!);
+
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const { data: inquiriesCount = 0 } = useQuery({
+    queryKey: ["office-inquiries-tab-count", officeId],
+    enabled: !!officeId,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("property_inquiries")
+        .select("id", { count: "exact", head: true })
+        .eq("office_id", officeId!);
+
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
       <AppHeader showSearch={false} />
@@ -105,6 +137,7 @@ function OfficeRequests() {
             active={tab === "bookings"}
             onClick={() => setTab("bookings")}
             label="المعاينات"
+            count={bookingsCount}
           />
           <TabButton
             active={tab === "market"}
@@ -116,6 +149,7 @@ function OfficeRequests() {
             active={tab === "inbox"}
             onClick={() => setTab("inbox")}
             label="طلبات التواصل"
+            count={inquiriesCount}
           />
           <TabButton
             active={tab === "sent"}
