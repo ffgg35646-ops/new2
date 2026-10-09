@@ -535,17 +535,17 @@ async function enforceOfficePropertyLimit(
 
   const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
   const packageId = String(office.package_id ?? "");
-  const packageRow = packageId
-    ? await packages.findOne({ id: packageId })
-    : null;
+  const fallbackCode = office.plan === "pro" ? "pro" : "free";
+  const packageRow = (
+    packageId ? await packages.findOne({ id: packageId }) : null
+  ) ?? await packages.findOne({ code: fallbackCode });
   const now = Date.now();
   const expiresAt = office.plan_expires_at
     ? new Date(String(office.plan_expires_at)).getTime()
     : null;
   const expired = expiresAt != null && Number.isFinite(expiresAt) && expiresAt <= now;
-  const packageIsPro = packageRow
-    ? String(packageRow.code ?? "") === "pro" || Number(packageRow.price ?? 0) > 0
-    : office.plan === "pro";
+  const packageIsPro = !!packageRow &&
+    (String(packageRow.code ?? "") === "pro" || Number(packageRow.price ?? 0) > 0);
   const isProCurrent = packageIsPro && !expired;
 
   const propertyLimit = expired
