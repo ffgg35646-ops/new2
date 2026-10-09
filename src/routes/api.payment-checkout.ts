@@ -13,12 +13,20 @@ function getTrustedCheckoutOrigin(request: Request) {
     }
   }
 
-  const configured = String(
-    process.env["PUBLIC_APP_URL"] ??
-    process.env["APP_URL"] ??
-    process.env["VITE_PUBLIC_APP_URL"] ??
-    "https://new2-sss22.vercel.app"
-  ).trim();
+  const candidates = [
+    process.env["PUBLIC_APP_URL"],
+    process.env["APP_URL"],
+    process.env["VITE_PUBLIC_APP_URL"],
+    process.env["VERCEL_PROJECT_PRODUCTION_URL"]
+      ? "https://" + process.env["VERCEL_PROJECT_PRODUCTION_URL"]
+      : null,
+    process.env["VERCEL_URL"] ? "https://" + process.env["VERCEL_URL"] : null,
+  ].filter((value): value is string => typeof value === "string" && !!value.trim());
+
+  const configured = candidates[0];
+  if (!configured) {
+    throw new Error("إعداد رابط الموقع العام غير مكتمل. اضبط PUBLIC_APP_URL في إعدادات النشر.");
+  }
 
   const url = new URL(configured.startsWith("http") ? configured : "https://" + configured);
   if (process.env["NODE_ENV"] === "production" && url.protocol !== "https:") {
