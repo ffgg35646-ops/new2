@@ -99,14 +99,17 @@ function OfficeRequests() {
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data: rows, error } = await supabase
         .from("viewing_bookings")
-        .select("id", { count: "exact", head: true })
+        .select("id,status")
         .eq("office_id", officeId!)
-        .in("status", ["pending", "accepted"]);
+        .limit(500);
 
       if (error) throw error;
-      return count ?? 0;
+      return (rows ?? []).filter((booking: any) => {
+        const status = String(booking.status ?? "").trim() || "pending";
+        return ["pending", "accepted"].includes(status);
+      }).length;
     },
   });
 
@@ -217,7 +220,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
 
   useEffect(() => setPage(1), [officeId]);
 
-  const { data = [], isLoading } = useQuery({
+  const { data = [], isLoading, error: bookingsError } = useQuery({
     queryKey: ["office-bookings", officeId],
     enabled: !!officeId,
     queryFn: async () => {
@@ -227,19 +230,23 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
           "id,user_id,visit_date,visit_time,status,office_note,cancel_reason,completion_reason,contact_phone,contact_name,contact_governorate_id,created_at,properties(id,property_number,title,price,area,kind,listing,neighborhood,cover_url,images_count,governorates(name_ar))",
         )
         .eq("office_id", officeId!)
-        .in("status", ["pending", "accepted"])
         .order("visit_date", { ascending: true })
         .order("visit_time", { ascending: true })
         .limit(100);
 
       if (error) throw error;
 
-      const bookings = (rows ?? []) as unknown as Array<
+      const bookings = ((rows ?? []) as unknown as Array<
         BookingRow & {
           contact_name?: string | null;
           contact_governorate_id?: string | null;
         }
-      >;
+      >)
+        .map((booking) => ({
+          ...booking,
+          status: String(booking.status ?? "").trim() || "pending",
+        }))
+        .filter((booking) => ["pending", "accepted"].includes(booking.status));
 
       const governorateIds = [
         ...new Set(
@@ -352,6 +359,14 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
   });
 
   if (isLoading) return <ListSkeleton />;
+
+  if (bookingsError) {
+    return (
+      <div role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">
+        تعذّر تحميل المعاينات: {bookingsError instanceof Error ? bookingsError.message : "خطأ غير معروف"}
+      </div>
+    );
+  }
 
   if (!data.length) {
     return (
