@@ -664,8 +664,9 @@ function PlansTab() {
         price: numericPrice,
         duration_days: numericDuration,
         property_limit:
-          numericPropertyLimit ??
-          (numericPrice === 0 && cleanCode !== "pro" ? 5 : null),
+          numericPrice === 0 && cleanCode !== "pro"
+            ? 5
+            : numericPropertyLimit,
         featured_limit: numericFeatured,
         chat_enabled: chatEnabled,
         verification_included: verificationIncluded,
