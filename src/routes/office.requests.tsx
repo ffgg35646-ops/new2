@@ -674,24 +674,21 @@ function TabButton({
 
 function InquiriesInbox({ officeId }: { officeId: string | null }) {
   const qc = useQueryClient();
-  const [filter, setFilter] = useState<string>("all");
   const [contactOpenId, setContactOpenId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
-  useEffect(() => setPage(1), [filter, officeId]);
+  useEffect(() => setPage(1), [officeId]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["office-inquiries", officeId, filter],
+    queryKey: ["office-inquiries", officeId],
     enabled: !!officeId,
     queryFn: async () => {
-      let q = supabase
+      const { data, error } = await supabase
         .from("property_inquiries")
         .select("*, properties(title,property_number)")
         .eq("office_id", officeId!)
         .order("created_at", { ascending: false })
         .limit(60);
-      if (filter !== "all") q = q.eq("status", filter);
-      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -722,18 +719,6 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
 
   return (
     <div className="space-y-3">
-      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
-        <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label="الكل" />
-        {INQUIRY_STATUSES.map((s) => (
-          <FilterChip
-            key={s.value}
-            active={filter === s.value}
-            onClick={() => setFilter(s.value)}
-            label={s.label}
-          />
-        ))}
-      </div>
-
       {isLoading ? (
         <ListSkeleton />
       ) : data?.length ? (
