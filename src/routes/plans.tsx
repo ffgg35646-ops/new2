@@ -100,9 +100,9 @@ function PlansPage() {
 
                   <div className="mt-3 text-[11px] text-muted-foreground">
                     العقارات:{" "}
-                    {pkg.property_limit == null
+                    {displayedPropertyLimit == null
                       ? "غير محدودة"
-                      : pkg.property_limit}
+                      : displayedPropertyLimit}
                     {" · "}
                     المميزة: {pkg.featured_limit}
                     {" · "}
