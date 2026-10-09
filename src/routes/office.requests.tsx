@@ -345,6 +345,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
               : "تم قبول طلب المعاينة",
       );
       void qc.invalidateQueries({ queryKey: ["office-bookings"] });
+      void qc.invalidateQueries({ queryKey: ["office-bookings-tab-count"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
     onError: (error) =>
@@ -785,6 +786,7 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
       toast.success(vars.status === "accepted" ? "تم قبول طلب التواصل" : "تم رفض طلب التواصل");
       void qc.invalidateQueries({ queryKey: ["office-inquiries"] });
       void qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] });
+      void qc.invalidateQueries({ queryKey: ["new-inquiries-count"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
     onError: (e) =>
