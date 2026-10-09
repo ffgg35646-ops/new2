@@ -84,11 +84,9 @@ export function effectivePlan(
     plan_expires_at?: string | null;
   } | null,
 ): OfficePlan {
-  if (!office || office.plan !== "pro") return "free";
-  if (!office.plan_expires_at) return "pro";
-  return new Date(office.plan_expires_at).getTime() > Date.now()
-    ? "pro"
-    : "free";
+  if (!office || office.plan !== "pro" || !office.plan_expires_at) return "free";
+  const expiry = new Date(office.plan_expires_at).getTime();
+  return Number.isFinite(expiry) && expiry > Date.now() ? "pro" : "free";
 }
 
 export function usePackages(activeOnly = true) {
@@ -139,12 +137,13 @@ export function useMyPlan() {
       const expiryTime = office?.plan_expires_at
         ? new Date(office.plan_expires_at).getTime()
         : Number.NaN;
+      const packageLooksPaid =
+        office?.plan === "pro" ||
+        String(packageRow?.code ?? "") === "pro" ||
+        Number(packageRow?.price ?? 0) > 0;
       const hasExpiredPaidPlan =
-        Number.isFinite(expiryTime) &&
-        expiryTime <= Date.now() &&
-        (office?.plan === "pro" ||
-          String(packageRow?.code ?? "") === "pro" ||
-          Number(packageRow?.price ?? 0) > 0);
+        packageLooksPaid &&
+        (!Number.isFinite(expiryTime) || expiryTime <= Date.now());
 
       // حتى لو لم يعمل Cron بعد، اعرض الباقة المجانية بمجرد انتهاء مدة Pro.
       if (hasExpiredPaidPlan || !packageRow) {
@@ -173,12 +172,13 @@ export function useMyPlan() {
   const expiryTime = office?.plan_expires_at
     ? new Date(office.plan_expires_at).getTime()
     : Number.NaN;
+  const packageLooksPaid =
+    office?.plan === "pro" ||
+    pkg?.code === "pro" ||
+    Number(pkg?.price ?? 0) > 0;
   const expired =
-    Number.isFinite(expiryTime) &&
-    expiryTime <= Date.now() &&
-    (office?.plan === "pro" ||
-      pkg?.code === "pro" ||
-      Number(pkg?.price ?? 0) > 0);
+    packageLooksPaid &&
+    (!Number.isFinite(expiryTime) || expiryTime <= Date.now());
 
   const currentPlan: OfficePlan =
     expired
