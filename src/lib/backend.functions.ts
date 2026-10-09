@@ -510,6 +510,66 @@ function getRequestAttachmentUrl(request: Record<string, unknown>): string | nul
   return null;
 }
 
+const FREE_OFFICE_PROPERTY_LIMIT = 5;
+
+async function enforceOfficePropertyLimit(
+  userId: string | null,
+  role: string | null,
+  docs: Record<string, unknown>[],
+) {
+  if (role === "admin") return;
+  if (role !== "office" || !userId) {
+    throw new Error("فقط المكتب العقاري يمكنه إضافة العقارات.");
+  }
+
+  const offices = await getMongoCollection<Record<string, unknown>>("offices");
+  const office = await offices.findOne({
+    owner_id: userId,
+    is_deleted: { $ne: true },
+  });
+  if (!office) throw new Error("office_not_found");
+
+  const officeId = String(office.id ?? "");
+  if (!officeId) throw new Error("office_not_found");
+  for (const doc of docs) doc.office_id = officeId;
+
+  const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
+  const packageId = String(office.package_id ?? "");
+  const packageRow = packageId
+    ? await packages.findOne({ id: packageId })
+    : null;
+  const now = Date.now();
+  const expiresAt = office.plan_expires_at
+    ? new Date(String(office.plan_expires_at)).getTime()
+    : null;
+  const expired = expiresAt != null && Number.isFinite(expiresAt) && expiresAt <= now;
+  const packageIsPro = packageRow
+    ? String(packageRow.code ?? "") === "pro" || Number(packageRow.price ?? 0) > 0
+    : office.plan === "pro";
+  const isProCurrent = packageIsPro && !expired;
+
+  const propertyLimit = isProCurrent
+    ? packageRow?.property_limit == null
+      ? null
+      : Number(packageRow.property_limit)
+    : FREE_OFFICE_PROPERTY_LIMIT;
+
+  if (propertyLimit == null) return;
+  if (!Number.isFinite(propertyLimit) || propertyLimit < 0) {
+    throw new Error("property_limit_configuration_invalid");
+  }
+
+  const properties = await getMongoCollection<Record<string, unknown>>("properties");
+  const currentCount = await properties.countDocuments({
+    office_id: officeId,
+    is_deleted: { $ne: true },
+  });
+  const newCount = docs.filter((doc) => doc.is_deleted !== true).length;
+  if (currentCount + newCount > propertyLimit) {
+    throw new Error("property_limit:" + String(propertyLimit));
+  }
+}
+
 async function runDb(input: DbInput) {
   const { userId, role } = await authorize(input);
 
