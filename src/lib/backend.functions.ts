@@ -3010,7 +3010,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               "قام مكتب " + String(office.name ?? "عقاري") +
               " بإلغاء عرضه على طلبك. سبب الإلغاء: " + reason,
             type: "property_offer_cancelled",
-            link: "/requests?tab=received",
+            link: "/requests?tab=received&offer=" + encodeURIComponent(offerId),
             request_id: requestId,
             offer_id: offerId,
             is_read: false,
