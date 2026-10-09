@@ -1500,20 +1500,28 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   return (
     <div className="space-y-2">
       {visibleRequests.map((r) => {
-        const sent = r.offer_sent;
         return (
-          <div key={r.id} className="rounded-2xl bg-surface p-3 ring-1 ring-line">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold">
-                {kindLabel(r.kind)} · {listingLabel(r.listing)}
-              </span>
-              <span className="text-[10px] text-muted-foreground">{timeAgo(r.created_at)}</span>
+          <div key={r.id} className="overflow-hidden rounded-2xl bg-surface ring-1 ring-line">
+            {r.attachment_url ? (
+              <img
+                src={r.attachment_url}
+                alt="صورة الطلب العقاري"
+                loading="eager"
+                decoding="async"
+                className="block aspect-[4/3] w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                  const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (fallback) fallback.hidden = false;
+                }}
+              />
+            ) : null}
+            <div
+              hidden={!!r.attachment_url}
+              className="grid aspect-[4/3] w-full place-items-center bg-sand px-4 text-center text-sm text-muted-foreground"
+            >
+              لا توجد صورة مرفقة بالطلب
             </div>
-            {r.attachment_url && <img src={r.attachment_url} alt="صورة الطلب" loading="lazy" className="mt-2 max-h-56 w-full rounded-xl object-cover" />}
-            <div className="mt-2 rounded-xl bg-background p-3 ring-1 ring-line">
-              <div className="text-xs font-bold">{r.client_name}</div>
-            </div>
-
             <button
               type="button"
               onClick={() => {
@@ -1523,51 +1531,10 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
                   void supabase.rpc("mark_property_request_view" as never, { _request_id: r.id } as never);
                 }
               }}
-              className="mt-2.5 flex w-full items-center justify-between rounded-xl bg-forest-soft px-3 py-2.5 text-xs font-bold text-forest"
+              className="flex w-full items-center justify-center gap-2 bg-forest-soft px-3 py-3.5 text-sm font-bold text-forest"
             >
-              <span>عرض التفاصيل</span>
-              <span>‹</span>
+              عرض التفاصيل
             </button>
-
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{r.description}</p>
-            <div className="mt-1.5 text-[11px] text-muted-foreground">
-              {r.neighborhood ? r.neighborhood + " · " : ""}
-              {r.area_min ? "من " + formatArea(r.area_min) + " · " : ""}
-              {r.budget_min || r.budget_max
-                ? formatPrice(r.budget_min) + " - " + formatPrice(r.budget_max) + " ر.س"
-                : "بدون ميزانية محددة"}
-            </div>
-
-            {r.client_phone && (
-              <div className="mt-2 flex gap-2">
-                <a
-                  href={"tel:" + r.client_phone}
-                  className="flex-1 rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"
-                >
-                  <Phone className="mx-auto mb-1 size-3.5" />
-                  اتصال بالعميل
-                </a>
-                <a
-                  href={whatsappHref(r.client_phone, "مرحبًا " + r.client_name + "، بخصوص طلب العقار")}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 rounded-xl bg-[#25D366]/10 py-2.5 text-center text-xs font-bold text-[#25D366]"
-                >
-                  <WhatsAppIcon className="mx-auto mb-1 size-4 text-[#25D366]" />
-                  واتساب
-                </a>
-              </div>
-            )}
-
-            {sent && (
-              <MarketOfferActions offerId={r.offer_id} offerStatus={r.offer_status ?? "sent"}
-                offerMessage={r.offer_message ?? ""} offerPrice={r.offer_price ?? null}
-                onChanged={() => {
-                  void qc.invalidateQueries({ queryKey: ["open-requests"] });
-                  void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
-                  void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
-                }} />
-            )}
           </div>
         );
       })}
@@ -1614,6 +1581,16 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               <div className="mt-1 text-sm font-extrabold">{details.client_name}</div>
             </section>
 
+            {details.attachment_url ? (
+              <img
+                src={details.attachment_url}
+                alt="صورة الطلب العقاري"
+                loading="eager"
+                decoding="async"
+                className="block max-h-72 w-full rounded-2xl object-contain"
+              />
+            ) : null}
+
             <section className="grid grid-cols-2 gap-2">
               <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
                 <div className="text-[10px] text-muted-foreground">نوع العقار</div>
@@ -1652,13 +1629,12 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               <p className="mt-1.5 whitespace-pre-wrap text-sm leading-7">{details.description || "لا يوجد وصف إضافي."}</p>
             </section>
 
-            {details.attachment_url && <img src={details.attachment_url} alt="صورة الطلب" loading="lazy" className="max-h-72 w-full rounded-2xl object-cover" />}
 
             <div className="text-[11px] leading-6 text-muted-foreground">
               نُشر الطلب: {formatDate(details.created_at)} · آخر موعد: {details.expires_at ? formatDate(details.expires_at) : "غير محدد"} · {details.views_count} مشاهدة
             </div>
 
-            {!details.offer_sent && (
+            {!details.offer_sent ? (
               <button
                 type="button"
                 onClick={() => {
@@ -1669,8 +1645,12 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
                 }}
                 className="w-full rounded-2xl bg-terracotta py-3.5 text-sm font-bold text-background"
               >
-                قبول
+                قبول العرض
               </button>
+            ) : (
+              <div className="rounded-xl bg-sand p-3 text-center text-xs font-bold text-muted-foreground">
+                سبق أن أرسلت عرضًا على هذا الطلب
+              </div>
             )}
           </div>
         </div>
