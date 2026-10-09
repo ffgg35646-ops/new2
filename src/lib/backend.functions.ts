@@ -2286,7 +2286,9 @@ export const rpcRequest = createServerFn({ method: "POST" })
                 type: "viewing_booking",
                 link:
                   recipient === bookingUserId
-                    ? "/bookings"
+                    ? ["rejected", "completed", "cancelled"].includes(requestedStatus)
+                      ? "/notifications"
+                      : "/bookings"
                     : "/office/requests?tab=bookings",
                 is_read: false,
                 created_at: now,
