@@ -234,7 +234,7 @@ export const Route = createFileRoute("/api/payment-status")({
             description: description || (
               pending
                 ? "الدفع ما زال قيد المعالجة؛ لم يتم تفعيل الباقة بعد."
-                : "لم يكتمل الدفع، ولم يتم تفعيل الباقة.",
+                : "لم يكتمل الدفع، ولم يتم تفعيل الباقة."
             ),
           });
         } catch (error) {
