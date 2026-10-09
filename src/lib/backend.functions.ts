@@ -248,8 +248,12 @@ function sanitizeOfficePrivateFields(value: unknown, userId: string | null, role
     output[key] = sanitizeOfficePrivateFields(item, userId, role);
   }
 
-  if (role !== "admin" && "owner_id" in output &&
-      String(output.owner_id ?? "") !== String(userId ?? "")) {
+  const isOwnOffice =
+    "owner_id" in output &&
+    !!userId &&
+    String(output.owner_id ?? "") === userId;
+
+  if (role !== "admin" && !isOwnOffice) {
     for (const key of [
       "owner_id", "email", "commercial_register", "license_expiry",
       "fal_license_url", "real_estate_license_url",
@@ -1166,7 +1170,10 @@ async function runDb(input: DbInput) {
     );
 
     const output = relatedRows.map((row) =>
-      sanitizeOfficePrivateFields(project(row, input.select ?? null), userId, role) as Record<string, unknown>,
+      project(
+        sanitizeOfficePrivateFields(row, userId, role) as Record<string, unknown>,
+        input.select ?? null,
+      ),
     );
 
     if (input.single || input.maybeSingle) {
