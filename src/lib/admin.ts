@@ -207,7 +207,7 @@ export function useAdminDirectory() {
     "aqar-admin-directory",
   );
 
-  const query = useQuery({
+  const query = useQuery<AdminDirectory>({
     queryKey: ["admin-directory"],
     queryFn: fetchAdminDirectory,
 
@@ -320,7 +320,7 @@ export function useAdminDashboardStats() {
     "aqar-admin-dashboard-stats",
   );
 
-  const query = useQuery({
+  const query = useQuery<AdminDashboardStats>({
     queryKey: ["admin-dashboard-stats"],
     queryFn: fetchAdminDashboardStats,
 
