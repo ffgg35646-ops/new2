@@ -615,6 +615,85 @@ async function runDb(input: DbInput) {
 
   const filters = [...(input.filters ?? [])];
 
+  const chatCollections = ["conversations", "messages", "conversation_blocks"];
+  if (chatCollections.includes(input.collection) && role !== "admin") {
+    const conversations = await getMongoCollection<Record<string, unknown>>("conversations");
+    let allowedConversationIds: string[] = [];
+    let officeId: string | null = null;
+
+    if (role === "individual") {
+      const ownConversations = await conversations
+        .find({ user_id: userId })
+        .project({ id: 1, _id: 1 })
+        .toArray();
+      allowedConversationIds = ownConversations
+        .map((row) => String(row.id ?? row._id ?? ""))
+        .filter(Boolean);
+    } else if (role === "office") {
+      const office = await (await getMongoCollection<Record<string, unknown>>("offices"))
+        .findOne({ owner_id: userId, is_deleted: { $ne: true } });
+      if (!office) throw new Error("not_office_member");
+      officeId = String(office.id ?? "");
+      if (!officeId) throw new Error("not_office_member");
+      const officeConversations = await conversations
+        .find({ office_id: officeId })
+        .project({ id: 1, _id: 1 })
+        .toArray();
+      allowedConversationIds = officeConversations
+        .map((row) => String(row.id ?? row._id ?? ""))
+        .filter(Boolean);
+    } else {
+      throw new Error("not_conversation_member");
+    }
+
+    if (input.collection === "conversations" && input.operation === "select") {
+      filters.push(
+        role === "individual"
+          ? { field: "user_id", op: "eq", value: userId }
+          : { field: "office_id", op: "eq", value: officeId },
+      );
+    } else if (input.operation === "select") {
+      filters.push({
+        field: "conversation_id",
+        op: "in",
+        value: allowedConversationIds,
+      });
+    }
+
+    if (
+      input.collection === "conversations" &&
+      ["update", "upsert", "delete"].includes(input.operation)
+    ) {
+      throw new Error("لا يمكن تعديل المحادثة مباشرة.");
+    }
+
+    if (input.collection === "messages" && input.operation === "insert") {
+      throw new Error("إرسال الرسائل يجب أن يتم عبر إجراء الدردشة المخصص.");
+    }
+
+    if (input.collection === "messages" && input.operation === "update") {
+      const payload = (input.payload ?? {}) as Record<string, unknown>;
+      if (Object.keys(payload).some((key) => key !== "read_at")) {
+        throw new Error("يمكن تحديث حالة قراءة الرسالة فقط.");
+      }
+      filters.push({ field: "sender_id", op: "neq", value: userId });
+    }
+
+    if (input.collection === "conversation_blocks" && input.operation === "insert") {
+      const list = Array.isArray(input.payload) ? input.payload : [input.payload];
+      for (const row of list) {
+        const conversationId = String((row as Record<string, unknown> | null)?.conversation_id ?? "");
+        if (!allowedConversationIds.includes(conversationId)) {
+          throw new Error("not_conversation_member");
+        }
+      }
+    }
+
+    if (input.collection === "conversation_blocks" && input.operation === "delete") {
+      filters.push({ field: "blocker_id", op: "eq", value: userId });
+    }
+  }
+
   if (input.collection === "properties" && input.operation === "select" && role !== "admin") {
     let ownOffice = null;
 
