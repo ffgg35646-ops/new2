@@ -204,6 +204,7 @@ function HomePage() {
               action={
                 <Link
                   to="/request"
+                  search={{ request: undefined }}
                   className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-background"
                 >
                   اطلب عقارًا
