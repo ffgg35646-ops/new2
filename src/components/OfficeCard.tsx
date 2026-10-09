@@ -83,8 +83,8 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
               onSuccess: (enabled) =>
                 toast.success(
                   enabled
-                    ? \`ستصلك إشعارات العروض الجديدة من \${office.name}\`
-                    : \`تم إيقاف إشعارات \${office.name}\`,
+                    ? `ستصلك إشعارات العروض الجديدة من ${office.name}`
+                    : `تم إيقاف إشعارات ${office.name}`,
                 ),
               onError: (error) =>
                 toast.error(error instanceof Error ? error.message : "تعذّر تحديث الإشعارات"),
@@ -92,7 +92,7 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
           );
         }}
         disabled={setNotifications.isPending}
-        aria-label={notifyOn ? \`إيقاف إشعارات \${office.name}\` : \`تفعيل إشعارات \${office.name}\`}
+        aria-label={notifyOn ? `إيقاف إشعارات ${office.name}` : `تفعيل إشعارات ${office.name}`}
         aria-pressed={notifyOn}
         title={notifyOn ? "إشعارات المكتب مفعّلة" : "تفعيل إشعارات المكتب"}
         className={[
