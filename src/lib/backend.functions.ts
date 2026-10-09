@@ -474,6 +474,42 @@ async function authorize(input: DbInput) {
   return { userId, role };
 }
 
+
+function getRequestAttachmentUrl(request: Record<string, unknown>): string | null {
+  const candidates: unknown[] = [
+    request.attachment_url,
+    request.image_url,
+    request.photo_url,
+    request.image,
+    Array.isArray(request.images) ? request.images[0] : null,
+    Array.isArray(request.attachments) ? request.attachments[0] : null,
+  ];
+
+  for (const candidate of candidates) {
+    let value: unknown = candidate;
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const record = value as Record<string, unknown>;
+      value = record.url ?? record.publicUrl ?? record.public_url ?? record.src ?? record.path;
+    }
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    if (
+      trimmed.startsWith("http://") ||
+      trimmed.startsWith("https://") ||
+      trimmed.startsWith("//") ||
+      trimmed.startsWith("/")
+    ) return trimmed;
+    if (trimmed.toLowerCase().startsWith("api/media/")) return "/" + trimmed;
+    if (/^[a-f0-9]{24}$/i.test(trimmed)) {
+      return "/api/media/" + encodeURIComponent(trimmed);
+    }
+    return trimmed;
+  }
+
+  return null;
+}
+
 async function runDb(input: DbInput) {
   const { userId, role } = await authorize(input);
 
@@ -1744,7 +1780,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               budget_max: request.budget_max ?? null,
               area_min: request.area_min ?? null,
               description: request.description ?? "",
-              attachment_url: request.attachment_url ?? null,
+              attachment_url: getRequestAttachmentUrl(request),
               views_count: Number(request.views_count ?? 0),
               created_at: request.created_at ?? null,
               expires_at: request.expires_at ?? null,
@@ -1809,7 +1845,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               budget_max: request.budget_max ?? null,
               area_min: request.area_min ?? null,
               description: request.description ?? "",
-              attachment_url: request.attachment_url ?? null,
+              attachment_url: getRequestAttachmentUrl(request),
               created_at: request.created_at ?? null,
               expires_at: request.expires_at ?? null,
               client_name: profile?.full_name ?? "عميل",
