@@ -257,7 +257,7 @@ function BookingsPage() {
                         {formatDate(booking.visit_date)}
                       </span>
                     </Info>
-                    <Info label="الوقت">
+                    <Info label="الوقت (توقيت السعودية)">
                       <span className="inline-flex items-center gap-1.5">
                         <Clock3 className="size-3.5 text-terracotta" />
                         {formatBookingTime(booking.visit_time)}
@@ -332,7 +332,7 @@ function BookingsPage() {
 
                   {isToday && !started && (
                     <div className="mt-3 rounded-2xl bg-forest-soft p-3 text-center text-[11px] font-semibold text-forest">
-                      لديك معاينة اليوم الساعة {formatBookingTime(booking.visit_time)}
+                      لديك معاينة اليوم الساعة {formatBookingTime(booking.visit_time)} بتوقيت السعودية
                       {property?.title ? " · " + property.title : ""}
                     </div>
                   )}
