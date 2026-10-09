@@ -58,15 +58,22 @@ function HomePage() {
         .eq("governorate_id", governorateId!)
         .eq("verification_status", "verified")
         .order("updated_at", { ascending: false })
-        .limit(4);
+        .limit(100);
       if (error) throw error;
-      return (data ?? []).map((o) => ({
+      const offices = ((data ?? []).map((o) => ({
         ...o,
         properties_count:
           Array.isArray(o.properties) && o.properties.length > 0
             ? Number((o.properties[0] as { count?: number }).count ?? 0)
             : 0,
-      })) as OfficeCardData[];
+      })) as OfficeCardData[]);
+
+      return offices
+        .sort((a, b) =>
+          Number(b.is_pro_current === true) - Number(a.is_pro_current === true) ||
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+        )
+        .slice(0, 4);
     },
   });
 
