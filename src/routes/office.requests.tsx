@@ -1562,7 +1562,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   });
 
   const rows = data ?? [];
-  const pageSize = 6;
+  const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleRequests = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
