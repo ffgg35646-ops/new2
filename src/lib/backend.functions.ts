@@ -545,9 +545,43 @@ async function runDb(input: DbInput) {
     filters.push({ field: "status", op: "eq", value: "active" });
   }
 
-  const base = buildFilter(filters);
+  // Legacy viewing bookings may have no status field. Treat them as pending
+  // in queries that request pending appointments, so both sides can still see them.
+  const legacyPendingStatusFilter =
+    input.collection === "viewing_bookings" && input.operation === "select"
+      ? filters.find(
+          (filter) =>
+            filter.field === "status" &&
+            filter.op === "in" &&
+            Array.isArray(filter.value) &&
+            filter.value.includes("pending"),
+        )
+      : undefined;
+  const queryFilters = legacyPendingStatusFilter
+    ? filters.filter((filter) => filter !== legacyPendingStatusFilter)
+    : filters;
+  const base = buildFilter(queryFilters);
   const orFilter = parseOr(input.or);
-  const mongoQuery = orFilter ? { $and: [base, orFilter] } : base;
+  const pendingStatusValues =
+    legacyPendingStatusFilter && Array.isArray(legacyPendingStatusFilter.value)
+      ? legacyPendingStatusFilter.value
+      : [];
+  const legacyPendingStatusClause: Record<string, unknown> | null =
+    legacyPendingStatusFilter
+      ? {
+          $or: [
+            { status: { $in: pendingStatusValues } },
+            { status: { $exists: false } },
+            { status: null },
+            { status: "" },
+          ],
+        }
+      : null;
+  const queryParts: Record<string, unknown>[] = [base];
+  if (legacyPendingStatusClause) queryParts.push(legacyPendingStatusClause);
+  if (orFilter) queryParts.push(orFilter);
+  const mongoQuery: Record<string, unknown> =
+    queryParts.length > 1 ? { $and: queryParts } : queryParts[0] ?? {};
 
   if (input.operation === "select") {
     let cursor = collection.find(mongoQuery);
@@ -560,6 +594,11 @@ async function runDb(input: DbInput) {
     if (input.limit != null) cursor = cursor.limit(Math.max(0, input.limit));
 
     const rows = await cursor.toArray();
+    if (input.collection === "viewing_bookings") {
+      for (const row of rows) {
+        if (!String(row.status ?? "").trim()) row.status = "pending";
+      }
+    }
     const count = input.count ? await collection.countDocuments(mongoQuery) : null;
 
     if (input.head) return { data: null, count, error: null };
