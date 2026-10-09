@@ -73,7 +73,7 @@ function OfficePage() {
           "id,name,logo_url,plan,plan_expires_at,verification_status,address,phone,whatsapp,description,working_hours,license_number,fal_license_number,rating_avg,reviews_count,experience_years,latitude,longitude,updated_at,package_id,completed_requests_count,is_pro_current,verification_badge,governorates(name_ar)",
         )
         .eq("id", officeId)
-        .eq("verification_status", "verified")
+        .eq("is_deleted", false)
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -253,7 +253,10 @@ function OfficePage() {
       <main className="flex-1 space-y-5 px-4 pb-10">
         {isLoading ? (
           <ListSkeleton />
-        ) : !office ? (
+        ) : !office || (
+          office.verification_status !== "verified" &&
+          office.is_pro_current !== true
+        ) ? (
           <EmptyState icon={BadgeCheck} title="المكتب غير موجود" />
         ) : (
           <>
