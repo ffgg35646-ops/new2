@@ -86,7 +86,9 @@ begin
           raise exception 'invalid_office_offer_status_transition';
         end if;
       elsif v_request_owner = auth.uid() then
-        if old.status = 'sent' and new.status in ('accepted', 'rejected') then
+        if old.status = 'sent'
+              and new.status in ('accepted', 'rejected')
+              and v_request_status = 'active' then
           null;
         elsif old.status = 'awaiting_confirmation'
               and new.status = 'completed'
