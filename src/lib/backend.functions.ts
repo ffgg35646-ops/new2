@@ -416,9 +416,10 @@ async function enrichRows(
             String(packageRow?.code ?? "") === "pro" ||
             Number(packageRow?.price ?? 0) > 0;
 
-          const packageExpired =
-            !!related.plan_expires_at &&
-            new Date(String(related.plan_expires_at)).getTime() <= Date.now();
+          const planExpiry = related.plan_expires_at
+            ? new Date(String(related.plan_expires_at)).getTime()
+            : Number.NaN;
+          const packageExpired = !Number.isFinite(planExpiry) || planExpiry <= Date.now();
 
           const isProCurrent = packageRow
             ? packageIsPro && !packageExpired
@@ -628,8 +629,8 @@ async function enforceOfficePropertyLimit(
   const now = Date.now();
   const expiresAt = office.plan_expires_at
     ? new Date(String(office.plan_expires_at)).getTime()
-    : null;
-  const expired = expiresAt != null && Number.isFinite(expiresAt) && expiresAt <= now;
+    : Number.NaN;
+  const expired = !Number.isFinite(expiresAt) || expiresAt <= now;
   const packageIsPro = !!packageRow &&
     (String(packageRow.code ?? "") === "pro" || Number(packageRow.price ?? 0) > 0);
   const isProCurrent = packageIsPro && !expired;
@@ -1032,9 +1033,10 @@ async function runDb(input: DbInput) {
             ? String(packageRow.code ?? "") === "pro" ||
               Number(packageRow.price ?? 0) > 0
             : office.plan === "pro";
-          const expired =
-            !!office.plan_expires_at &&
-            new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+          const planExpiry = office.plan_expires_at
+            ? new Date(String(office.plan_expires_at)).getTime()
+            : Number.NaN;
+          const expired = !Number.isFinite(planExpiry) || planExpiry <= Date.now();
           return packageIsPro && !expired;
         })
         .map((office) => String(office.id ?? office._id ?? ""))
@@ -1119,9 +1121,10 @@ async function runDb(input: DbInput) {
             String(packageRow?.code ?? "") === "pro" ||
             Number(packageRow?.price ?? 0) > 0;
 
-          const packageExpired =
-            !!office.plan_expires_at &&
-            new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+          const planExpiry = office.plan_expires_at
+            ? new Date(String(office.plan_expires_at)).getTime()
+            : Number.NaN;
+          const packageExpired = !Number.isFinite(planExpiry) || planExpiry <= Date.now();
 
           const isProCurrent = packageRow
             ? packageIsPro && !packageExpired
@@ -3775,11 +3778,11 @@ export const rpcRequest = createServerFn({ method: "POST" })
           ? String(packageRow.code ?? "") === "pro" ||
             Number(packageRow.price ?? 0) > 0
           : office.plan === "pro";
+        const hasActiveExpiry = !!expiresAt &&
+          Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() > Date.now();
         const chatEnabled = packageRow
-          ? Boolean(packageRow.chat_enabled) &&
-            packageIsPro &&
-            (!expiresAt || expiresAt.getTime() > Date.now())
-          : packageIsPro && (!expiresAt || expiresAt.getTime() > Date.now());
+          ? Boolean(packageRow.chat_enabled) && packageIsPro && hasActiveExpiry
+          : packageIsPro && hasActiveExpiry;
 
         if (!chatEnabled) throw new Error("chat_not_available");
 
@@ -4621,9 +4624,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
           ? String(packageRow.code ?? "") === "pro" ||
             Number(packageRow.price ?? 0) > 0
           : office?.plan === "pro";
-        const expired =
-          !!office?.plan_expires_at &&
-          new Date(String(office.plan_expires_at)).getTime() <= Date.now();
+        const planExpiry = office?.plan_expires_at
+          ? new Date(String(office.plan_expires_at)).getTime()
+          : Number.NaN;
+        const expired = !Number.isFinite(planExpiry) || planExpiry <= Date.now();
         const effectivePro = packageIsPro && !expired;
         const chatEnabled = packageRow
           ? Boolean(packageRow.chat_enabled) && effectivePro
