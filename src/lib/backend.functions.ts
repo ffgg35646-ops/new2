@@ -723,19 +723,25 @@ async function runDb(input: DbInput) {
     input.filters = [...(input.filters ?? []), { field: "user_id", op: "eq", value: userId }];
   }
 
-  if (role !== "admin" && input.collection === "reports" && isWrite && input.operation !== "insert") {
-    throw new Error("تعديل البلاغات محجوز للإدارة.");
+  if (role !== "admin" && input.collection === "reports" && isWrite) {
+    if (!userId || input.operation !== "insert") {
+      throw new Error("إرسال البلاغات يتطلب تسجيل الدخول؛ وتعديلها محجوز للإدارة.");
+    }
   }
-  if (role !== "admin" && input.collection === "support_tickets" && isWrite && input.operation !== "insert") {
-    throw new Error("تعديل تذاكر الدعم محجوز لفريق الدعم.");
+  if (role !== "admin" && input.collection === "support_tickets" && isWrite) {
+    if (!userId || input.operation !== "insert") {
+      throw new Error("إنشاء تذكرة دعم يتطلب تسجيل الدخول؛ وتعديلها محجوز لفريق الدعم.");
+    }
   }
-  if (role !== "admin" && input.collection === "support_messages" && isWrite && input.operation !== "insert") {
-    throw new Error("تعديل رسائل الدعم غير مسموح.");
+  if (role !== "admin" && input.collection === "support_messages" && isWrite) {
+    if (!userId || input.operation !== "insert") {
+      throw new Error("إرسال رسالة دعم يتطلب تسجيل الدخول.");
+    }
   }
 
   if (role !== "admin" && input.collection === "property_requests" && isWrite) {
-    if (input.operation !== "update") {
-      throw new Error("إدارة الطلبات يجب أن تتم من خلال الإجراءات المخصصة.");
+    if (!userId || role !== "individual" || input.operation !== "update") {
+      throw new Error("تعديل طلب البحث متاح لصاحبه فقط.");
     }
     const payload = (input.payload ?? {}) as Record<string, unknown>;
     const allowedRequestFields = new Set([
@@ -745,6 +751,7 @@ async function runDb(input: DbInput) {
     if (Object.keys(payload).some((key) => !allowedRequestFields.has(key))) {
       throw new Error("تحتوي بيانات الطلب على حقول محمية.");
     }
+    input.filters = [...(input.filters ?? []), { field: "user_id", op: "eq", value: userId }];
   }
 
   if (role !== "admin" && input.collection === "properties" && isWrite) {
@@ -755,7 +762,7 @@ async function runDb(input: DbInput) {
     if (input.operation === "update") {
       const payload = (input.payload ?? {}) as Record<string, unknown>;
       const forbidden = new Set([
-        "id", "_id", "office_id", "owner_id", "is_deleted", "created_at",
+        "id", "_id", "office_id", "owner_id", "is_deleted", "is_featured", "created_at",
         "views_count", "favorites_count", "updated_at",
       ]);
       if (Object.keys(payload).some((key) => forbidden.has(key))) {
