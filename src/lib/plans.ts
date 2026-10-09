@@ -284,7 +284,8 @@ export function planErrorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e ?? "");
 
   if (raw.includes("property_limit")) {
-    return raw;
+    const limit = raw.match(/property_limit[:_ ]*(\d+)/)?.[1] ?? String(FREE_PROPERTY_LIMIT);
+    return `باقتك تسمح بـ ${limit} عقارات فقط. اختر باقة أخرى لزيادة الحد.`;
   }
 
   if (raw.includes("package_not_available")) {
