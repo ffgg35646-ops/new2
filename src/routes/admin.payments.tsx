@@ -22,8 +22,6 @@ export const Route = createFileRoute("/admin/payments")({
 
 type GatewaySettings = {
   id: number;
-  merchant_name: string;
-  merchant_phone: string;
   currency: string;
   ignore_descriptor_validation: boolean;
   updated_at: string;
@@ -115,8 +113,6 @@ function PaymentsPage() {
     refetchInterval: 60_000,
   });
 
-  const [merchantName, setMerchantName] = useState("");
-  const [merchantPhone, setMerchantPhone] = useState("");
   const [currency, setCurrency] = useState("SAR");
   const [ignoreDescriptor, setIgnoreDescriptor] = useState(true);
 
@@ -124,13 +120,9 @@ function PaymentsPage() {
 
   if (
     current &&
-    merchantName === "" &&
-    merchantPhone === "" &&
     currency === "SAR" &&
     ignoreDescriptor === true
   ) {
-    setMerchantName(current.merchant_name ?? "");
-    setMerchantPhone(current.merchant_phone ?? "");
     setCurrency(current.currency ?? "SAR");
     setIgnoreDescriptor(
       Boolean(current.ignore_descriptor_validation),
@@ -142,8 +134,6 @@ function PaymentsPage() {
       const { error } = await (supabase as any)
         .from("payment_gateway_settings")
         .update({
-          merchant_name: merchantName.trim(),
-          merchant_phone: merchantPhone.trim(),
           currency: currency.trim().toUpperCase(),
           ignore_descriptor_validation: ignoreDescriptor,
           updated_at: new Date().toISOString(),
@@ -195,21 +185,6 @@ function PaymentsPage() {
         </h2>
 
         <div className="mt-4 space-y-3">
-          <input
-            value={merchantName}
-            onChange={(e) => setMerchantName(e.target.value)}
-            placeholder="اسم التاجر"
-            className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
-          />
-
-          <input
-            value={merchantPhone}
-            onChange={(e) => setMerchantPhone(e.target.value)}
-            placeholder="رقم هاتف التاجر"
-            dir="ltr"
-            className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
-          />
-
           <input
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
