@@ -22,6 +22,7 @@ export type PropertyCardData = {
   governorates?: { name_ar: string } | null;
   offices?: {
     name: string;
+    logo_url?: string | null;
     verification_status: string;
     plan?: string | null;
     plan_expires_at?: string | null;
@@ -150,10 +151,17 @@ export function PropertyCard({
           )}
         </div>
 
-        <div className="mt-2 flex items-center justify-between">
-          <span className="truncate text-[11px] text-muted-foreground">
-            {property.offices?.name ?? ""}
-          </span>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {property.offices?.logo_url ? (
+              <img src={property.offices.logo_url} alt="" loading="lazy" className="size-6 shrink-0 rounded-full object-cover ring-1 ring-line" />
+            ) : (
+              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-forest-soft text-[10px] font-extrabold text-forest">
+                {(property.offices?.name ?? "م").trim().charAt(0)}
+              </span>
+            )}
+            <span className="truncate text-[11px] text-muted-foreground">{property.offices?.name ?? ""}</span>
+          </div>
           <span className="font-mono text-[10px] text-muted-foreground">
             {property.property_number}
           </span>
