@@ -3448,6 +3448,10 @@ export const getOfficeViewingClientDetails = createServerFn({ method: "POST" })
     );
     const textValue = (value: unknown) =>
       typeof value === "string" ? value.trim() : "";
+    const nameValue = (value: unknown) => {
+      const name = textValue(value);
+      return name && !["عميل", "العميل"].includes(name) ? name : "";
+    };
 
     return {
       clients: bookings.map((booking) => {
@@ -3461,8 +3465,8 @@ export const getOfficeViewingClientDetails = createServerFn({ method: "POST" })
         return {
           bookingId,
           fullName:
-            textValue(profile?.full_name) ||
-            textValue(user?.full_name) ||
+            nameValue(profile?.full_name) ||
+            nameValue(user?.full_name) ||
             (nameIsFallback ? "" : savedName),
           phone:
             textValue(booking.contact_phone) ||
