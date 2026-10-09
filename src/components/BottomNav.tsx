@@ -22,6 +22,7 @@ const individualItems: Item[] = [
   { to: "/properties", label: "العقارات", icon: Building2 },
   { to: "/request", label: "اطلب", icon: PlusCircle, primary: true },
   { to: "/requests", label: "طلباتي", icon: ClipboardList },
+  { to: "/chats", label: "الدردشة", icon: MessageSquare },
   { to: "/account", label: "حسابي", icon: User },
 ];
 
@@ -94,6 +95,33 @@ export function BottomNav({
     },
   });
 
+
+  const { data: individualUnreadMessages = 0 } = useQuery({
+    queryKey: ["individual-bottom-nav-chat-count", individualUserId],
+    enabled: !!individualUserId,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
+      const { data: conversations, error: conversationError } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("user_id", individualUserId!)
+        .limit(500);
+      if (conversationError) throw conversationError;
+
+      const conversationIds = (conversations ?? []).map((row) => row.id).filter(Boolean);
+      if (!conversationIds.length) return 0;
+
+      const { count, error } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .in("conversation_id", conversationIds)
+        .neq("sender_id", individualUserId!)
+        .is("read_at", null);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
 
   const { data: officeRequestsCount = 0 } = useQuery({
     queryKey: ["office-bottom-nav-request-count", officeId, officeGovernorateId],
@@ -174,6 +202,11 @@ export function BottomNav({
               {item.to === "/requests" && individualRequestsCount > 0 && (
                 <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
                   {individualRequestsCount > 99 ? "99+" : individualRequestsCount}
+                </span>
+              )}
+              {item.to === "/chats" && individualUnreadMessages > 0 && (
+                <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
+                  {individualUnreadMessages > 99 ? "99+" : individualUnreadMessages}
                 </span>
               )}
             </span>
