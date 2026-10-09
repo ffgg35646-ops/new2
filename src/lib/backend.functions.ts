@@ -1453,9 +1453,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             body: "أنهى العميل " + clientName + " الطلب العقاري." +
               (reason ? " السبب: " + reason : " لم يذكر العميل سببًا."),
             type: "property_request_ended",
-            link: assignedOfficeId === String(officeRow.id)
-              ? "/office/requests?tab=inbox&request=" + encodeURIComponent(requestId)
-              : "/office/requests?tab=sent",
+            link: "/office/requests?tab=sent",
             is_read: false,
             created_at: now,
           });
