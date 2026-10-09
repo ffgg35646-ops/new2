@@ -4974,17 +4974,25 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
     }
 
     const folder = data.get("folder");
-    if (typeof folder !== "string" || !["properties", "requests", "licenses"].includes(folder)) {
+    if (typeof folder !== "string" || !["properties", "requests", "licenses", "support"].includes(folder)) {
       throw new Error("نوع مجلد الرفع غير مدعوم.");
     }
 
-    if (file.size <= 0 || file.size > 8 * 1024 * 1024) {
-      throw new Error("حجم الملف يجب أن يكون بين 1 بايت و8 ميجابايت.");
+    const maxBytes = folder === "support" ? 20 * 1024 * 1024 : 8 * 1024 * 1024;
+    if (file.size <= 0 || file.size > maxBytes) {
+      throw new Error(folder === "support"
+        ? "حجم مرفق الدعم يجب ألا يتجاوز 20 ميجابايت."
+        : "حجم الملف يجب أن يكون بين 1 بايت و8 ميجابايت.");
     }
 
     const mimeType = file.type.toLowerCase();
-    if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
-      throw new Error("الصيغة غير مدعومة. استخدم JPG أو PNG أو WEBP.");
+    const supportedTypes = folder === "support"
+      ? ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+      : ["image/jpeg", "image/png", "image/webp"];
+    if (!supportedTypes.includes(mimeType)) {
+      throw new Error(folder === "support"
+        ? "صيغة مرفق الدعم غير مدعومة. استخدم صورة أو PDF."
+        : "الصيغة غير مدعومة. استخدم JPG أو PNG أو WEBP.");
     }
 
     const bytes = Buffer.from(await file.arrayBuffer());
@@ -4995,8 +5003,10 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
     const validWebp = mimeType === "image/webp" &&
       bytes.length >= 12 && bytes.toString("ascii", 0, 4) === "RIFF" &&
       bytes.toString("ascii", 8, 12) === "WEBP";
-    if (!validJpeg && !validPng && !validWebp) {
-      throw new Error("محتوى الصورة لا يطابق نوع الملف.");
+    const validPdf = mimeType === "application/pdf" &&
+      bytes.length >= 5 && bytes.toString("ascii", 0, 5) === "%PDF-";
+    if (!validJpeg && !validPng && !validWebp && !validPdf) {
+      throw new Error("محتوى الملف لا يطابق نوعه.");
     }
 
     const id = await storeMedia(
@@ -5004,7 +5014,7 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
       mimeType,
       bytes,
       userId,
-      folder === "licenses" ? "private" : "public",
+      folder === "licenses" || folder === "support" ? "private" : "public",
     );
 
     return {
