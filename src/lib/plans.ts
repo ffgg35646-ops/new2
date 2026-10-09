@@ -61,7 +61,10 @@ function normalizePackage(row: any): OfficePackage {
     name: String(row.name ?? "باقة"),
     description: row.description ?? null,
     price: Number(row.price ?? 0),
-    duration_days: Number(row.duration_days ?? 0),
+    duration_days:
+      String(row.code ?? "").toLowerCase() === "pro"
+        ? 30
+        : Number(row.duration_days ?? 0),
     property_limit:
       row.property_limit == null ? null : Number(row.property_limit),
     chat_enabled: Boolean(row.chat_enabled),
