@@ -1183,13 +1183,7 @@ function SentOffers({ officeId }: { officeId: string | null }) {
     );
   }
   if (!data.length) {
-    return (
-      <EmptyState
-        icon={Send}
-        title="لا يوجد تاريخ طلبات بعد"
-        description="ستظهر هنا الطلبات التي اكتملت من خلال الفردي، والعروض التي أنهيتها أو سحبتها من السوق."
-      />
-    );
+    return <EmptyState icon={Send} title="تاريخ الطلبات" />;
   }
 
   return (
