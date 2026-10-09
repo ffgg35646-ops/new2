@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ClipboardList, Copy, Phone, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardList, Copy, Phone, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -10,6 +10,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { PaginationControls } from "@/components/PaginationControls";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 import { useAuth } from "@/lib/auth";
+import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
 import { LISTING_TYPES, PROPERTY_KINDS, REQUEST_STATUS } from "@/lib/constants";
 import { formatDate, formatPrice } from "@/lib/format";
 import { whatsappHref } from "@/lib/office";
@@ -29,6 +30,9 @@ type RequestRow = {
   expires_at: string | null;
   views_count: number | null;
   office_offers?: OfferRow[] | null;
+  accepted_offer_id?: string | null;
+  accepted_office_id?: string | null;
+  end_reason?: string | null;
 };
 
 type OfferRow = {
@@ -44,12 +48,14 @@ type OfferRow = {
   requestKind: string;
   requestListing: string;
   requestDescription: string;
+  requestAcceptedOfferId: string | null;
 };
 
 export const Route = createFileRoute("/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
     tab: search.tab === "received" ? "received" : "sent",
     request: typeof search.request === "string" ? search.request : undefined,
+    offer: typeof search.offer === "string" ? search.offer : undefined,
   }),
   head: () => ({
     meta: [
@@ -73,6 +79,10 @@ function RequestsPage() {
   const [activeRequestsPage, setActiveRequestsPage] = useState(1);
   const [historyRequestsPage, setHistoryRequestsPage] = useState(1);
   const [receivedOffersPage, setReceivedOffersPage] = useState(1);
+  const [endRequestId, setEndRequestId] = useState<string | null>(null);
+  const [completionRequestId, setCompletionRequestId] = useState<string | null>(null);
+  const [completionSearch, setCompletionSearch] = useState("");
+  const [selectedCompletionOfferId, setSelectedCompletionOfferId] = useState<string | null>(null);
 
   useEffect(() => {
     setTab(search.tab);
@@ -112,36 +122,38 @@ function RequestsPage() {
           requestKind: request.kind,
           requestListing: request.listing,
           requestDescription: request.description,
+          requestAcceptedOfferId: request.accepted_offer_id ? String(request.accepted_offer_id) : null,
         })),
       ),
     [myRequests],
   );
 
   useEffect(() => {
-    if (!search.request || !myRequests.length) return;
+    if (!myRequests.length) return;
+    const targetId = search.offer ? "offer-card-" + search.offer : search.request ? "request-card-" + search.request : null;
+    if (!targetId) return;
     window.setTimeout(() => {
-      document.getElementById("request-card-" + search.request)?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 0);
-  }, [search.request, myRequests.length]);
+  }, [search.offer, search.request, myRequests.length, receivedOffers.length]);
 
-  const setRequestStatus = useMutation({
-    mutationFn: async (vars: { id: string; status: "cancelled" | "fulfilled" }) => {
-      const { error } = await supabase.rpc(
-        "set_my_property_request_status" as never,
-        { _request_id: vars.id, _status: vars.status } as never,
-      );
+  const endRequest = useMutation({
+    mutationFn: async (vars: { id: string; reason: string }) => {
+      const { error } = await supabase.rpc("individual_end_property_request" as never, {
+        _request_id: vars.id, _reason: vars.reason,
+      } as never);
       if (error) throw error;
     },
-    onSuccess: (_, vars) => {
-      toast.success(vars.status === "fulfilled" ? "تم تسجيل الطلب كمكتمل" : "تم حذف الطلب من الطلبات النشطة");
+    onSuccess: () => {
+      setEndRequestId(null);
+      toast.success("تم إنهاء الطلب وإرسال إشعار للمكتب");
       void qc.invalidateQueries({ queryKey: ["requests-page"] });
       void qc.invalidateQueries({ queryKey: ["open-requests"] });
+      void qc.invalidateQueries({ queryKey: ["office-accepted-property-requests"] });
+      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث الطلب"),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر إنهاء الطلب"),
   });
 
   const setOfferStatus = useMutation({
@@ -153,7 +165,7 @@ function RequestsPage() {
       if (error) throw error;
     },
     onSuccess: (_, vars) => {
-      toast.success(vars.status === "accepted" ? "تم قبول العرض، والصفقة لم تُسجّل كمكتملة بعد" : "تم رفض العرض");
+      toast.success(vars.status === "accepted" ? "تم قبول العرض وانتقل الطلب إلى طلبات التواصل الخاصة بالمكتب" : "تم رفض العرض");
       void qc.invalidateQueries({ queryKey: ["requests-page"] });
       void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
@@ -161,23 +173,25 @@ function RequestsPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث العرض"),
   });
 
-  const confirmOfferCompletion = useMutation({
-    mutationFn: async (offerId: string) => {
-      const { error } = await supabase.rpc(
-        "confirm_property_offer_completion" as never,
-        { _offer_id: offerId } as never,
-      );
+  const completeRequest = useMutation({
+    mutationFn: async (vars: { requestId: string; offerId: string }) => {
+      const { error } = await supabase.rpc("complete_property_request_with_office" as never, {
+        _request_id: vars.requestId, _offer_id: vars.offerId,
+      } as never);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("تم تأكيد إتمام الصفقة وإغلاق الطلب كمكتمل");
+      setCompletionRequestId(null);
+      setCompletionSearch("");
+      setSelectedCompletionOfferId(null);
+      toast.success("تم تسجيل الطلب مكتملًا وإشعار المكاتب");
       void qc.invalidateQueries({ queryKey: ["requests-page"] });
       void qc.invalidateQueries({ queryKey: ["open-requests"] });
+      void qc.invalidateQueries({ queryKey: ["office-accepted-property-requests"] });
       void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
       void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "تعذّر تأكيد إتمام الصفقة"),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تأكيد اكتمال الطلب"),
   });
 
   const activeSent = myRequests.filter((request) => request.status === "active").length;
@@ -189,6 +203,14 @@ function RequestsPage() {
     (currentReceivedPage - 1) * pageSize,
     currentReceivedPage * pageSize,
   );
+  const completionCandidates = receivedOffers.filter((offer) =>
+    offer.requestId === completionRequestId && !!offer.offices &&
+    ["sent", "accepted", "awaiting_confirmation", "ended"].includes(offer.status),
+  );
+  const filteredCompletionCandidates = completionCandidates.filter((offer) => {
+    const query = completionSearch.trim().toLocaleLowerCase("ar");
+    return !query || String(offer.offices?.name ?? "").toLocaleLowerCase("ar").includes(query);
+  });
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
@@ -251,8 +273,8 @@ function RequestsPage() {
                           key={request.id}
                           request={request}
                           highlighted={search.request === request.id}
-                          pending={setRequestStatus.isPending}
-                          onStatus={(status) => setRequestStatus.mutate({ id: request.id, status })}
+                          pending={endRequest.isPending}
+                          onEnd={() => setEndRequestId(request.id)}
                         />
                       ))}
                     </div>
@@ -284,8 +306,8 @@ function RequestsPage() {
                           key={request.id}
                           request={request}
                           highlighted={search.request === request.id}
-                          pending={setRequestStatus.isPending}
-                          onStatus={(status) => setRequestStatus.mutate({ id: request.id, status })}
+                          pending={endRequest.isPending}
+                          onEnd={() => setEndRequestId(request.id)}
                         />
                       ))}
                     </div>
@@ -306,13 +328,15 @@ function RequestsPage() {
               <OfferCard
                 key={offer.id}
                 offer={offer}
-                pending={setOfferStatus.isPending || confirmOfferCompletion.isPending}
+                pending={setOfferStatus.isPending || completeRequest.isPending}
                 contactOpen={openOfferId === offer.id}
                 onContactToggle={() =>
                   setOpenOfferId((current) => (current === offer.id ? null : offer.id))
                 }
                 onStatus={(status) => setOfferStatus.mutate({ id: offer.id, status })}
-                onConfirmCompletion={() => confirmOfferCompletion.mutate(offer.id)}
+                highlighted={search.offer === offer.id}
+                canMarkComplete={!!offer.requestAcceptedOfferId && offer.requestStatus === "active" && offer.id === offer.requestAcceptedOfferId}
+                onMarkComplete={() => { setCompletionRequestId(offer.requestId); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
               />
             ))}
             <PaginationControls
@@ -337,6 +361,48 @@ function RequestsPage() {
           نشر طلب عقاري جديد
         </a>
       </main>
+
+      <CompleteViewingReasonModal
+        open={!!endRequestId} pending={endRequest.isPending} optionalReason
+        title="إنهاء الطلب" heading="هل تريد إنهاء الطلب؟ يمكنك ذكر السبب اختياريًا."
+        reasonLabel="سبب الإنهاء (اختياري)" placeholder="اكتب سبب الإنهاء إن رغبت"
+        confirmLabel="تأكيد إنهاء الطلب"
+        onClose={() => { if (!endRequest.isPending) setEndRequestId(null); }}
+        onConfirm={(reason) => { if (endRequestId) endRequest.mutate({ id: endRequestId, reason }); }}
+      />
+
+      {completionRequestId && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-3" role="dialog" aria-modal="true"
+          aria-label="اختيار المكتب الذي اكتمل الطلب معه" onClick={() => {
+            if (!completeRequest.isPending) { setCompletionRequestId(null); setSelectedCompletionOfferId(null); }
+          }}>
+          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-surface p-4 shadow-2xl ring-1 ring-line"
+            onClick={(event) => event.stopPropagation()} dir="rtl">
+            <h2 className="font-display text-lg font-extrabold">الطلب مكتمل</h2>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">اختر المكتب الذي أتم الطلب من بين المكاتب التي أرسلت عروضًا عليه.</p>
+            <input value={completionSearch} onChange={(event) => { setCompletionSearch(event.target.value); setSelectedCompletionOfferId(null); }}
+              placeholder="اكتب أول حرف من اسم المكتب" aria-label="ابحث عن مكتب" className="mt-3 w-full rounded-xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest" />
+            <div className="mt-3 space-y-2">
+              {filteredCompletionCandidates.map((candidate) => (
+                <button type="button" key={candidate.id} onClick={() => setSelectedCompletionOfferId(candidate.id)}
+                  className={cn("w-full rounded-xl p-3 text-right ring-1", selectedCompletionOfferId === candidate.id ? "bg-forest-soft text-forest ring-forest" : "bg-background text-foreground ring-line")}>
+                  <span className="block text-sm font-extrabold">{candidate.offices?.name ?? "مكتب عقاري"}</span>
+                  {candidate.message && <span className="mt-1 block text-xs leading-5 text-muted-foreground">{candidate.message}</span>}
+                  {candidate.price != null && <span className="mt-1 block text-xs font-bold">{formatPrice(candidate.price)} ر.س</span>}
+                </button>
+              ))}
+              {!filteredCompletionCandidates.length && <p className="rounded-xl bg-background p-3 text-xs text-muted-foreground">لا توجد مكاتب مطابقة لهذا البحث على الطلب.</p>}
+            </div>
+            <button type="button" onClick={() => { if (completionRequestId && selectedCompletionOfferId) completeRequest.mutate({ requestId: completionRequestId, offerId: selectedCompletionOfferId }); }}
+              disabled={!selectedCompletionOfferId || completeRequest.isPending} className="mt-3 flex w-full items-center justify-center rounded-xl bg-forest py-3 text-sm font-bold text-background disabled:opacity-50">
+              {completeRequest.isPending ? "جارٍ التأكيد..." : "تأكيد أن الطلب مكتمل"}
+            </button>
+            <button type="button" onClick={() => { if (!completeRequest.isPending) { setCompletionRequestId(null); setSelectedCompletionOfferId(null); } }}
+              disabled={completeRequest.isPending} className="mt-2 w-full rounded-xl bg-background py-3 text-sm font-bold ring-1 ring-line">رجوع</button>
+          </div>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   );
@@ -378,31 +444,13 @@ function Tab({
 }
 
 function RequestCard({
-  request,
-  highlighted,
-  pending,
-  onStatus,
-}: {
-  request: RequestRow;
-  highlighted: boolean;
-  pending: boolean;
-  onStatus: (status: "cancelled" | "fulfilled") => void;
-}) {
+  request, highlighted, pending, onEnd,
+}: { request: RequestRow; highlighted: boolean; pending: boolean; onEnd: () => void }) {
   const status = request.status;
   const isActive = status === "active";
   const offerCount = request.office_offers?.length ?? 0;
-  const hasOfferInProgress = request.office_offers?.some((offer) =>
-    ["accepted", "awaiting_confirmation"].includes(offer.status),
-  ) ?? false;
-
   return (
-    <div
-      id={"request-card-" + request.id}
-      className={cn(
-        "rounded-2xl bg-surface p-3 ring-1 ring-line",
-        highlighted && "ring-2 ring-forest",
-      )}
-    >
+    <div id={"request-card-" + request.id} className={cn("rounded-2xl bg-surface p-3 ring-1 ring-line", highlighted && "ring-2 ring-forest")}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="font-display text-sm font-extrabold">
@@ -410,287 +458,101 @@ function RequestCard({
             {LISTING_TYPES.find((l) => l.value === request.listing)?.label ?? "طلب"}
           </div>
           <div className="mt-1 text-[11px] text-muted-foreground">
-            {formatDate(request.created_at)}
-            {request.expires_at ? " · ينتهي " + formatDate(request.expires_at) : ""}
+            {formatDate(request.created_at)}{request.expires_at ? " · ينتهي " + formatDate(request.expires_at) : ""}
           </div>
         </div>
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
-            status === "fulfilled"
-              ? "bg-forest-soft text-forest"
-              : status === "cancelled"
-                ? "bg-terracotta-soft text-terracotta"
-                : status === "expired"
-                  ? "bg-sand text-muted-foreground"
-                  : "bg-forest-soft text-forest",
-          )}
-        >
+        <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
+          status === "fulfilled" ? "bg-forest-soft text-forest" :
+          status === "cancelled" || status === "ended" ? "bg-terracotta-soft text-terracotta" :
+          status === "expired" ? "bg-sand text-muted-foreground" : "bg-forest-soft text-forest")}>
           {REQUEST_STATUS[status] ?? status}
         </span>
       </div>
-
-      <p className="mt-2 whitespace-pre-wrap text-sm leading-5 text-muted-foreground">
-        {request.description}
-      </p>
-
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-5 text-muted-foreground">{request.description}</p>
       <div className="mt-2.5 grid grid-cols-2 gap-2">
-        <Info label="الميزانية">
-          {request.budget_min != null || request.budget_max != null
-            ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س"
-            : "غير محددة"}
-        </Info>
-        <Info label="المساحة">
-          {request.area_min != null ? "من " + request.area_min + " م²" : "غير محددة"}
-        </Info>
+        <Info label="الميزانية">{request.budget_min != null || request.budget_max != null ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س" : "غير محددة"}</Info>
+        <Info label="المساحة">{request.area_min != null ? "من " + request.area_min + " م²" : "غير محددة"}</Info>
         <Info label="الحي">{request.neighborhood || "أي حي"}</Info>
         <Info label="العروض">{offerCount}</Info>
       </div>
-
       {isActive && (
-        <div className="mt-2.5 grid grid-cols-2 gap-2">
-          {hasOfferInProgress ? (
-            <div className="col-span-2 rounded-xl bg-sand p-2.5 text-[11px] leading-5 text-muted-foreground">
-              يوجد عرض مقبول أو ينتظر تأكيد الإتمام. أكّد الصفقة من تبويب العروض المستلمة بعد التأكد من إتمامها فعليًا.
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onStatus("fulfilled")}
-              disabled={pending}
-              className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
-            >
-              <CheckCircle2 className="size-4" /> طلب مكتمل
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onStatus("cancelled")}
-            disabled={pending}
-            className={cn(
-              "flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50",
-              hasOfferInProgress && "col-span-2",
-            )}
-          >
-            <Trash2 className="size-4" /> إلغاء الطلب
-          </button>
-        </div>
+        <button type="button" onClick={onEnd} disabled={pending}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50">
+          <XCircle className="size-4" /> إنهاء الطلب
+        </button>
+      )}
+      {status === "ended" && request.end_reason && (
+        <div className="mt-2 rounded-xl bg-sand p-2.5 text-xs leading-5 text-muted-foreground">سبب الإنهاء: {request.end_reason}</div>
       )}
     </div>
   );
 }
 
 function OfferCard({
-  offer,
-  pending,
-  contactOpen,
-  onContactToggle,
-  onStatus,
-  onConfirmCompletion,
+  offer, pending, contactOpen, onContactToggle, onStatus, highlighted, canMarkComplete, onMarkComplete,
 }: {
-  offer: OfferRow;
-  pending: boolean;
-  contactOpen: boolean;
-  onContactToggle: () => void;
-  onStatus: (status: "accepted" | "rejected") => void;
-  onConfirmCompletion: () => void;
+  offer: OfferRow; pending: boolean; contactOpen: boolean; onContactToggle: () => void;
+  onStatus: (status: "accepted" | "rejected") => void; highlighted: boolean;
+  canMarkComplete: boolean; onMarkComplete: () => void;
 }) {
   const office = offer.offices;
   const canRespond = offer.status === "sent" && offer.requestStatus === "active";
-  const canConfirmCompletion =
-    offer.status === "awaiting_confirmation" && offer.requestStatus === "active";
-
   return (
-    <div className="rounded-2xl bg-surface p-3 ring-1 ring-line">
+    <div id={"offer-card-" + offer.id} className={cn("rounded-2xl bg-surface p-3 ring-1 ring-line", highlighted && "ring-2 ring-forest")}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-display text-sm font-extrabold">
-            {office?.name ?? "مكتب عقاري"}
-          </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            عرض على طلبك · {formatDate(offer.created_at)}
-          </div>
-        </div>
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
-            offer.status === "accepted" || offer.status === "completed"
-              ? "bg-forest-soft text-forest"
-              : offer.status === "rejected" || offer.status === "ended" || offer.status === "deleted"
-                ? "bg-terracotta-soft text-terracotta"
-                : "bg-sand text-muted-foreground",
-          )}
-        >
-          {offer.status === "sent"
-            ? "جديد"
-            : offer.status === "accepted"
-              ? "مقبول"
-              : offer.status === "rejected"
-                ? "مرفوض"
-                : offer.status === "awaiting_confirmation"
-                  ? "بانتظار تأكيدك"
-                  : offer.status === "completed"
-                    ? "مكتمل"
-                    : offer.status === "ended" || offer.status === "deleted"
-                      ? "منتهي"
-                      : offer.status}
+        <div className="min-w-0"><div className="font-display text-sm font-extrabold">{office?.name ?? "مكتب عقاري"}</div><div className="mt-1 text-[11px] text-muted-foreground">عرض على طلبك · {formatDate(offer.created_at)}</div></div>
+        <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
+          offer.status === "accepted" || offer.status === "completed" ? "bg-forest-soft text-forest" :
+          offer.status === "rejected" || offer.status === "ended" || offer.status === "deleted" ? "bg-terracotta-soft text-terracotta" : "bg-sand text-muted-foreground")}>
+          {offer.status === "sent" ? "جديد" : offer.status === "accepted" ? "مقبول" : offer.status === "rejected" ? "مرفوض" :
+            offer.status === "awaiting_confirmation" ? "بانتظار تأكيدك" : offer.status === "completed" ? "مكتمل" :
+            offer.status === "ended" || offer.status === "deleted" ? "منتهي" : offer.status}
         </span>
       </div>
-
       <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">
         <div className="text-[10px] font-semibold text-muted-foreground">طلبك</div>
-        <div className="mt-1 text-sm font-bold">
-          {PROPERTY_KINDS.find((k) => k.value === offer.requestKind)?.label ?? "عقار"} ·{" "}
-          {LISTING_TYPES.find((l) => l.value === offer.requestListing)?.label ?? "طلب"}
-        </div>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          {offer.requestDescription}
-        </p>
+        <div className="mt-1 text-sm font-bold">{PROPERTY_KINDS.find((k) => k.value === offer.requestKind)?.label ?? "عقار"} · {LISTING_TYPES.find((l) => l.value === offer.requestListing)?.label ?? "طلب"}</div>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{offer.requestDescription}</p>
       </div>
-
-      {offer.message && (
-        <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-sand p-3 text-sm leading-6 text-muted-foreground">
-          {offer.message}
-        </p>
-      )}
-
-      {offer.price != null && (
-        <div className="mt-2 text-lg font-display font-extrabold text-forest">
-          {formatPrice(offer.price)} <span className="text-sm">ر.س</span>
-        </div>
-      )}
-
-      {offer.properties?.title && (
-        <div className="mt-2 rounded-xl bg-forest-soft p-2.5 text-xs font-semibold text-forest">
-          العقار المقترح: {offer.properties.title}
-        </div>
-      )}
-
+      {offer.message && <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-sand p-3 text-sm leading-6 text-muted-foreground">{offer.message}</p>}
+      {offer.price != null && <div className="mt-2 text-lg font-display font-extrabold text-forest">{formatPrice(offer.price)} <span className="text-sm">ر.س</span></div>}
+      {offer.properties?.title && <div className="mt-2 rounded-xl bg-forest-soft p-2.5 text-xs font-semibold text-forest">العقار المقترح: {offer.properties.title}</div>}
       {canRespond && (
         <div className="mt-2.5 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => onStatus("accepted")}
-            disabled={pending}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
-          >
-            <CheckCircle2 className="size-4" /> قبول العرض
-          </button>
-          <button
-            type="button"
-            onClick={() => onStatus("rejected")}
-            disabled={pending}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
-          >
-            <XCircle className="size-4" /> رفض
-          </button>
+          <button type="button" onClick={() => onStatus("accepted")} disabled={pending} className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"><CheckCircle2 className="size-4" /> قبول العرض</button>
+          <button type="button" onClick={() => onStatus("rejected")} disabled={pending} className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"><XCircle className="size-4" /> رفض</button>
         </div>
       )}
-
-      {canConfirmCompletion && (
+      {canMarkComplete && (
         <div className="mt-2.5 space-y-2 rounded-xl bg-forest-soft p-3">
-          <p className="text-xs leading-5 text-forest">
-            المكتب أبلغك بإتمام الصفقة. أكّد فقط إذا كانت الصفقة تمت فعلًا.
-          </p>
-          <button
-            type="button"
-            onClick={onConfirmCompletion}
-            disabled={pending}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
-          >
-            <CheckCircle2 className="size-4" /> تأكيد إتمام الصفقة
-          </button>
+          <p className="text-xs leading-5 text-forest">بعد إتمام التعامل، اختر المكتب الذي اكتمل الطلب معه.</p>
+          <button type="button" onClick={onMarkComplete} disabled={pending} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"><CheckCircle2 className="size-4" /> الطلب مكتمل</button>
         </div>
       )}
-
-      {offer.status === "ended" && (
-        <p className="mt-2.5 rounded-xl bg-terracotta-soft p-3 text-xs leading-5 text-terracotta">
-          انتهى عرض المكتب دون تأكيد إتمام الصفقة داخل التطبيق.
-        </p>
-      )}
-
-      {offer.status === "completed" && (
-        <p className="mt-2.5 rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">
-          أكّدت إتمام الصفقة، والطلب مسجّل كمكتمل.
-        </p>
-      )}
-
+      {offer.status === "ended" && <p className="mt-2.5 rounded-xl bg-terracotta-soft p-3 text-xs leading-5 text-terracotta">انتهى هذا العرض لأن الطلب لم يعد متاحًا للتقديم عليه.</p>}
+      {offer.status === "completed" && <p className="mt-2.5 rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">تم تسجيل هذا المكتب باعتباره المكتب الذي اكتمل الطلب من خلاله.</p>}
       <div className="mt-2.5 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onContactToggle();
-          }}
-          aria-expanded={contactOpen}
-          aria-label="عرض رقم الاتصال"
-          title="اتصال"
-          className={cn(
-            "grid size-10 place-items-center rounded-xl ring-1 ring-line",
-            contactOpen ? "bg-forest-soft text-forest" : "bg-surface text-forest",
-          )}
-        >
-          <Phone className="size-4" />
-        </button>
-
-        <a
-          href={whatsappHref(
-            office?.whatsapp || office?.phone,
-            "مرحبًا، بخصوص العرض الذي أرسلتموه على طلبي العقاري",
-          )}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(event) => event.stopPropagation()}
-          aria-label="واتساب"
-          title="واتساب"
-          className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"
-        >
-          <WhatsAppIcon className="size-5 text-[#25D366]" />
-        </a>
+        <button type="button" onClick={(event) => { event.stopPropagation(); onContactToggle(); }} aria-expanded={contactOpen} aria-label="عرض رقم الاتصال" title="اتصال"
+          className={cn("grid size-10 place-items-center rounded-xl ring-1 ring-line", contactOpen ? "bg-forest-soft text-forest" : "bg-surface text-forest")}><Phone className="size-4" /></button>
+        <a href={whatsappHref(office?.whatsapp || office?.phone, "مرحبًا، بخصوص العرض الذي أرسلتموه على طلبي العقاري")} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label="واتساب" title="واتساب" className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-5 text-[#25D366]" /></a>
       </div>
-
       {contactOpen && (
         <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">
-          <div className="text-[10px] font-semibold text-muted-foreground">
-            رقم الاتصال الذي أضافه المكتب
-          </div>
-          <div className="mt-1 flex items-center gap-2">
-            <div className="min-w-0 flex-1 text-sm font-extrabold" dir="ltr">
-              {office?.phone || "المكتب لم يضع رقم الاتصال"}
-            </div>
-
-            {office?.phone && (
-              <button
-                type="button"
-                onClick={async (event) => {
-                  event.stopPropagation();
-                  try {
-                    if (navigator.clipboard?.writeText) {
-                      await navigator.clipboard.writeText(office.phone!);
-                    } else {
-                      const input = document.createElement("textarea");
-                      input.value = office.phone!;
-                      input.setAttribute("readonly", "");
-                      input.style.position = "fixed";
-                      input.style.opacity = "0";
-                      document.body.appendChild(input);
-                      input.select();
-                      const copied = document.execCommand("copy");
-                      document.body.removeChild(input);
-                      if (!copied) throw new Error("copy_failed");
-                    }
-                    toast.success("تم نسخ رقم الاتصال");
-                  } catch {
-                    toast.error("تعذّر نسخ رقم الاتصال");
-                  }
-                }}
-                className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface text-forest ring-1 ring-line"
-                aria-label="نسخ رقم الاتصال"
-                title="نسخ الرقم"
-              >
-                <Copy className="size-4" />
-              </button>
-            )}
+          <div className="text-[10px] font-semibold text-muted-foreground">رقم الاتصال الذي أضافه المكتب</div>
+          <div className="mt-1 flex items-center gap-2"><div className="min-w-0 flex-1 text-sm font-extrabold" dir="ltr">{office?.phone || "المكتب لم يضع رقم الاتصال"}</div>
+            {office?.phone && <button type="button" onClick={async (event) => {
+              event.stopPropagation();
+              try {
+                if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(office.phone!);
+                else {
+                  const input = document.createElement("textarea"); input.value = office.phone!;
+                  input.setAttribute("readonly", ""); input.style.position = "fixed"; input.style.opacity = "0";
+                  document.body.appendChild(input); input.select(); const copied = document.execCommand("copy"); document.body.removeChild(input);
+                  if (!copied) throw new Error("copy_failed");
+                }
+                toast.success("تم نسخ رقم الاتصال");
+              } catch { toast.error("تعذّر نسخ رقم الاتصال"); }
+            }} className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface text-forest ring-1 ring-line" aria-label="نسخ رقم الاتصال" title="نسخ الرقم"><Copy className="size-4" /></button>}
           </div>
         </div>
       )}
