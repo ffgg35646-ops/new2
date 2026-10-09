@@ -37,6 +37,7 @@ export const REQUEST_STATUS: Record<string, string> = {
   active: "نشط",
   expired: "منتهي",
   cancelled: "ملغي",
+  ended: "منتهي",
   fulfilled: "مكتمل",
 };
 
