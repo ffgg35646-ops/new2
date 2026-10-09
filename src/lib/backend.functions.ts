@@ -1200,6 +1200,9 @@ async function runDb(input: DbInput) {
   }
 
   if (input.operation === "upsert") {
+    if (input.collection === "properties" && role !== "admin") {
+      throw new Error("إضافة العقار يجب أن تتم من خلال نموذج إضافة العرض.");
+    }
     const list = Array.isArray(input.payload) ? input.payload : [input.payload];
     const rows: Record<string, unknown>[] = [];
 
