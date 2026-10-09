@@ -11,7 +11,6 @@ import {
   Clock3,
   Loader2,
   MapPin,
-  MessageCircle,
   Phone,
   Ruler,
   Send,
