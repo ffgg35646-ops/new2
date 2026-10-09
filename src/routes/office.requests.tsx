@@ -691,6 +691,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
         pending={setStatus.isPending}
         title="رفض طلب المعاينة"
         heading="لماذا ترفض طلب المعاينة؟"
+        variant="reject"
         reasonLabel="سبب الرفض"
         placeholder="اكتب سبب رفض طلب المعاينة ليظهر للفردي"
         confirmLabel="تأكيد الرفض"
