@@ -925,7 +925,7 @@ function PlansTab() {
                   <div className="mt-1 text-[11px] text-muted-foreground">
                     العقارات:{" "}
                     {pkg.property_limit == null
-                      ? "غير محدودة"
+                      ? (Number(pkg.price ?? 0) > 0 || pkg.code === "pro" ? "غير محدودة" : 5)
                       : pkg.property_limit}
                     {" · "}
                     المميزة: {pkg.featured_limit ?? 0}
