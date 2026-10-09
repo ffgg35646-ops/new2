@@ -65,7 +65,7 @@ export const Route = createFileRoute("/properties/$propertyId")({
   component: PropertyDetail,
   errorComponent: ({ error }) => (
     <div role="alert" className="p-8 text-center text-sm">
-      {error.message}
+      {error instanceof Error ? error.message : String(error)}
     </div>
   ),
   notFoundComponent: () => <div className="p-8 text-center text-sm">العقار غير موجود</div>,
