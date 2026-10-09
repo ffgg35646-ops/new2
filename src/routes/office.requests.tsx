@@ -101,11 +101,6 @@ function OfficeRequests() {
 
         <div className="flex gap-2">
           <TabButton
-            active={tab === "inbox"}
-            onClick={() => setTab("inbox")}
-            label="طلبات التواصل"
-          />
-          <TabButton
             active={tab === "bookings"}
             onClick={() => setTab("bookings")}
             label="المعاينات"
@@ -113,13 +108,18 @@ function OfficeRequests() {
           <TabButton
             active={tab === "market"}
             onClick={() => setTab("market")}
-            label="طلبات العملاء"
+            label="السوق"
             count={marketRequests.length}
+          />
+          <TabButton
+            active={tab === "inbox"}
+            onClick={() => setTab("inbox")}
+            label="طلبات التواصل"
           />
           <TabButton
             active={tab === "sent"}
             onClick={() => setTab("sent")}
-            label="العروض المرسلة"
+            label="تاريخ الطلبات"
           />
         </div>
 
@@ -728,8 +728,8 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
       ) : (
         <EmptyState
           icon={ClipboardList}
-          title="لا توجد طلبات على عقاراتك"
-          description="ستصل هنا طلبات المعاينة والشراء والاستفسار من العملاء."
+          title="لا توجد طلبات تواصل على عروضك"
+          description="ستظهر هنا طلبات التواصل والاستفسارات الخاصة بعقارات مكتبك فقط."
         />
       )}
     </div>
@@ -798,7 +798,11 @@ function SentOffers({ officeId }: { officeId: string | null }) {
       }>;
 
       const requestIds = [...new Set(rows.map((row) => row.request_id).filter(Boolean))];
-      if (!requestIds.length) return rows.map((row) => ({ ...row, request: null }));
+      if (!requestIds.length) {
+        return rows
+          .filter((row) => row.status === "completed")
+          .map((row) => ({ ...row, request: null }));
+      }
 
       const { data: requests, error: requestError } = await supabase
         .from("property_requests")
@@ -811,10 +815,17 @@ function SentOffers({ officeId }: { officeId: string | null }) {
         (requests ?? []).map((request) => [String(request.id), request]),
       );
 
-      return rows.map((row) => ({
+      const historyRows = rows.map((row) => ({
         ...row,
         request: requestById.get(row.request_id) ?? null,
       }));
+
+      // The history contains completed offers and requests closed by this office.
+      return historyRows.filter(
+        (row) =>
+          row.status === "completed" ||
+          ["fulfilled", "cancelled"].includes(String(row.request?.status ?? "")),
+      );
     },
   });
 
@@ -840,8 +851,8 @@ function SentOffers({ officeId }: { officeId: string | null }) {
     return (
       <EmptyState
         icon={Send}
-        title="لا توجد عروض مرسلة"
-        description="العروض التي ترسلها للمستخدمين ستظهر هنا."
+        title="لا يوجد سجل طلبات بعد"
+        description="ستظهر هنا الطلبات المكتملة والطلبات التي أنهيت التعامل معها."
       />
     );
   }
@@ -872,13 +883,15 @@ function SentOffers({ officeId }: { officeId: string | null }) {
               </div>
               <span className={cn(
                 "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
-                row.status === "completed"
+                row.status === "completed" || request?.status === "fulfilled"
                   ? "bg-forest-soft text-forest"
-                  : row.status === "rejected"
-                    ? "bg-terracotta-soft text-terracotta"
-                    : "bg-sand text-muted-foreground",
+                  : "bg-terracotta-soft text-terracotta",
               )}>
-                {row.status === "sent" ? "مرسل" : row.status === "accepted" ? "مقبول" : row.status === "completed" ? "مكتمل" : row.status === "rejected" ? "مرفوض" : row.status}
+                {row.status === "completed" || request?.status === "fulfilled"
+                  ? "مكتمل"
+                  : request?.status === "cancelled"
+                    ? "أنهيته / ملغي"
+                    : "مكتمل"}
               </span>
             </div>
 
@@ -1077,7 +1090,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   });
 
   if (isLoading) return <ListSkeleton />;
-  if (!data?.length) return <EmptyState icon={ClipboardList} title="لا توجد طلبات نشطة حاليًا" />;
+  if (!data?.length) return <EmptyState icon={ClipboardList} title="السوق فارغ حاليًا" description="ستظهر هنا طلبات البحث العقاري النشطة في محافظتك." />;
 
   const details = data.find((request) => request.id === detailsId) ?? null;
 
