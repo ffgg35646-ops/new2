@@ -1,4 +1,4 @@
-import { GridFSBucket, MongoClient, type Db, type Document } from "mongodb";
+import { GridFSBucket, MongoClient, type Collection, type Db, type Document } from "mongodb";
 
 let clientPromise: Promise<MongoClient> | undefined;
 let indexesPromise: Promise<void> | undefined;
@@ -54,8 +54,12 @@ export async function getMongoDb(): Promise<Db> {
   return db;
 }
 
-export async function getMongoCollection<T extends Document = Document>(name: string) {
-  return (await getMongoDb()).collection<T>(name);
+export async function getMongoCollection<T extends Document = Document>(
+  name: string,
+): Promise<Collection<T & { _id: any }>> {
+  // This app stores UUID strings in _id for its records, unlike Mongo's default ObjectId.
+  // Keep query results generic while allowing both legacy ObjectId records and UUID records.
+  return (await getMongoDb()).collection<T & { _id: any }>(name);
 }
 
 export async function ensureMongoIndexes() {
