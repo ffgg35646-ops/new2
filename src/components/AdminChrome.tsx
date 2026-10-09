@@ -84,7 +84,7 @@ function Navigation({
           return (
             <Link
               key={href}
-              to={href}
+              to={href as never}
               preload="intent"
               onClick={onNavigate}
               className={[
@@ -161,7 +161,8 @@ export function AdminChrome({
 
               <Link
                 to="/admin/notifications"
-                preload="intent"
+                search={{ tab: "dashboard" }}
+preload="intent"
                 className="ms-auto grid size-10 place-items-center rounded-full bg-surface ring-1 ring-line"
                 aria-label="الإشعارات"
               >
@@ -195,7 +196,8 @@ export function AdminChrome({
 
             <Link
               to="/admin/notifications"
-              preload="intent"
+              search={{ tab: "dashboard" }}
+preload="intent"
               className="ms-auto grid size-9 place-items-center rounded-full bg-surface ring-1 ring-line"
               aria-label="الإشعارات"
             >
