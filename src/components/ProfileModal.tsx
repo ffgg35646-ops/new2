@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { KeyRound, Loader2, Mail, Pencil, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { MediaUploader } from "@/components/MediaUploader";
 
 type ProfileRow = {
   label: string;
@@ -16,6 +18,8 @@ type ProfileModalProps = {
   emailVerified: boolean;
   avatarUrl?: string | null | undefined;
   rows: ProfileRow[];
+  userId?: string | undefined;
+  canEditAvatar?: boolean;
 };
 
 export function ProfileModal({
@@ -25,10 +29,45 @@ export function ProfileModal({
   emailVerified,
   avatarUrl,
   rows,
+  userId,
+  canEditAvatar = false,
 }: ProfileModalProps) {
   const [emailBusy, setEmailBusy] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarDraft, setAvatarDraft] = useState(avatarUrl ?? "");
   const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (open) setAvatarDraft(avatarUrl ?? "");
+  }, [avatarUrl, open]);
+
+  async function saveAvatar() {
+    if (!userId || !canEditAvatar) return;
+    const nextAvatar = avatarDraft.trim() || null;
+    setAvatarSaving(true);
+    try {
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: nextAvatar, updated_at: new Date().toISOString() })
+        .eq("id", userId);
+      if (profileError) throw profileError;
+
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: { avatar_url: nextAvatar },
+      });
+      if (metadataError) throw metadataError;
+
+      await qc.invalidateQueries({ queryKey: ["session"] });
+      await qc.invalidateQueries({ queryKey: ["requests-page"] });
+      toast.success("تم تحديث صورة الملف الشخصي");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذّر حفظ الصورة");
+    } finally {
+      setAvatarSaving(false);
+    }
+  }
 
   if (!open) return null;
 
@@ -73,6 +112,32 @@ export function ProfileModal({
           </header>
 
           <main className="space-y-3 p-4">
+            {canEditAvatar && userId && (
+              <section className="space-y-3 rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+                <div>
+                  <h3 className="text-sm font-extrabold">صورة الملف الشخصي</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    تظهر بجانب طلباتك وتواصلك، ويمكنك تغييرها في أي وقت.
+                  </p>
+                </div>
+                <MediaUploader
+                  userId={userId}
+                  folder="avatars"
+                  value={avatarDraft ? [avatarDraft] : []}
+                  onChange={(urls) => setAvatarDraft(urls[0] ?? "")}
+                  label="اختر صورة واضحة لك · اختيارية"
+                />
+                <button
+                  type="button"
+                  onClick={() => void saveAvatar()}
+                  disabled={avatarSaving || avatarDraft.trim() === (avatarUrl ?? "").trim()}
+                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-forest px-4 py-3 text-sm font-bold text-background shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {avatarSaving && <Loader2 className="size-4 animate-spin" />}
+                  حفظ صورة الملف الشخصي
+                </button>
+              </section>
+            )}
             {rows.map((row) => (
               <div
                 key={row.label}
