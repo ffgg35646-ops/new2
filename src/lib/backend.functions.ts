@@ -5096,7 +5096,7 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
       throw new Error("محتوى الملف لا يطابق نوعه.");
     }
 
-    const id = await storeMedia(
+    const storedMedia = await storeMedia(
       file.name,
       mimeType,
       bytes,
@@ -5106,8 +5106,9 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
 
     return {
       data: {
-        path: id,
-        publicUrl: "/api/media/" + encodeURIComponent(id),
+        path: storedMedia.id,
+        // Keep the existing media endpoint so saved links and access checks remain valid.
+        publicUrl: storedMedia.url,
       },
       error: null,
     };
