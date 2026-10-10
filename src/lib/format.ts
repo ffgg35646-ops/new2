@@ -132,3 +132,16 @@ export function formatDateTime(value: unknown) {
     hourCycle: "h23",
   });
 }
+
+
+export function formatTime(value: unknown) {
+  const date = parseDateValue(value);
+  if (!date) return "—";
+
+  return date.toLocaleTimeString("ar-SA-u-nu-latn", {
+    timeZone: "Asia/Riyadh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+}
