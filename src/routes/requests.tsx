@@ -72,7 +72,7 @@ type OfferRow = {
 
 export const Route = createFileRoute("/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: search["tab"] === "sent" ? ("sent" as const) : search["tab"] === "history" ? ("history" as const) : ("received" as const),
+    tab: search["tab"] === "sent" ? ("sent" as const) : search["tab"] === "accepted" ? ("accepted" as const) : search["tab"] === "history" ? ("history" as const) : ("received" as const),
     request: typeof search["request"] === "string" ? search["request"] : undefined,
     offer: typeof search["offer"] === "string" ? search["offer"] : undefined,
   }),
@@ -93,10 +93,11 @@ function RequestsPage() {
   const { userId } = useAuth();
   const qc = useQueryClient();
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"sent" | "received" | "history">(search["tab"]);
+  const [tab, setTab] = useState<"sent" | "received" | "accepted" | "history">(search["tab"]);
   const [openOfferId, setOpenOfferId] = useState<string | null>(null);
   const [activeRequestsPage, setActiveRequestsPage] = useState(1);
   const [receivedOffersPage, setReceivedOffersPage] = useState(1);
+  const [acceptedRequestsPage, setAcceptedRequestsPage] = useState(1);
   const [endRequestId, setEndRequestId] = useState<string | null>(null);
   const [endInquiryId, setEndInquiryId] = useState<string | null>(null);
   const [completeInquiryId, setCompleteInquiryId] = useState<string | null>(null);
@@ -111,6 +112,7 @@ function RequestsPage() {
   useEffect(() => {
     setActiveRequestsPage(1);
     setReceivedOffersPage(1);
+    setAcceptedRequestsPage(1);
   }, [tab, userId]);
 
   const { data: myRequests = [], isLoading } = useQuery({
@@ -213,6 +215,7 @@ function RequestsPage() {
     [personalInquiries],
   );
   const historyCount = historyRequests.length + historyInquiries.length;
+  const acceptedCount = acceptedMarketRequests.length + acceptedPersonalInquiries.length;
   const acceptedMarketRequestIds = useMemo(
     () => new Set(myRequests
       .filter((request) =>
@@ -356,21 +359,10 @@ function RequestsPage() {
           </p>
         </div>
 
-        {tab !== "history" && !isLoading && !inquiriesLoading && (
-          <AcceptedPrioritySection
-            requests={acceptedMarketRequests}
-            inquiries={acceptedPersonalInquiries}
-            pending={endRequest.isPending || completeRequest.isPending || updateInquiryStatus.isPending}
-            onEndRequest={(id) => setEndRequestId(id)}
-            onCompleteRequest={(id) => { setCompletionRequestId(id); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
-            onEndInquiry={(id) => setEndInquiryId(id)}
-            onCompleteInquiry={(id) => setCompleteInquiryId(id)}
-          />
-        )}
-
-        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
+        <div className="grid grid-cols-4 gap-2 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
           <Tab active={tab === "sent"} label="المرسلة" count={activeSent} onClick={() => setTab("sent")} />
           <Tab active={tab === "received"} label="مستلم" count={receivedCount} onClick={() => setTab("received")} />
+          <Tab active={tab === "accepted"} label="طلبات مقبولة" count={acceptedCount} onClick={() => setTab("accepted")} />
           <Tab active={tab === "history"} label="تاريخ الطلبات" count={historyCount} onClick={() => setTab("history")} />
         </div>
 
@@ -430,6 +422,24 @@ function RequestsPage() {
               </div>
             );
           })()
+        ) : tab === "accepted" ? (
+          inquiriesLoading ? (
+            <ListSkeleton />
+          ) : !acceptedCount ? (
+            <EmptyState icon={ClipboardList} title="لا توجد طلبات مقبولة" />
+          ) : (
+            <AcceptedPrioritySection
+              requests={acceptedMarketRequests}
+              inquiries={acceptedPersonalInquiries}
+              pending={endRequest.isPending || completeRequest.isPending || updateInquiryStatus.isPending}
+              onEndRequest={(id) => setEndRequestId(id)}
+              onCompleteRequest={(id) => { setCompletionRequestId(id); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
+              onEndInquiry={(id) => setEndInquiryId(id)}
+              onCompleteInquiry={(id) => setCompleteInquiryId(id)}
+              page={acceptedRequestsPage}
+              onPageChange={setAcceptedRequestsPage}
+            />
+          )
         ) : tab === "history" ? (
           inquiriesLoading ? (
             <ListSkeleton />
@@ -594,6 +604,8 @@ function AcceptedPrioritySection({
   onCompleteRequest,
   onEndInquiry,
   onCompleteInquiry,
+  page,
+  onPageChange,
 }: {
   requests: RequestRow[];
   inquiries: IndividualInquiry[];
@@ -602,8 +614,20 @@ function AcceptedPrioritySection({
   onCompleteRequest: (id: string) => void;
   onEndInquiry: (id: string) => void;
   onCompleteInquiry: (id: string) => void;
+  page: number;
+  onPageChange: (page: number) => void;
 }) {
   const total = requests.length + inquiries.length;
+  const pageSize = 6;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const visibleRequests = requests.slice(startIndex, endIndex);
+  const visibleInquiries = inquiries.slice(
+    Math.max(0, startIndex - requests.length),
+    Math.max(0, endIndex - requests.length),
+  );
   return (
     <section className="space-y-2" aria-label="طلبات مقبولة">
       <div className="flex items-center justify-between gap-2">
@@ -615,7 +639,7 @@ function AcceptedPrioritySection({
 
       
 
-      {requests.map((request) => {
+      {visibleRequests.map((request) => {
         const isCompleted = request.status === "fulfilled";
         const selectedOfferId = isCompleted
           ? request.completed_offer_id || request.accepted_offer_id
@@ -704,7 +728,7 @@ function AcceptedPrioritySection({
         );
       })}
 
-      {inquiries.map((inquiry) => {
+      {visibleInquiries.map((inquiry) => {
         const phone = String(inquiry.office?.phone ?? "").trim();
         const whatsapp = String(inquiry.office?.whatsapp ?? inquiry.office?.phone ?? "").trim();
         const inquiryLabel: Record<string, string> = { viewing: "معاينة", buy: "شراء", rent: "استئجار", question: "استفسار" };
@@ -749,6 +773,14 @@ function AcceptedPrioritySection({
           </article>
         );
       })}
+      {total > 0 && (
+        <PaginationControls
+          page={currentPage}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+        />
+      )}
     </section>
   );
 }
