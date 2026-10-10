@@ -462,9 +462,7 @@ function OfficePage() {
                 {notifyOn ? "إشعارات هذا المكتب مفعّلة" : "تفعيل إشعارات هذا المكتب"}
               </button>
 
-              <p className="mt-1.5 text-center text-[10px] leading-relaxed text-muted-foreground">
-                عند التفعيل ستصلك إشعارات بالعقارات الجديدة والعروض والتحديثات المهمة من هذا المكتب.
-              </p>
+              
             </section>
 
             <section className="space-y-3">
