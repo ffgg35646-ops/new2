@@ -44,7 +44,7 @@ if (primaryEmail === testEmail) {
   throw new Error("The two target emails must be different.");
 }
 
-const testHours = Number(arg("test-expires-in-hours") ?? "1");
+const testHours = Number(arg("test-expires-in-hours") ?? "4");
 if (!Number.isFinite(testHours) || testHours <= 0 || testHours > 720) {
   throw new Error("--test-expires-in-hours must be greater than 0 and no more than 720.");
 }
@@ -117,8 +117,8 @@ try {
   const primaryStartedAt = now;
   const primaryExpiresAt = new Date(now.getTime() + durationDays * DAY_MS);
 
-  // Simulate a 30-day subscription that has already run for 29 days and 23 hours:
-  // the second account should have approximately one hour remaining (or the supplied value).
+  // Simulate an almost-expired Pro subscription; by default, the second account has four hours remaining.
+  // Pass --test-expires-in-hours=N to choose a different remaining duration.
   const testExpiresAt = new Date(now.getTime() + testHours * HOUR_MS);
   const testStartedAt = new Date(testExpiresAt.getTime() - durationDays * DAY_MS);
 
