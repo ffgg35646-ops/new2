@@ -214,7 +214,11 @@ function RequestsPage() {
     () => personalInquiries.filter((inquiry) => ["ended", "completed", "rejected", "cancelled"].includes(inquiry.status)),
     [personalInquiries],
   );
-  const historyCount = historyRequests.length + historyInquiries.length;
+  const historyOffers = useMemo(
+    () => receivedOffers.filter((offer) => offer.status === "rejected"),
+    [receivedOffers],
+  );
+  const historyCount = historyRequests.length + historyInquiries.length + historyOffers.length;
   const acceptedCount = acceptedMarketRequests.length + acceptedPersonalInquiries.length;
   const acceptedMarketRequestIds = useMemo(
     () => new Set(myRequests
@@ -225,7 +229,9 @@ function RequestsPage() {
     [myRequests],
   );
   const displayedReceivedOffers = useMemo(
-    () => receivedOffers.filter((offer) => !acceptedMarketRequestIds.has(offer.requestId)),
+    () => receivedOffers.filter(
+      (offer) => offer.status !== "rejected" && !acceptedMarketRequestIds.has(offer.requestId),
+    ),
     [receivedOffers, acceptedMarketRequestIds],
   );
 
@@ -295,11 +301,14 @@ function RequestsPage() {
       );
       if (error) throw error;
     },
-    onSuccess: (_, vars) => {
-      toast.success(vars.status === "accepted" ? "تم قبول العرض وانتقل الطلب إلى طلبات التواصل الخاصة بالمكتب" : "تم رفض العرض");
-      void qc.invalidateQueries({ queryKey: ["requests-page"] });
-      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
-      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
+    onSuccess: async (_, vars) => {
+      toast.success(vars.status === "accepted" ? "تم قبول العرض ونقله إلى الطلبات المقبولة" : "تم رفض العرض ونقله إلى تاريخ الطلبات");
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["requests-page"] }),
+        qc.invalidateQueries({ queryKey: ["office-sent-offers"] }),
+        qc.invalidateQueries({ queryKey: ["unread-notifications"] }),
+      ]);
+      setTab(vars.status === "rejected" ? "history" : "accepted");
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث العرض"),
   });
@@ -476,6 +485,27 @@ function RequestsPage() {
                   </div>
                   {historyInquiries.map((inquiry) => (
                     <HistoryInquiryCard key={inquiry.id} inquiry={inquiry} />
+                  ))}
+                </section>
+              )}
+              {historyOffers.length > 0 && (
+                <section className="space-y-2 border-t border-line pt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="font-display text-sm font-extrabold">العروض المرفوضة</h2>
+                    <span className="text-[11px] text-muted-foreground">{historyOffers.length} عرض</span>
+                  </div>
+                  {historyOffers.map((offer) => (
+                    <OfferCard
+                      key={offer.id}
+                      offer={offer}
+                      pending={false}
+                      contactOpen={openOfferId === offer.id}
+                      onContactToggle={() => setOpenOfferId((current) => current === offer.id ? null : offer.id)}
+                      onStatus={() => {}}
+                      highlighted={search["offer"] === offer.id}
+                      canMarkComplete={false}
+                      onMarkComplete={() => {}}
+                    />
                   ))}
                 </section>
               )}
