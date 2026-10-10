@@ -214,7 +214,7 @@ function ChatsPage() {
     <div
       className={
         "mx-auto flex min-h-screen w-full flex-col bg-background " +
-        (isAdmin ? "max-w-6xl" : "max-w-md pb-24")
+        (isAdmin ? "max-w-6xl" : "max-w-md pb-24 md:max-w-5xl")
       }
     >
       <AppHeader showSearch={false} />
