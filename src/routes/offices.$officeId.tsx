@@ -29,7 +29,7 @@ import { useAuth } from "@/lib/auth";
 import { useFollowState, useSetOfficeNotifications, useToggleFollow } from "@/lib/follows";
 import { cn } from "@/lib/utils";
 import { getCurrentPosition, googleMapsUrl } from "@/lib/location";
-import { timeAgo } from "@/lib/format";
+
 import type { PropertyCardData } from "@/components/PropertyCard";
 
 export const Route = createFileRoute("/offices/$officeId")({
@@ -231,15 +231,25 @@ function OfficePage() {
   const isPro = office?.is_pro_current === true;
   const verified = office?.verification_badge === true;
 
-  const lastActivity = office
-    ? [
-        office.updated_at,
-        latestProperty?.created_at ?? null,
-      ]
+  const activityDates = office
+    ? [office.updated_at, latestProperty?.created_at ?? null]
         .filter(Boolean)
-        .sort()
-        .at(-1) ?? office.updated_at
+        .map((value) => new Date(String(value)).getTime())
+        .filter((value) => Number.isFinite(value))
+    : [];
+  const lastActivity = activityDates.length
+    ? new Date(Math.max(...activityDates))
     : null;
+  const lastActivityLabel = lastActivity
+    ? lastActivity.toLocaleString("ar-SA-u-nu-latn", {
+        timeZone: "Asia/Riyadh",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
@@ -318,7 +328,7 @@ function OfficePage() {
                   <Clock className="size-3.5 text-forest" />
                   <span className="text-muted-foreground">آخر نشاط:</span>
                   <span className="font-bold">
-                    {lastActivity ? timeAgo(lastActivity) : "—"}
+                    {lastActivityLabel}
                   </span>
                 </div>
 
