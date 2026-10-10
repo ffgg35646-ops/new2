@@ -12,7 +12,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
 import { uploadMedia } from "@/components/MediaUploader";
 
 type Ticket = {
@@ -297,12 +297,7 @@ export function SupportChat({
                     </span>
 
                     <span>
-                      {new Date(
-                        message.created_at,
-                      ).toLocaleTimeString("ar-SA", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatTime(message.created_at)}
                     </span>
                   </div>
                 </div>
