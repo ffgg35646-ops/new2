@@ -727,7 +727,7 @@ function PlansTab() {
                       </p>
                       {office.plan_expires_at && (
                         <p className="mt-1 text-[10px] text-muted-foreground">
-                          تاريخ الانتهاء: {new Date(office.plan_expires_at).toLocaleDateString("ar-SA")}
+                          تاريخ الانتهاء: {new Date(office.plan_expires_at).toLocaleDateString("ar-SA", { timeZone: "Asia/Riyadh" })}
                         </p>
                       )}
                     </div>
