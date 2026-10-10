@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSelectedGovernorate } from "@/lib/governorate";
 import { LegalPolicyModal } from "@/components/LegalPolicyModal";
-import { uploadMedia } from "@/components/MediaUploader";
+import { uploadPendingSignupAvatar } from "@/components/MediaUploader";
+import { clearPendingSignupAvatar, savePendingSignupAvatar } from "@/lib/pending-signup-avatar";
 
 const PENDING_KEY = "ufuq.pending-signup";
 const PENDING_EMAIL_KEY = "ufuq.pending-email";
@@ -67,6 +68,7 @@ export function AuthForm({
   const [licenseNumber, setLicenseNumber] = useState("");
   const [commercialRegister, setCommercialRegister] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarSelected, setAvatarSelected] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [govId, setGovId] = useState("");
@@ -86,20 +88,33 @@ export function AuthForm({
       toast.error("صورة البروفايل لازم تكون JPG أو PNG أو WEBP.");
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
+    if (file.size <= 0 || file.size > 8 * 1024 * 1024) {
       toast.error("حجم صورة البروفايل يجب ألا يتجاوز 8 ميجابايت.");
       return;
     }
     setAvatarBusy(true);
     try {
-      const url = await uploadMedia(file, "pending-signup", "profile-avatar");
-      setAvatarUrl(url);
-      toast.success("تم رفع صورة البروفايل");
+      await savePendingSignupAvatar(file);
+      if (avatarUrl.startsWith("blob:")) URL.revokeObjectURL(avatarUrl);
+      setAvatarUrl(URL.createObjectURL(file));
+      setAvatarSelected(true);
+      toast.success("تم اختيار صورة البروفايل، وسيتم رفعها بعد تأكيد البريد.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تعذّر رفع صورة البروفايل");
+      toast.error(error instanceof Error ? error.message : "تعذّر تجهيز صورة البروفايل");
     } finally {
       setAvatarBusy(false);
       if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  }
+
+  async function removeAvatar() {
+    if (avatarUrl.startsWith("blob:")) URL.revokeObjectURL(avatarUrl);
+    setAvatarUrl("");
+    setAvatarSelected(false);
+    try {
+      await clearPendingSignupAvatar();
+    } catch {
+      // The pending flag is cleared, so a stale local copy will never be attached.
     }
   }
 
@@ -117,7 +132,8 @@ export function AuthForm({
     return {
       _role: role,
       _full_name: fullName.trim(),
-      _avatar_url: avatarUrl.trim() || null,
+      _avatar_url: avatarUrl && !avatarUrl.startsWith("blob:") ? avatarUrl.trim() || null : null,
+      _avatar_pending: avatarSelected,
       _governorate_id: selectedGov,
       _office:
         role === "office"
@@ -187,7 +203,7 @@ export function AuthForm({
             data: {
               full_name: fullName.trim(),
               role,
-              avatar_url: avatarUrl.trim() || null,
+              avatar_url: avatarUrl && !avatarUrl.startsWith("blob:") ? avatarUrl.trim() || null : null,
             },
           },
         });
@@ -210,7 +226,27 @@ export function AuthForm({
           return;
         }
 
-        await finishSignup(payload);
+        let completedPayload = payload;
+        if (payload._avatar_pending === true && data.user?.id) {
+          try {
+            const uploadedAvatar = await uploadPendingSignupAvatar(data.user.id);
+            completedPayload = {
+              ...payload,
+              _avatar_url: uploadedAvatar,
+              _avatar_pending: false,
+            };
+          } catch {
+            completedPayload = { ...payload, _avatar_url: null, _avatar_pending: false };
+            toast.error("تعذّر رفع الصورة؛ يمكنك إضافتها لاحقًا من الملف الشخصي.");
+          }
+        }
+
+        await finishSignup(completedPayload);
+        try {
+          await clearPendingSignupAvatar();
+        } catch {
+          // The local pending flag is removed below; stale local data will not be used.
+        }
         localStorage.removeItem(PENDING_KEY);
         localStorage.removeItem(PENDING_EMAIL_KEY);
 
@@ -285,12 +321,12 @@ export function AuthForm({
                     className="inline-flex items-center gap-1.5 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-background disabled:opacity-60"
                   >
                     {avatarBusy ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
-                    {avatarBusy ? "جارٍ رفع الصورة..." : avatarUrl ? "تغيير الصورة" : "اختيار صورة"}
+                    {avatarBusy ? "جارٍ تجهيز الصورة..." : avatarUrl ? "تغيير الصورة" : "اختيار صورة"}
                   </button>
                   {avatarUrl && (
                     <button
                       type="button"
-                      onClick={() => setAvatarUrl("")}
+                      onClick={() => void removeAvatar()}
                       disabled={avatarBusy}
                       className="inline-flex items-center gap-1 rounded-xl bg-background px-3 py-2 text-xs font-bold text-terracotta ring-1 ring-line disabled:opacity-60"
                     >
