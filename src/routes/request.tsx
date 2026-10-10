@@ -240,7 +240,7 @@ function RequestPage() {
           <Num label="أقل مساحة مطلوبة (م²)" value={areaMin} onChange={setAreaMin} />
 
           <label className="block">
-            <span className="mb-1 block text-[11px] text-muted-foreground">
+            <span className="app-field-label">
               مدة صلاحية الطلب
             </span>
             <select
@@ -269,7 +269,7 @@ function RequestPage() {
           )}
 
           <label className="block">
-            <span className="mb-1 block text-[11px] text-muted-foreground">وصف الطلب</span>
+            <span className="app-field-label">وصف الطلب</span>
             <textarea
               rows={4}
               value={description}
@@ -344,7 +344,7 @@ function Num({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] text-muted-foreground">{label}</span>
+      <span className="app-field-label">{label}</span>
       <input
         type="number"
         inputMode="numeric"
