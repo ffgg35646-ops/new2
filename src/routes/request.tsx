@@ -56,7 +56,7 @@ export const Route = createFileRoute("/request")({
 });
 
 function RequestPage() {
-  const { userId } = useAuth();
+  const { userId, profile, session } = useAuth();
   const qc = useQueryClient();
   const search = Route.useSearch();
   const [revealedPhoneId, setRevealedPhoneId] = useState<string | null>(null);
@@ -197,6 +197,22 @@ function RequestPage() {
             اكتب ما تبحث عنه، وسترسل لك المكاتب العقارية عروضها مباشرة.
           </p>
         </div>
+
+        {userId && (
+          <div className="flex items-center gap-3 rounded-2xl bg-surface p-3 ring-1 ring-line">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="صورتك الشخصية" className="size-11 shrink-0 rounded-full object-cover ring-1 ring-line" />
+            ) : (
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-forest-soft text-base font-extrabold text-forest ring-1 ring-line">
+                {(profile?.full_name || String(session?.user?.user_metadata?.full_name ?? "ع")).trim().charAt(0) || "ع"}
+              </span>
+            )}
+            <div className="min-w-0">
+              <div className="truncate text-sm font-extrabold">{profile?.full_name || String(session?.user?.user_metadata?.full_name ?? "حسابك")}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">سيظهر طلبك باسمك وصورتك الشخصية للمكاتب</div>
+            </div>
+          </div>
+        )}
 
         <section className="app-form-card space-y-4">
           <Row label="نوع العقار">
