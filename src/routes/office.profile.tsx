@@ -1,9 +1,10 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Building2,
+  ImagePlus,
   Crown,
   FileCheck2,
   Loader2,
@@ -30,6 +31,8 @@ import { cn } from "@/lib/utils";
 import { getPublicAppUrl, PUBLIC_APP_URL_HELP } from "@/lib/public-app-url";
 import { SupportCenter } from "@/components/SupportCenter";
 import { ProfileModal } from "@/components/ProfileModal";
+import { uploadMedia } from "@/components/MediaUploader";
+import { prepareProfileAvatar, profileAvatarFileFromDataUrl } from "@/lib/profile-avatar";
 
 export const Route = createFileRoute("/office/profile")({
   head: () => ({
@@ -105,6 +108,8 @@ function OfficeProfile() {
   const [falDocs, setFalDocs] = useState<string[]>([]);
   const [licenseDocs, setLicenseDocs] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState("");
+  const [logoBusy, setLogoBusy] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("ofoq-theme") === "dark";
@@ -117,6 +122,39 @@ function OfficeProfile() {
     setDark(next);
     localStorage.setItem("ofoq-theme", next ? "dark" : "light");
     document.documentElement.classList.toggle("dark", next);
+  }
+
+  async function handleOfficeLogoFile(file: File | null) {
+    if (!file) return;
+    if (!userId) {
+      toast.error("سجّل الدخول بحساب المكتب أولًا.");
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("صورة المكتب لازم تكون JPG أو PNG أو WEBP.");
+      if (logoInputRef.current) logoInputRef.current.value = "";
+      return;
+    }
+    if (file.size <= 0 || file.size > 8 * 1024 * 1024) {
+      toast.error("حجم صورة المكتب يجب ألا يتجاوز 8 ميجابايت.");
+      if (logoInputRef.current) logoInputRef.current.value = "";
+      return;
+    }
+
+    setLogoBusy(true);
+    try {
+      // Use the same image preparation and authenticated upload flow as the individual avatar.
+      const preparedDataUrl = await prepareProfileAvatar(file);
+      const preparedFile = profileAvatarFileFromDataUrl(preparedDataUrl);
+      const uploadedUrl = await uploadMedia(preparedFile, userId, "properties");
+      setLogoUrl(uploadedUrl);
+      toast.success("تم رفع صورة المكتب. اضغط حفظ البيانات لتثبيتها في الملف.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذّر رفع صورة المكتب.");
+    } finally {
+      setLogoBusy(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
   }
 
   useEffect(() => {
@@ -291,12 +329,49 @@ function OfficeProfile() {
             {userId && (
               <div className="space-y-2 rounded-xl bg-background p-3 ring-1 ring-line">
                 <div className="text-xs font-semibold text-muted-foreground">صورة المكتب / الشعار</div>
-                <MediaUploader
-                  userId={userId}
-                  folder="properties"
-                  value={logoUrl ? [logoUrl] : []}
-                  onChange={(urls) => setLogoUrl(urls[0] ?? "")}
-                  label="ارفع صورة المكتب"
+                <div className="flex items-center gap-3">
+                  <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-xl bg-forest/10 text-forest ring-1 ring-line">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="معاينة صورة المكتب" className="size-full object-cover" />
+                    ) : (
+                      <Building2 className="size-7" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={logoBusy}
+                      className="inline-flex items-center gap-2 rounded-xl bg-forest px-3 py-2.5 text-xs font-bold text-background disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {logoBusy ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <ImagePlus className="size-4" />
+                      )}
+                      {logoBusy ? "جارٍ رفع الصورة..." : logoUrl ? "تغيير صورة المكتب" : "اختيار صورة المكتب"}
+                    </button>
+                    {logoUrl && !logoBusy && (
+                      <button
+                        type="button"
+                        onClick={() => setLogoUrl("")}
+                        className="block text-xs font-semibold text-destructive"
+                      >
+                        إزالة الصورة
+                      </button>
+                    )}
+                    <p className="text-[11px] leading-5 text-muted-foreground">
+                      JPG أو PNG أو WEBP، بحد أقصى 8 ميجابايت. بعد الرفع اضغط «حفظ البيانات».
+                    </p>
+                  </div>
+                </div>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={logoBusy}
+                  onChange={(event) => void handleOfficeLogoFile(event.target.files?.[0] ?? null)}
                 />
               </div>
             )}
