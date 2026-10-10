@@ -14,6 +14,7 @@ import { QUICK_KINDS, LISTING_TYPES } from "@/lib/constants";
 import { useSelectedGovernorate } from "@/lib/governorate";
 import { useFavorites, usePropertyList } from "@/lib/properties";
 import { cn } from "@/lib/utils";
+import { parseDateValue } from "@/lib/format";
 
 export const Route = createFileRoute("/home")({
   head: () => ({
@@ -71,7 +72,7 @@ function HomePage() {
       return offices
         .sort((a, b) =>
           Number(b.is_pro_current === true) - Number(a.is_pro_current === true) ||
-          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+          (parseDateValue(b.updated_at)?.getTime() ?? 0) - (parseDateValue(a.updated_at)?.getTime() ?? 0),
         )
         .slice(0, 4);
     },
