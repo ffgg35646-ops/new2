@@ -1992,6 +1992,88 @@ export const rpcRequest = createServerFn({ method: "POST" })
       const userId = getSessionUserId();
       const role = userId ? await roleFor(userId) : null;
 
+      if (data.name === "office_property_favorites") {
+        if (!userId || role !== "office") throw new Error("not_office_member");
+
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        let office = await offices.findOne({
+          owner_id: userId,
+          is_deleted: { $ne: true },
+        });
+
+        if (!office) {
+          const staff = await (await getMongoCollection<Record<string, unknown>>("office_staff"))
+            .findOne({ user_id: userId, is_active: true });
+          if (staff?.office_id) {
+            office = await offices.findOne({
+              id: String(staff.office_id),
+              is_deleted: { $ne: true },
+            });
+          }
+        }
+
+        if (!office) throw new Error("office_not_found");
+
+        const officeId = String(office.id ?? "");
+        const officeName = String(office.name ?? "مكتب عقاري");
+        const properties = await getMongoCollection<Record<string, unknown>>("properties");
+        const officeProperties = await properties
+          .find({ office_id: officeId, is_deleted: false })
+          .project({ id: 1 })
+          .toArray();
+        const propertyIds = [...new Set(
+          officeProperties
+            .map((property) => String(property.id ?? ""))
+            .filter(Boolean),
+        )];
+
+        if (!propertyIds.length) return { data: [], error: null };
+
+        const favorites = await (await getMongoCollection<Record<string, unknown>>("favorites"))
+          .find({ property_id: { $in: propertyIds } })
+          .sort({ created_at: -1 })
+          .limit(500)
+          .toArray();
+        const userIds = [...new Set(
+          favorites
+            .map((favorite) => String(favorite.user_id ?? ""))
+            .filter(Boolean),
+        )];
+
+        if (!userIds.length) return { data: [], error: null };
+
+        const profiles = getMongoCollection<Record<string, unknown>>("profiles");
+        const users = getMongoCollection<Record<string, unknown>>("users");
+        const [profileRows, userRows] = await Promise.all([
+          profiles.then((collection) =>
+            collection.find({ id: { $in: userIds } }).project({ id: 1, full_name: 1 }).toArray(),
+          ),
+          users.then((collection) =>
+            collection.find({ _id: { $in: userIds } }).project({ full_name: 1 }).toArray(),
+          ),
+        ]);
+        const profileById = new Map(
+          profileRows.map((profile) => [String(profile.id ?? ""), String(profile.full_name ?? "").trim()]),
+        );
+        const userById = new Map(
+          userRows.map((user) => [String(user._id ?? ""), String(user.full_name ?? "").trim()]),
+        );
+        const seenUsers = new Set<string>();
+        const savedPeople = [];
+
+        for (const favorite of favorites) {
+          const savedUserId = String(favorite.user_id ?? "");
+          if (!savedUserId || seenUsers.has(savedUserId)) continue;
+          seenUsers.add(savedUserId);
+          savedPeople.push({
+            user_name: profileById.get(savedUserId) || userById.get(savedUserId) || "مستخدم",
+            office_name: officeName,
+          });
+        }
+
+        return { data: savedPeople, error: null };
+      }
+
       if (data.name === "complete_signup") {
         if (!userId) throw new Error("يجب تأكيد البريد أولًا.");
 
