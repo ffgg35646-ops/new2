@@ -221,13 +221,13 @@ function OfficeApprovalGate({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [, setClockRevision] = useState(0);
 
   useEffect(() => {
     ensureDeviceCookie();
   }, []);
 
-  // Keep relative labels and appointment checks correct even when the VM clock is wrong.
-  const [, setClockRevision] = useState(0);
+  // Keep relative labels and appointment checks aligned to the application server clock.
   useEffect(() => {
     let active = true;
     const sync = async () => {
