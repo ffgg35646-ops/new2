@@ -38,7 +38,7 @@ function parseDate(value: unknown): Date | null {
   // Legacy records may contain Unix timestamps as strings rather than ISO dates.
   if (/^-?\d{10,13}$/.test(normalized)) {
     const numeric = Number(normalized);
-    const date = new Date(normalized.replace("-", "").length === 10 ? numeric * 1000 : numeric);
+    const date = new Date(Math.abs(numeric) < 100_000_000_000 ? numeric * 1000 : numeric);
     return Number.isFinite(date.getTime()) ? date : null;
   }
 
