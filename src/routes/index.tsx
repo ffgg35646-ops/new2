@@ -38,7 +38,7 @@ function Welcome() {
         <span className="text-terracotta">من محافظتك</span>
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        منصة محلية تجمع عروض المكاتب العقارية في المزاحمية وضرما، مع طلبات مباشرة وحجز معاينة
+        
         وتقييمات موثوقة.
       </p>
 
