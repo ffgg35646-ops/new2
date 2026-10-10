@@ -274,7 +274,6 @@ function RequestPage() {
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="مثال: أبحث عن أرض سكنية بمساحة لا تقل عن 500م في حي الروضة، شارع 20م."
               className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
             />
           </label>
