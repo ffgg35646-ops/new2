@@ -1,6 +1,8 @@
+import { appNow, appNowMs } from "@/lib/clock";
+
 const SAUDI_TIME_ZONE = "Asia/Riyadh";
 
-export function saudiDateKey(date = new Date()) {
+export function saudiDateKey(date = appNow()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: SAUDI_TIME_ZONE,
     year: "numeric",
@@ -23,7 +25,7 @@ export function saudiAppointmentDateTime(
 export function isSaudiAppointmentStarted(
   visitDate: string,
   visitTime: string,
-  now = new Date(),
+  now = appNow(),
 ) {
   const appointment = saudiAppointmentDateTime(visitDate, visitTime);
   return Number.isFinite(appointment.getTime()) && appointment.getTime() <= now.getTime();
@@ -40,7 +42,7 @@ export function formatBookingTime(visitTime: string) {
   return String(visitTime ?? "").slice(0, 5);
 }
 
-export function saudiInputDateTime(date = new Date()) {
+export function saudiInputDateTime(date = appNow()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: SAUDI_TIME_ZONE,
     year: "numeric",
