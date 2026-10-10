@@ -196,8 +196,8 @@ function OfficeProfile() {
         <div className="rounded-2xl bg-surface p-4 ring-1 ring-line">
           <div className="flex items-center gap-3">
             <span className="grid size-12 place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest">
-              {office?.logo_url ? (
-                <img src={office.logo_url} alt="" className="size-full object-cover" />
+              {logoUrl ? (
+                <img src={logoUrl} alt="" className="size-full object-cover" />
               ) : (
                 <Building2 className="size-6" />
               )}
