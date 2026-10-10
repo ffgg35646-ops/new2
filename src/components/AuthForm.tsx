@@ -7,9 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSelectedGovernorate } from "@/lib/governorate";
 import { LegalPolicyModal } from "@/components/LegalPolicyModal";
 import { uploadMedia } from "@/components/MediaUploader";
+import { prepareProfileAvatar, profileAvatarFileFromDataUrl } from "@/lib/profile-avatar";
 
 const PENDING_KEY = "ufuq.pending-signup";
 const PENDING_EMAIL_KEY = "ufuq.pending-email";
+const PENDING_AVATAR_KEY = "ufuq.pending-avatar-data";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -92,11 +94,13 @@ export function AuthForm({
     }
     setAvatarBusy(true);
     try {
-      const url = await uploadMedia(file, "pending-signup", "profile-avatar");
-      setAvatarUrl(url);
-      toast.success("تم رفع صورة البروفايل");
+      // Save a small local preview until the account is authenticated. The
+      // actual upload uses the authenticated account ID after signup/verification.
+      const preview = await prepareProfileAvatar(file);
+      setAvatarUrl(preview);
+      toast.success("تم اختيار صورة البروفايل");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تعذّر رفع صورة البروفايل");
+      toast.error(error instanceof Error ? error.message : "تعذّر تجهيز صورة البروفايل");
     } finally {
       setAvatarBusy(false);
       if (avatarInputRef.current) avatarInputRef.current.value = "";
@@ -117,7 +121,7 @@ export function AuthForm({
     return {
       _role: role,
       _full_name: fullName.trim(),
-      _avatar_url: avatarUrl.trim() || null,
+      _avatar_url: avatarUrl.startsWith("data:") ? null : avatarUrl.trim() || null,
       _governorate_id: selectedGov,
       _office:
         role === "office"
@@ -138,22 +142,40 @@ export function AuthForm({
     if (error) throw error;
   }
 
+  async function uploadPendingAvatar(
+    payload: Record<string, unknown>,
+    userId: string,
+  ): Promise<Record<string, unknown>> {
+    const dataUrl = localStorage.getItem(PENDING_AVATAR_KEY);
+    const currentAvatar = typeof payload._avatar_url === "string" ? payload._avatar_url : "";
+    if (!dataUrl || (currentAvatar && !currentAvatar.startsWith("data:"))) return payload;
+
+    const uploadedUrl = await uploadMedia(
+      profileAvatarFileFromDataUrl(dataUrl),
+      userId,
+      "properties",
+    );
+    const nextPayload = { ...payload, _avatar_url: uploadedUrl };
+    localStorage.setItem(PENDING_KEY, JSON.stringify(nextPayload));
+    return nextPayload;
+  }
+
   async function applyPendingSignup(userId: string) {
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     if (roles && roles.length > 0) return;
     const raw = localStorage.getItem(PENDING_KEY);
     if (!raw) return;
-    try {
-      await finishSignup(JSON.parse(raw) as Record<string, unknown>);
-    } finally {
-      localStorage.removeItem(PENDING_KEY);
-    }
+    const payload = await uploadPendingAvatar(JSON.parse(raw) as Record<string, unknown>, userId);
+    await finishSignup(payload);
+    localStorage.removeItem(PENDING_KEY);
+    localStorage.removeItem(PENDING_AVATAR_KEY);
   }
 
   async function afterAuth(register: boolean) {
     if (register) {
       await finishSignup();
       localStorage.removeItem(PENDING_KEY);
+      localStorage.removeItem(PENDING_AVATAR_KEY);
     } else {
       const { data } = await supabase.auth.getUser();
       if (data.user) await applyPendingSignup(data.user.id);
@@ -187,7 +209,7 @@ export function AuthForm({
             data: {
               full_name: fullName.trim(),
               role,
-              avatar_url: avatarUrl.trim() || null,
+              avatar_url: avatarUrl.startsWith("data:") ? null : avatarUrl.trim() || null,
             },
           },
         });
@@ -199,6 +221,11 @@ export function AuthForm({
         }
 
         localStorage.setItem(PENDING_KEY, JSON.stringify(payload));
+        if (avatarUrl.startsWith("data:")) {
+          localStorage.setItem(PENDING_AVATAR_KEY, avatarUrl);
+        } else {
+          localStorage.removeItem(PENDING_AVATAR_KEY);
+        }
         localStorage.setItem(
           PENDING_EMAIL_KEY,
           JSON.stringify({ email: signupEmail, role, sentAt: Date.now() }),
@@ -210,8 +237,12 @@ export function AuthForm({
           return;
         }
 
-        await finishSignup(payload);
+        const completedPayload = data.user?.id
+          ? await uploadPendingAvatar(payload, data.user.id)
+          : payload;
+        await finishSignup(completedPayload);
         localStorage.removeItem(PENDING_KEY);
+        localStorage.removeItem(PENDING_AVATAR_KEY);
         localStorage.removeItem(PENDING_EMAIL_KEY);
 
         void qc.invalidateQueries({ queryKey: ["session"] });
