@@ -48,8 +48,9 @@ export const Route = createFileRoute("/office/requests")({
       search["tab"] === "inbox" ||
       search["tab"] === "bookings" ||
       search["tab"] === "market" ||
+      search["tab"] === "accepted" ||
       search["tab"] === "sent"
-        ? (search["tab"] as "inbox" | "bookings" | "market" | "sent")
+        ? (search["tab"] as "inbox" | "bookings" | "market" | "accepted" | "sent")
         : undefined,
     request: typeof search.request === "string" ? search.request : undefined,
   }),
@@ -73,7 +74,7 @@ export const Route = createFileRoute("/office/requests")({
 
 function OfficeRequests() {
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"inbox" | "bookings" | "market" | "sent">(
+  const [tab, setTab] = useState<"inbox" | "bookings" | "market" | "accepted" | "sent">(
     search.tab ?? "inbox",
   );
 
@@ -135,6 +136,26 @@ function OfficeRequests() {
     },
   });
 
+  const { data: acceptedCount = 0 } = useQuery({
+    queryKey: ["office-accepted-tab-count", officeId],
+    enabled: !!officeId,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
+      const [marketResult, inquiryResult] = await Promise.all([
+        supabase.rpc("office_accepted_property_requests" as never),
+        supabase
+          .from("property_inquiries")
+          .select("id", { count: "exact", head: true })
+          .eq("office_id", officeId!)
+          .eq("status", "accepted"),
+      ]);
+      if (marketResult.error) throw marketResult.error;
+      if (inquiryResult.error) throw inquiryResult.error;
+      return (Array.isArray(marketResult.data) ? marketResult.data.length : 0) + (inquiryResult.count ?? 0);
+    },
+  });
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
       <AppHeader showSearch={false} />
@@ -161,6 +182,12 @@ function OfficeRequests() {
             count={inquiriesCount}
           />
           <TabButton
+            active={tab === "accepted"}
+            onClick={() => setTab("accepted")}
+            label="طلبات مقبولة"
+            count={acceptedCount}
+          />
+          <TabButton
             active={tab === "sent"}
             onClick={() => setTab("sent")}
             label="تاريخ الطلبات"
@@ -168,10 +195,9 @@ function OfficeRequests() {
         </div>
 
         {tab === "inbox" ? (
-          <>
-            <AcceptedRequestsInbox officeId={officeId} highlightedRequestId={search.request} />
-            <InquiriesInbox officeId={officeId} />
-          </>
+          <InquiriesInbox officeId={officeId} />
+        ) : tab === "accepted" ? (
+          <AcceptedRequestsInbox officeId={officeId} highlightedRequestId={search.request} />
         ) : tab === "bookings" ? (
           <BookingsInbox officeId={officeId} />
         ) : tab === "market" ? (
@@ -724,6 +750,8 @@ type AcceptedContactRequest = {
 function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: string | null; highlightedRequestId?: string | undefined }) {
   const qc = useQueryClient();
   const [cancelRequestId, setCancelRequestId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [officeId]);
   const { data = [], isLoading, error } = useQuery<AcceptedContactRequest[]>({
     queryKey: ["office-accepted-property-requests", officeId],
     enabled: !!officeId,
@@ -770,6 +798,7 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
       setCancelRequestId(null);
       toast.success("تم إلغاء العرض وإشعار الفردي بسبب الإلغاء");
       void qc.invalidateQueries({ queryKey: ["office-accepted-property-requests"] });
+      void qc.invalidateQueries({ queryKey: ["office-accepted-tab-count"] });
       void qc.invalidateQueries({ queryKey: ["open-requests"] });
       void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
       void qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] });
@@ -790,6 +819,16 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
     return <div role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs leading-6 text-terracotta">تعذّر تحميل الطلبات المقبولة: {loadError instanceof Error ? loadError.message : "خطأ غير معروف"}</div>;
   }
   const acceptedTotal = data.length + acceptedInquiries.length;
+  const pageSize = 6;
+  const pageCount = Math.max(1, Math.ceil(acceptedTotal / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const visibleRequests = data.slice(startIndex, endIndex);
+  const visibleInquiries = acceptedInquiries.slice(
+    Math.max(0, startIndex - data.length),
+    Math.max(0, endIndex - data.length),
+  );
   return (
     <section className="space-y-2" aria-label="طلبات مقبولة">
       <div className="flex items-center justify-between gap-2">
@@ -798,7 +837,7 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
           <span className="min-w-6 rounded-full bg-forest-soft px-2 py-1 text-center text-[10px] font-extrabold text-forest" aria-label={String(acceptedTotal) + " طلب مقبول"}>{acceptedTotal > 99 ? "99+" : acceptedTotal}</span>
         )}
       </div>
-      {data.length ? data.map((request) => {
+      {visibleRequests.map((request) => {
         const phone = String(request.client_phone ?? "").trim();
         return (
           <article id={"accepted-request-card-" + request.id} key={request.id}
@@ -838,8 +877,8 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
             </div>
           </article>
         );
-      }) : null}
-      {acceptedInquiries.map((inquiry) => {
+      })}
+      {visibleInquiries.map((inquiry) => {
         const property = inquiry.properties;
         const phone = String(inquiry.contact_phone ?? "").trim();
         const inquiryType: Record<string, string> = {
@@ -883,6 +922,15 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
         );
       })}
       
+      {acceptedTotal === 0 && <EmptyState icon={ClipboardList} title="لا توجد طلبات مقبولة" />}
+      {acceptedTotal > pageSize && (
+        <PaginationControls
+          page={currentPage}
+          total={acceptedTotal}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
+      )}
       <CompleteViewingReasonModal
         open={!!cancelRequestId}
         pending={cancelAcceptedOffer.isPending}
@@ -949,6 +997,7 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
       toast.success(vars.status === "accepted" ? "تم قبول طلب التواصل" : "تم رفض طلب التواصل");
       void qc.invalidateQueries({ queryKey: ["office-inquiries"] });
       void qc.invalidateQueries({ queryKey: ["office-accepted-property-inquiries"] });
+      void qc.invalidateQueries({ queryKey: ["office-accepted-tab-count"] });
       void qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] });
       void qc.invalidateQueries({ queryKey: ["new-inquiries-count"] });
       void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
