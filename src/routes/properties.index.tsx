@@ -114,7 +114,6 @@ function AllPropertiesPage() {
           <EmptyState
             icon={Building2}
             title="لا توجد عقارات مطابقة"
-            description="جرّب تغيير الفلاتر أو العودة لاحقًا."
           />
         )}
       </main>
