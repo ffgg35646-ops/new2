@@ -234,9 +234,7 @@ function ChatsPage() {
           <>
             <header>
               <h1 className="font-display text-xl font-extrabold">الدردشة</h1>
-              <p className="mt-1 text-xs text-muted-foreground">
-                ابحث عن اسم مكتب مشترك في الباقة الاحترافية لبدء محادثة مباشرة.
-              </p>
+              
             </header>
 
             <section className="space-y-3 rounded-3xl bg-surface p-3.5 ring-1 ring-line">
@@ -366,7 +364,7 @@ function ChatsPage() {
                 <EmptyState
                   icon={MessageSquare}
                   title="لا توجد محادثات بعد"
-                  description="ابحث عن مكتب احترافي وابدأ محادثتك الأولى."
+                  description=""
                   action={
                     <Link to="/offices" className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-background">
                       تصفح المكاتب العقارية
