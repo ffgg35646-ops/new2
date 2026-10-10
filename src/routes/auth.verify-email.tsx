@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
+import { appNowMs } from "@/lib/clock";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadMedia } from "@/components/MediaUploader";
 import { profileAvatarFileFromDataUrl } from "@/lib/profile-avatar";
@@ -112,7 +113,7 @@ function getResendState(email: string): ResendState {
         ? state.pausedUntil
         : 0;
 
-    if (pausedUntil > 0 && pausedUntil <= Date.now()) {
+    if (pausedUntil > 0 && pausedUntil <= appNowMs()) {
       const reset = {
         ...states,
         [normalizedEmail]: { count: 0, pausedUntil: 0 },
@@ -183,7 +184,7 @@ function VerifyEmailPage() {
   const [token, setToken] = useState("");
   const [resends, setResends] = useState(0);
   const [pausedUntil, setPausedUntil] = useState(0);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(appNowMs());
 
   const loginRoute =
     pending?.role === "office"
@@ -292,7 +293,7 @@ function VerifyEmailPage() {
 
   useEffect(() => {
     timer.current = setInterval(() => {
-      const current = Date.now();
+      const current = appNowMs();
       setNow(current);
 
       if (pausedUntil > 0 && current >= pausedUntil && pending) {
@@ -316,7 +317,7 @@ function VerifyEmailPage() {
   async function resend() {
     if (!pending) return;
 
-    const current = Date.now();
+    const current = appNowMs();
 
     if (pausedUntil > current) return;
 
@@ -360,7 +361,7 @@ function VerifyEmailPage() {
           ? {
               email: pending.email,
               count: MAX_RESENDS,
-              pausedUntil: Date.now() + PAUSE_MS,
+              pausedUntil: appNowMs() + PAUSE_MS,
             }
           : {
               email: pending.email,
@@ -370,7 +371,7 @@ function VerifyEmailPage() {
 
       const updatedPending = {
         ...pending,
-        sentAt: Date.now(),
+        sentAt: appNowMs(),
       };
 
       saveResendState(next);
