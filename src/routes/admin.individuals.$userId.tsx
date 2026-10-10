@@ -20,6 +20,7 @@ import {
   isTodaySaudi,
 } from "@/lib/admin";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDateTime } from "@/lib/format";
 
 export const Route = createFileRoute(
   "/admin/individuals/$userId",
@@ -185,9 +186,7 @@ function IndividualDetails() {
           />
           <Row
             label="تاريخ التسجيل"
-            value={new Date(
-              data.created_at,
-            ).toLocaleString("ar-SA")}
+            value={formatDateTime(data.created_at)}
           />
         </div>
       </section>
