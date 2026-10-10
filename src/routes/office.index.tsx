@@ -88,7 +88,6 @@ function OfficeDashboard() {
           <EmptyState
             icon={Building2}
             title="هذه اللوحة للمكاتب العقارية"
-            description="سجّل حساب مكتب عقاري للوصول إلى لوحة التحكم."
             action={
               <Link
                 to="/auth/office"
