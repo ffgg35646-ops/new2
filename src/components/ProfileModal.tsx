@@ -54,11 +54,6 @@ export function ProfileModal({
         .eq("id", userId);
       if (profileError) throw profileError;
 
-      const { error: metadataError } = await supabase.auth.updateUser({
-        data: { avatar_url: nextAvatar },
-      });
-      if (metadataError) throw metadataError;
-
       await qc.invalidateQueries({ queryKey: ["session"] });
       await qc.invalidateQueries({ queryKey: ["requests-page"] });
       toast.success("تم تحديث صورة الملف الشخصي");
