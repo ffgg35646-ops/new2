@@ -114,11 +114,30 @@ export const Route = createFileRoute("/api/payment-checkout")({
             body: params.toString(),
           });
 
-          const hpData = (await hpResponse.json()) as {
+          const hpContentType = hpResponse.headers.get("content-type") ?? "";
+          const hpBody = await hpResponse.text();
+          let hpData: {
             id?: string;
             integrity?: string;
             result?: { code?: string; description?: string };
           };
+
+          try {
+            hpData = JSON.parse(hpBody) as typeof hpData;
+          } catch {
+            console.error("[payment-checkout] HyperPay returned non-JSON response", {
+              status: hpResponse.status,
+              contentType: hpContentType,
+              bodyPreview: hpBody.replace(/\\s+/g, " ").slice(0, 200),
+            });
+            return Response.json(
+              {
+                error:
+                  "بوابة HyperPay أعادت صفحة غير متوقعة بدل بيانات الدفع. راجع HYPERPAY_BASE_URL وبيئة الاختبار/الإنتاج في إعدادات النشر.",
+              },
+              { status: 502 },
+            );
+          }
 
           if (!hpResponse.ok || !hpData.id) {
             return Response.json(

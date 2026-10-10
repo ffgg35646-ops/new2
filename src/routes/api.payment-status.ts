@@ -55,7 +55,9 @@ export const Route = createFileRoute("/api/payment-status")({
             },
           );
 
-          const data = (await response.json()) as {
+          const gatewayContentType = response.headers.get("content-type") ?? "";
+          const gatewayBody = await response.text();
+          let data: {
             id?: string;
             amount?: string | number;
             currency?: string;
@@ -64,6 +66,23 @@ export const Route = createFileRoute("/api/payment-status")({
             paymentBrand?: string;
             result?: { code?: string; description?: string };
           };
+
+          try {
+            data = JSON.parse(gatewayBody) as typeof data;
+          } catch {
+            console.error("[payment-status] HyperPay returned non-JSON response", {
+              status: response.status,
+              contentType: gatewayContentType,
+              bodyPreview: gatewayBody.replace(/\\s+/g, " ").slice(0, 200),
+            });
+            return Response.json(
+              {
+                error:
+                  "بوابة HyperPay أعادت ردًا غير متوقع أثناء التحقق من الدفع. راجع HYPERPAY_BASE_URL وإعدادات البوابة.",
+              },
+              { status: 502 },
+            );
+          }
 
           if (!response.ok) {
             return Response.json(

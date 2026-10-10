@@ -79,7 +79,18 @@ function PayPage() {
             signal: ctrl.signal,
           });
 
-          data = await res.json();
+          const responseText = await res.text();
+          try {
+            data = JSON.parse(responseText) as typeof data;
+          } catch {
+            throw new Error(
+              `خدمة تجهيز الدفع أعادت استجابة غير متوقعة بدل بيانات JSON (HTTP ${res.status}). تأكد من نشر مسار الدفع وأن الخدمة تعمل.`,
+            );
+          }
+
+          if (!res.ok && !data?.error) {
+            throw new Error(`تعذّر تجهيز الدفع (HTTP ${res.status}).`);
+          }
         } finally {
           clearTimeout(to);
         }

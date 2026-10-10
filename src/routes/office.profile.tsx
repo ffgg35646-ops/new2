@@ -30,7 +30,6 @@ import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getPublicAppUrl, PUBLIC_APP_URL_HELP } from "@/lib/public-app-url";
 import { SupportCenter } from "@/components/SupportCenter";
-import { ProfileModal } from "@/components/ProfileModal";
 import { uploadMedia } from "@/components/MediaUploader";
 import { prepareProfileAvatar, profileAvatarFileFromDataUrl } from "@/lib/profile-avatar";
 
@@ -72,7 +71,7 @@ type FormKey =
 function OfficeProfile() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { userId, session } = useAuth();
+  const { userId } = useAuth();
   const { data: membership, isLoading } = useMyOffice();
   const office = membership?.office ?? null;
   const isOwner = membership?.isOwner ?? false;
@@ -82,7 +81,6 @@ function OfficeProfile() {
   const [editing, setEditing] = useState(false);
   const [dark, setDark] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
 
   const supportTicketId =
     typeof window !== "undefined"
@@ -147,8 +145,36 @@ function OfficeProfile() {
       const preparedDataUrl = await prepareProfileAvatar(file);
       const preparedFile = profileAvatarFileFromDataUrl(preparedDataUrl);
       const uploadedUrl = await uploadMedia(preparedFile, userId, "properties");
+
+      // من أعلى الصفحة نحفظ الشعار مباشرة؛ داخل نموذج التعديل يُحفظ مع باقي البيانات.
+      if (!editing) {
+        if (!office) throw new Error("بيانات المكتب غير متاحة.");
+
+        const { data: updatedOffice, error } = await supabase
+          .from("offices")
+          .update({ logo_url: uploadedUrl })
+          .eq("id", office.id)
+          .select("id")
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!updatedOffice) {
+          throw new Error("تعذّر حفظ صورة المكتب. تأكد من صلاحية تعديل المكتب.");
+        }
+
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ["my-office-full"] }),
+          qc.invalidateQueries({ queryKey: ["office-governorate"] }),
+          qc.invalidateQueries({ queryKey: ["office"] }),
+        ]);
+      }
+
       setLogoUrl(uploadedUrl);
-      toast.success("تم رفع صورة المكتب. اضغط حفظ البيانات لتثبيتها في الملف.");
+      toast.success(
+        editing
+          ? "تم رفع الصورة. اضغط حفظ البيانات لتثبيتها."
+          : "تم رفع وحفظ صورة المكتب بنجاح."
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذّر رفع صورة المكتب.");
     } finally {
@@ -233,13 +259,52 @@ function OfficeProfile() {
       <main className="flex-1 space-y-4 px-4 py-4">
         <div className="rounded-2xl bg-surface p-4 ring-1 ring-line">
           <div className="flex items-center gap-3">
-            <span className="grid size-12 place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest">
-              {logoUrl ? (
-                <img src={logoUrl} alt="" className="size-full object-cover" />
+            <div className="shrink-0">
+              {isOwner ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label={logoUrl ? "تغيير صورة المكتب" : "رفع صورة المكتب"}
+                    title="رفع أو تغيير صورة المكتب"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={logoBusy}
+                    className="relative grid size-14 place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest ring-1 ring-line disabled:opacity-60"
+                  >
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="صورة المكتب" className="size-full object-cover" />
+                    ) : (
+                      <Building2 className="size-7" />
+                    )}
+                    <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/70 px-0.5 py-1 text-center text-[9px] font-bold text-white">
+                      {logoBusy ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : (
+                        <ImagePlus className="size-3" />
+                      )}
+                      {logoBusy ? "جارٍ الرفع" : logoUrl ? "تغيير الصورة" : "رفع صورة"}
+                    </span>
+                  </button>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={logoBusy}
+                    onChange={(event) =>
+                      void handleOfficeLogoFile(event.target.files?.[0] ?? null)
+                    }
+                  />
+                </>
               ) : (
-                <Building2 className="size-6" />
+                <span className="grid size-14 place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest ring-1 ring-line">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="صورة المكتب" className="size-full object-cover" />
+                  ) : (
+                    <Building2 className="size-7" />
+                  )}
+                </span>
               )}
-            </span>
+            </div>
             <div className="min-w-0 flex-1">
               <div className="truncate font-display text-base font-extrabold">
                 {office?.name ?? "مكتبي العقاري"}
@@ -255,35 +320,7 @@ function OfficeProfile() {
                 )}
               </div>
             </div>
-            {office && (
-              <div className="flex shrink-0 flex-col items-end gap-1.5">
-                <Link
-                  to="/offices/$officeId"
-                  params={{ officeId: office.id }}
-                  className="text-xs font-semibold text-terracotta"
-                >
-                  الملف العام
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setProfileOpen(true)}
-                  className="text-xs font-semibold text-forest"
-                >
-                  الملف الشخصي
-                </button>
-              </div>
-            )}
           </div>
-          <ProfileModal
-            open={profileOpen}
-            onClose={() => setProfileOpen(false)}
-            email={session?.user?.email ?? office?.email ?? ""}
-            emailVerified={!!session?.user?.email_confirmed_at}
-            avatarUrl={office?.logo_url}
-            rows={readRows
-              .filter(([label]) => label !== "البريد الإلكتروني")
-              .map(([label, value]) => ({ label, value }))}
-          />
 
           {office?.verification_status === "rejected" && office.rejection_reason && (
             <p className="mt-2 rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">
@@ -325,56 +362,6 @@ function OfficeProfile() {
                 <X className="size-3.5" />
               </button>
             </div>
-
-            {userId && (
-              <div className="space-y-2 rounded-xl bg-background p-3 ring-1 ring-line">
-                <div className="text-xs font-semibold text-muted-foreground">صورة المكتب / الشعار</div>
-                <div className="flex items-center gap-3">
-                  <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-xl bg-forest/10 text-forest ring-1 ring-line">
-                    {logoUrl ? (
-                      <img src={logoUrl} alt="معاينة صورة المكتب" className="size-full object-cover" />
-                    ) : (
-                      <Building2 className="size-7" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => logoInputRef.current?.click()}
-                      disabled={logoBusy}
-                      className="inline-flex items-center gap-2 rounded-xl bg-forest px-3 py-2.5 text-xs font-bold text-background disabled:cursor-wait disabled:opacity-60"
-                    >
-                      {logoBusy ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <ImagePlus className="size-4" />
-                      )}
-                      {logoBusy ? "جارٍ رفع الصورة..." : logoUrl ? "تغيير صورة المكتب" : "اختيار صورة المكتب"}
-                    </button>
-                    {logoUrl && !logoBusy && (
-                      <button
-                        type="button"
-                        onClick={() => setLogoUrl("")}
-                        className="block text-xs font-semibold text-destructive"
-                      >
-                        إزالة الصورة
-                      </button>
-                    )}
-                    <p className="text-[11px] leading-5 text-muted-foreground">
-                      JPG أو PNG أو WEBP، بحد أقصى 8 ميجابايت. بعد الرفع اضغط «حفظ البيانات».
-                    </p>
-                  </div>
-                </div>
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  disabled={logoBusy}
-                  onChange={(event) => void handleOfficeLogoFile(event.target.files?.[0] ?? null)}
-                />
-              </div>
-            )}
 
             {TEXT_FIELDS.map(([key, label]) => (
               <label key={key} className="block space-y-1">
