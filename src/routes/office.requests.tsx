@@ -882,9 +882,7 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
           </article>
         );
       })}
-      {!acceptedTotal && (
-        
-      )}
+      
       <CompleteViewingReasonModal
         open={!!cancelRequestId}
         pending={cancelAcceptedOffer.isPending}
