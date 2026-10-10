@@ -1,3 +1,5 @@
+import { getServerTime } from "@/lib/clock.functions";
+
 let serverClockOffsetMs = 0;
 let hasServerClock = false;
 
@@ -18,16 +20,8 @@ export async function syncServerClock(): Promise<boolean> {
   const requestStartedAt = Date.now();
 
   try {
-    const response = await fetch("/api/time", {
-      method: "GET",
-      cache: "no-store",
-      headers: { "cache-control": "no-cache" },
-    });
-
+    const payload = await getServerTime();
     const responseReceivedAt = Date.now();
-    if (!response.ok) return false;
-
-    const payload = (await response.json()) as { now?: unknown };
     const serverNow = Number(payload?.now);
     if (!Number.isFinite(serverNow) || serverNow <= 0) return false;
 
