@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSelectedGovernorate } from "@/lib/governorate";
 import { LegalPolicyModal } from "@/components/LegalPolicyModal";
-import { uploadMedia, uploadPendingSignupAvatar } from "@/components/MediaUploader";
+import { uploadPendingSignupAvatar } from "@/components/MediaUploader";
 import { clearPendingSignupAvatar, savePendingSignupAvatar } from "@/lib/pending-signup-avatar";
 
 const PENDING_KEY = "ufuq.pending-signup";
