@@ -227,7 +227,7 @@ function NewProperty() {
           </Row>
 
           <label className="block">
-            <span className="mb-1 block text-[11px] text-muted-foreground">الوصف</span>
+            <span className="app-field-label">الوصف</span>
             <textarea
               rows={4}
               value={description}
@@ -306,7 +306,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] text-muted-foreground">{label}</span>
+      <span className="app-field-label">{label}</span>
       <input
         type={type}
         value={value}
