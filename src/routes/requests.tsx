@@ -641,7 +641,7 @@ function AcceptedPrioritySection({
               </div>
               <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
                 isCompleted ? "bg-forest text-background" : "bg-forest-soft text-forest")}>
-                {isCompleted ? "مكتمل بالفعل" : "تم قبول العرض"}
+                {isCompleted ? "مكتمل" : "تم قبول العرض"}
               </span>
             </div>
 
@@ -691,7 +691,7 @@ function AcceptedPrioritySection({
             </div>
 
             {isCompleted ? (
-              <div className="rounded-xl bg-forest-soft py-2.5 text-center text-xs font-bold text-forest">مكتمل بالفعل</div>
+              <div className="rounded-xl bg-forest-soft py-2.5 text-center text-xs font-bold text-forest">مكتمل</div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => onEndRequest(request.id)} disabled={pending}
@@ -724,7 +724,7 @@ function AcceptedPrioritySection({
                 </p>
               </div>
               <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold", inquiry.status === "completed" ? "bg-forest text-background" : "bg-forest-soft text-forest")}>
-                {inquiry.status === "completed" ? "مكتمل بالفعل" : "المكتب وافق على طلبك"}
+                {inquiry.status === "completed" ? "مكتمل" : "المكتب وافق على طلبك"}
               </span>
             </div>
             {inquiry.message && <p className="whitespace-pre-wrap rounded-xl bg-background p-3 text-sm leading-5">{inquiry.message}</p>}
@@ -741,7 +741,7 @@ function AcceptedPrioritySection({
             <a href={"/properties/" + encodeURIComponent(inquiry.property_id)}
               className="block rounded-xl bg-background py-2.5 text-center text-xs font-bold text-forest ring-1 ring-line">تفاصيل العقار</a>
             {inquiry.status === "completed" ? (
-              <div className="rounded-xl bg-forest-soft py-2.5 text-center text-xs font-bold text-forest">مكتمل بالفعل</div>
+              <div className="rounded-xl bg-forest-soft py-2.5 text-center text-xs font-bold text-forest">مكتمل</div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => onEndInquiry(inquiry.id)} disabled={pending}
