@@ -31,10 +31,12 @@ export function ChatThread({
   conversationId,
   onBack,
   title,
+  readOnly = false,
 }: {
   conversationId: string;
   onBack: () => void;
   title?: string;
+  readOnly?: boolean;
 }) {
   const { userId } = useAuth();
   const qc = useQueryClient();
@@ -91,7 +93,7 @@ export function ChatThread({
   const isBlocked = blockRows.length > 0;
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || readOnly) return;
 
     const channel = supabase.channel(
       `chat-${conversationId}`,
@@ -181,10 +183,11 @@ export function ChatThread({
 
       void supabase.removeChannel(channel);
     };
-  }, [conversationId, userId, qc]);
+  }, [conversationId, userId, qc, readOnly]);
 
   useEffect(() => {
-    if (!userId || !messages.data?.length) return;
+    // Admin review must not change customer read receipts.
+    if (readOnly || !userId || !messages.data?.length) return;
 
     const unread = messages.data
       .filter(
@@ -202,7 +205,7 @@ export function ChatThread({
         read_at: new Date().toISOString(),
       })
       .in("id", unread);
-  }, [messages.data, userId]);
+  }, [messages.data, userId, readOnly]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({
@@ -490,11 +493,13 @@ export function ChatThread({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <span className="text-[10px] text-muted-foreground">
-            {otherOnline ? "متصل الآن" : "غير متصل"}
-          </span>
+          {!readOnly && (
+            <span className="text-[10px] text-muted-foreground">
+              {otherOnline ? "متصل الآن" : "غير متصل"}
+            </span>
+          )}
 
-          <button
+          {!readOnly && <button
             type="button"
             disabled={toggleBlock.isPending}
             onClick={() =>
@@ -520,11 +525,11 @@ export function ChatThread({
               : otherBlock
                 ? "محظورة"
                 : "حظر"}
-          </button>
+          </button>}
         </div>
       </div>
 
-      {isBlocked && (
+      {!readOnly && isBlocked && (
         <div className="mt-3 rounded-2xl bg-terracotta-soft px-3 py-2 text-center text-xs font-semibold text-terracotta">
           {myBlock
             ? "قمت بحظر هذه المحادثة. يمكنك إلغاء الحظر للمتابعة."
@@ -589,7 +594,7 @@ export function ChatThread({
                       : ""}
                   </span>
 
-                  {!mine && (
+                  {!mine && !readOnly && (
                     <button
                       type="button"
                       onClick={() =>
@@ -610,11 +615,11 @@ export function ChatThread({
           })
         ) : (
           <p className="py-8 text-center text-xs text-muted-foreground">
-            ابدأ المحادثة برسالتك الأولى 👋
+            {readOnly ? "لا توجد رسائل في هذه المحادثة." : "ابدأ المحادثة برسالتك الأولى 👋"}
           </p>
         )}
 
-        {otherTyping && !isBlocked && (
+        {!readOnly && otherTyping && !isBlocked && (
           <div className="text-[11px] text-muted-foreground">
             يكتب الآن...
           </div>
@@ -623,7 +628,7 @@ export function ChatThread({
         <div ref={endRef} />
       </div>
 
-      <form
+      {!readOnly && <form
         className="mt-3 flex items-center gap-2"
         onSubmit={(event) => {
           event.preventDefault();
@@ -690,7 +695,7 @@ export function ChatThread({
             <Send className="size-4" />
           )}
         </button>
-      </form>
+      </form>}
     </section>
   );
 }
