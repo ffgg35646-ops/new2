@@ -392,7 +392,7 @@ function RequestsPage() {
                 <EmptyState
                   icon={ClipboardList}
                   title="لا توجد طلبات مرسلة نشطة"
-                  description={historyRequests.length ? "الطلبات المنتهية والمكتملة موجودة في تبويب تاريخ الطلبات." : "ابدأ بنشر طلب عقاري ليصل إلى المكاتب الموثقة."}
+                  
                 />
               );
             }
@@ -437,7 +437,7 @@ function RequestsPage() {
             <EmptyState
               icon={ClipboardList}
               title="لا يوجد تاريخ للطلبات حتى الآن"
-              description="أي طلب تنهيه أو يكتمل أو يرفضه المكتب سيظهر هنا."
+              
             />
           ) : (
             <div className="space-y-4">
@@ -503,7 +503,7 @@ function RequestsPage() {
           <EmptyState
             icon={ClipboardList}
             title="لا توجد عروض مستقبلة"
-            description="عندما يرد مكتب على أحد طلباتك سيظهر العرض هنا."
+            
           />
         )}
 
@@ -557,7 +557,7 @@ function RequestsPage() {
           <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-surface p-4 shadow-2xl ring-1 ring-line"
             onClick={(event) => event.stopPropagation()} dir="rtl">
             <h2 className="font-display text-lg font-extrabold">الطلب مكتمل</h2>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">اختر المكتب الذي أتم الطلب من بين المكاتب التي أرسلت عروضًا عليه.</p>
+            
             <input value={completionSearch} onChange={(event) => { setCompletionSearch(event.target.value); setSelectedCompletionOfferId(null); }}
               placeholder="اكتب أول حرف من اسم المكتب" aria-label="ابحث عن مكتب" className="mt-3 w-full rounded-xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest" />
             <div className="mt-3 space-y-2">
@@ -614,9 +614,7 @@ function AcceptedPrioritySection({
       </div>
 
       {!total && (
-        <div className="rounded-2xl bg-surface p-3 text-xs leading-6 text-muted-foreground ring-1 ring-line">
-          ستظهر هنا طلبات السوق التي وافقت على عرض مكتب، وطلبات التواصل على العقارات التي وافق عليها المكتب.
-        </div>
+        
       )}
 
       {requests.map((request) => {
@@ -934,7 +932,7 @@ function OfferCard({
       )}
       {canMarkComplete && (
         <div className="mt-2.5 space-y-2 rounded-xl bg-forest-soft p-3">
-          <p className="text-xs leading-5 text-forest">بعد إتمام التعامل، اختر المكتب الذي اكتمل الطلب معه.</p>
+          
           <button type="button" onClick={onMarkComplete} disabled={pending} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"><CheckCircle2 className="size-4" /> الطلب مكتمل</button>
         </div>
       )}
