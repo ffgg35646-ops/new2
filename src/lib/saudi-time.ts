@@ -1,4 +1,4 @@
-import { appNow, appNowMs } from "@/lib/clock";
+import { appNow } from "@/lib/clock";
 
 const SAUDI_TIME_ZONE = "Asia/Riyadh";
 
