@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Building2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -47,7 +47,7 @@ function NewProperty() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offices")
-        .select("id,governorate_id")
+        .select("id,governorate_id,name,logo_url")
         .eq("owner_id", userId!)
         .maybeSingle();
       if (error) throw error;
@@ -145,7 +145,14 @@ function NewProperty() {
           >
             <ArrowRight className="size-4" />
           </button>
-          <h1 className="font-display text-xl font-extrabold">إضافة عرض عقاري</h1>
+          {office?.logo_url ? (
+            <img src={office.logo_url} alt={"شعار " + (office.name ?? "المكتب")} className="size-11 shrink-0 rounded-full object-cover ring-1 ring-line" />
+          ) : (
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-forest-soft text-forest ring-1 ring-line">
+              {office?.name?.trim().charAt(0) || <Building2 className="size-5" />}
+            </span>
+          )}
+          <h1 className="min-w-0 font-display text-xl font-extrabold">إضافة عرض عقاري</h1>
         </div>
 
         {propertyLimit != null && (
