@@ -145,9 +145,17 @@ export function useMyPlan() {
         office?.plan === "pro" ||
         String(packageRow?.code ?? "") === "pro" ||
         Number(packageRow?.price ?? 0) > 0;
+      // The backend computes is_pro_current using the database/server clock.
+      // Prefer that authoritative value to avoid client clock skew mislabeling a live plan as expired.
+      const serverSaysProCurrent =
+        typeof office?.is_pro_current === "boolean"
+          ? office.is_pro_current
+          : null;
       const hasExpiredPaidPlan =
         packageLooksPaid &&
-        (!Number.isFinite(expiryTime) || expiryTime <= Date.now());
+        (serverSaysProCurrent !== null
+          ? !serverSaysProCurrent
+          : !Number.isFinite(expiryTime) || expiryTime <= Date.now());
 
       // حتى لو لم يعمل Cron بعد، اعرض الباقة المجانية بمجرد انتهاء مدة Pro.
       if (hasExpiredPaidPlan || !packageRow) {
@@ -180,9 +188,13 @@ export function useMyPlan() {
     office?.plan === "pro" ||
     pkg?.code === "pro" ||
     Number(pkg?.price ?? 0) > 0;
+  // Use the server-calculated subscription state whenever available; the
+  // browser's clock may differ from the server/database clock.
   const expired =
     packageLooksPaid &&
-    (!Number.isFinite(expiryTime) || expiryTime <= Date.now());
+    (typeof office?.is_pro_current === "boolean"
+      ? !office.is_pro_current
+      : !Number.isFinite(expiryTime) || expiryTime <= Date.now());
 
   const currentPlan: OfficePlan =
     expired
