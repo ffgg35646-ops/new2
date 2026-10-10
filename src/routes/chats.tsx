@@ -30,7 +30,7 @@ export const Route = createFileRoute("/chats")({
     ],
   }),
   component: () => (
-    <RoleGuard allow={["individual"]} guestsTo="/auth/individual">
+    <RoleGuard allow={["individual", "admin"]} guestsTo="/auth/individual">
       <ChatsPage />
     </RoleGuard>
   ),
@@ -64,7 +64,7 @@ type ProOfficeRow = {
 };
 
 function ChatsPage() {
-  const { userId } = useAuth();
+  const { userId, isAdmin } = useAuth();
   const qc = useQueryClient();
   const { c, office: officeTargetId } = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -73,7 +73,7 @@ function ChatsPage() {
   const startRequestedFor = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || isAdmin) return;
     const channel = supabase
       .channel(`my-convs-${userId}`)
       .on(
@@ -85,11 +85,11 @@ function ChatsPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [userId, qc]);
+  }, [userId, qc, isAdmin]);
 
   const proOffices = useQuery({
     queryKey: ["chat-pro-offices", userId],
-    enabled: !!userId,
+    enabled: !!userId && !isAdmin,
     refetchInterval: 30_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -154,15 +154,15 @@ function ChatsPage() {
   });
 
   useEffect(() => {
-    if (!officeTargetId || !userId || activeId || startChat.isPending) return;
+    if (isAdmin || !officeTargetId || !userId || activeId || startChat.isPending) return;
     if (startRequestedFor.current === officeTargetId) return;
     startRequestedFor.current = officeTargetId;
     startChat.mutate(officeTargetId);
-  }, [officeTargetId, userId, activeId, startChat.isPending]);
+  }, [officeTargetId, userId, activeId, startChat.isPending, isAdmin]);
 
   const conversations = useQuery({
     queryKey: ["my-conversations", userId],
-    enabled: !!userId,
+    enabled: !!userId && !isAdmin,
     refetchInterval: 15_000,
     refetchIntervalInBackground: true,
     queryFn: async () => {
@@ -218,9 +218,32 @@ function ChatsPage() {
         {activeId ? (
           <ChatThread
             conversationId={activeId}
-            title={conversations.data?.find((conversation) => conversation.id === activeId)?.offices?.name ?? "محادثة المكتب"}
-            onBack={() => void navigate({ search: { c: undefined, office: undefined } })}
+            title={
+              isAdmin
+                ? "مراجعة محادثة — وضع القراءة فقط"
+                : conversations.data?.find((conversation) => conversation.id === activeId)?.offices?.name ?? "محادثة المكتب"
+            }
+            readOnly={isAdmin}
+            onBack={() =>
+              isAdmin
+                ? void navigate({ to: "/admin", search: { tab: "dashboard" } })
+                : void navigate({ search: { c: undefined, office: undefined } })
+            }
           />
+        ) : isAdmin ? (
+          <section className="space-y-3 rounded-3xl bg-surface p-5 ring-1 ring-line">
+            <h1 className="font-display text-lg font-extrabold">مراجعة محادثة</h1>
+            <p className="text-sm leading-6 text-muted-foreground">
+              افتح رابط المحادثة الذي يحتوي على معرّف c لمراجعتها كمسؤول. العرض هنا للقراءة فقط.
+            </p>
+            <Link
+              to="/admin"
+              search={{ tab: "dashboard" }}
+              className="block rounded-2xl bg-forest py-3 text-center text-sm font-bold text-background"
+            >
+              العودة إلى لوحة الإدارة
+            </Link>
+          </section>
         ) : officeTargetId || startChat.isPending ? (
           <div className="grid place-items-center gap-2 py-16 text-sm text-muted-foreground">
             <Loader2 className="size-5 animate-spin text-forest" />
