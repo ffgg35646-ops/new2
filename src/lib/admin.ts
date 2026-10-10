@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { parseDateValue } from "@/lib/format";
 
 export type AdminIndividual = {
   id: string;
@@ -509,19 +510,9 @@ export function useOfficeActivity(
   });
 }
 
-export function isTodaySaudi(
-  date: string | number | Date | null | undefined,
-) {
-  if (date === null || date === undefined || date === "") {
-    return false;
-  }
-
-  const parsedDate = date instanceof Date ? date : new Date(date);
-
-  // Bad or missing timestamps should not crash the whole admin dashboard.
-  if (!Number.isFinite(parsedDate.getTime())) {
-    return false;
-  }
+export function isTodaySaudi(date: unknown) {
+  const parsedDate = parseDateValue(date);
+  if (!parsedDate) return false;
 
   const formatter = new Intl.DateTimeFormat(
     "en-CA",
