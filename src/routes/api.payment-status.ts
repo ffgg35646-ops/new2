@@ -64,6 +64,7 @@ export const Route = createFileRoute("/api/payment-status")({
             merchantTransactionId?: string;
             paymentType?: string;
             paymentBrand?: string;
+            parameterErrors?: unknown;
             result?: { code?: string; description?: string };
           };
 
@@ -75,20 +76,80 @@ export const Route = createFileRoute("/api/payment-status")({
               contentType: gatewayContentType,
               bodyPreview: gatewayBody.replace(/\s+/g, " ").slice(0, 200),
             });
-            return Response.json(
+
+            const code = `HTTP_${response.status}`;
+            const description =
+              `بوابة HyperPay أعادت ردًا غير قابل للقراءة أثناء التحقق (HTTP ${response.status}, Content-Type: ${gatewayContentType || "غير معروف"}). لم يتم تأكيد حالة البطاقة، ولم يتم تفعيل الباقة.`;
+
+            await txs.updateOne(
+              { id: tx.id, status: { $ne: "success" }, activation_applied_at: { $exists: false } },
               {
-                error:
-                  "بوابة HyperPay أعادت ردًا غير متوقع أثناء التحقق من الدفع. راجع HYPERPAY_BASE_URL وإعدادات البوابة.",
+                $set: {
+                  status: "verification_error",
+                  result_code: code,
+                  result_description: description,
+                  verification_error: true,
+                  gateway_http_status: response.status,
+                  updated_at: new Date(),
+                },
               },
-              { status: 502 },
             );
+
+            return Response.json({
+              success: false,
+              pending: false,
+              status: "verification_error",
+              verificationError: true,
+              code,
+              description,
+            });
           }
 
           if (!response.ok) {
-            return Response.json(
-              { error: data.result?.description || "تعذّر التحقق من نتيجة الدفع لدى HyperPay." },
-              { status: 502 },
+            const code = data.result?.code ?? `HTTP_${response.status}`;
+            const gatewayDescription =
+              data.result?.description ?? "تعذّر التحقق من نتيجة الدفع لدى HyperPay.";
+            const noPaymentSession =
+              code === "200.300.404" &&
+              /No payment session found/i.test(gatewayDescription);
+
+            const description = noPaymentSession
+              ? `تعذّر العثور على جلسة الدفع لدى HyperPay (${code}): ${gatewayDescription}. هذا لا يثبت أن البنك رفض البطاقة؛ قد تكون الجلسة منتهية أو من بيئة مختلفة. أنشئ جلسة جديدة في البيئة المطابقة. لم يتم تفعيل الباقة.`
+              : `تعذّر التحقق من نتيجة الدفع لدى HyperPay (${code}): ${gatewayDescription}. لم يتم تفعيل الباقة.`;
+
+            console.warn("[payment-status] gateway verification error", {
+              checkoutId,
+              httpStatus: response.status,
+              code,
+              description: gatewayDescription,
+              parameterErrors: data.parameterErrors ?? null,
+            });
+
+            await txs.updateOne(
+              { id: tx.id, status: { $ne: "success" }, activation_applied_at: { $exists: false } },
+              {
+                $set: {
+                  status: "verification_error",
+                  result_code: code,
+                  result_description: gatewayDescription,
+                  verification_error: true,
+                  gateway_http_status: response.status,
+                  parameter_errors: data.parameterErrors ?? null,
+                  updated_at: new Date(),
+                },
+              },
             );
+
+            return Response.json({
+              success: false,
+              pending: false,
+              status: "verification_error",
+              verificationError: true,
+              code,
+              description,
+              gatewayDescription,
+              parameterErrors: data.parameterErrors ?? null,
+            });
           }
 
           if (
