@@ -470,7 +470,7 @@ function PropertyDetail() {
                 <img
                   src={img.url}
                   alt={data.title}
-                  className="aspect-[4/3] w-full object-cover"
+                  className="aspect-[5/4] max-h-[300px] w-full object-cover"
                 />
               </button>
             ))
@@ -501,34 +501,38 @@ function PropertyDetail() {
         </button>
       </div>
 
-      <main className="flex-1 space-y-5 px-4 py-5">
-        <div>
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="font-display text-xl leading-tight font-extrabold">{data.title}</h1>
-            <span className="shrink-0 rounded-full bg-terracotta-soft px-2.5 py-1 text-[11px] font-semibold text-terracotta">
+      <main className="relative z-10 -mt-4 flex-1 space-y-3 px-3 pb-5 pt-0">
+        <section className="rounded-3xl bg-surface p-4 shadow-sm ring-1 ring-line">
+          <div className="flex items-start justify-between gap-2">
+            <h1 className="min-w-0 flex-1 font-display text-lg leading-snug font-extrabold">{data.title}</h1>
+            <span className="shrink-0 rounded-full bg-terracotta-soft px-2.5 py-1 text-[10px] font-semibold text-terracotta">
               {listingLabel(data.listing)}
             </span>
           </div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            {data.neighborhood} · {governorateData?.name_ar || "—"} ·{" "}
-            {timeAgo(data.created_at)}
+          <div className="mt-1.5 text-xs leading-5 text-muted-foreground">
+            {data.neighborhood} · {governorateData?.name_ar || "—"} · {timeAgo(data.created_at)}
           </div>
-          <div className="mt-3 font-display text-2xl font-extrabold text-forest">
-            {formatPrice(data.price)} <span className="text-base">ر.س</span>
-            {data.listing === "rent" && (
-              <span className="text-sm font-bold text-muted-foreground">
-                {" "}
-                / {rentPeriodLabel(data.rent_period)}
-              </span>
-            )}
+          <div className="mt-2.5 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+            <div className="font-display text-2xl font-extrabold leading-tight text-forest">
+              {formatPrice(data.price)} <span className="text-base">ر.س</span>
+              {data.listing === "rent" && (
+                <span className="text-sm font-bold text-muted-foreground">
+                  {" "}
+                  / {rentPeriodLabel(data.rent_period)}
+                </span>
+              )}
+            </div>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-mono">{data.property_number}</span> · {stateLabel(data.state)} ·{" "}
-            {data.views_count} مشاهدة · {images.length} صورة · أُضيف {formatDate(data.created_at)}
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="rounded-lg bg-background px-2 py-1 font-mono ring-1 ring-line">{data.property_number}</span>
+            <span className="rounded-lg bg-background px-2 py-1 ring-1 ring-line">{stateLabel(data.state)}</span>
+            <span className="rounded-lg bg-background px-2 py-1 ring-1 ring-line">{data.views_count} مشاهدة</span>
+            <span className="rounded-lg bg-background px-2 py-1 ring-1 ring-line">{images.length} صورة</span>
+            <span className="rounded-lg bg-background px-2 py-1 ring-1 ring-line">أُضيف {formatDate(data.created_at)}</span>
           </div>
-        </div>
+        </section>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Spec icon={Maximize} label="المساحة" value={formatArea(data.area)} />
           <Spec icon={Compass} label="النوع" value={kindLabel(data.kind)} />
           {["villa", "apartment"].includes(data.kind) && data.rooms != null && (
