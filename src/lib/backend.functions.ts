@@ -242,6 +242,7 @@ function sanitizeOfficePrivateFields(value: unknown, userId: string | null, role
     return value.map((item) => sanitizeOfficePrivateFields(item, userId, role));
   }
   if (!value || typeof value !== "object") return value;
+  if (value instanceof Date) return value;
 
   const output: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
