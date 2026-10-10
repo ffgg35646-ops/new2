@@ -74,9 +74,7 @@ export function QrDialog({
         >
           فتح الرابط لاختباره
         </a>
-        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-          امسح الرمز بكاميرا الجوال أو Google Lens؛ سيفتح رابط المكتب أو العقار في الموقع.
-        </p>
+        
       </div>
     </div>
   );
