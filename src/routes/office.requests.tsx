@@ -444,9 +444,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                     <CheckCircle2 className="size-4" />
                     إنهاء المعاينة
                   </button>
-                  {!isSaudiAppointmentStarted(booking.visit_date, booking.visit_time) && (
-                    
-                  )}
+                  
                 </>
               )}
             </article>
