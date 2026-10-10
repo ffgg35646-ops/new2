@@ -76,7 +76,6 @@ function OfficesPage() {
           <EmptyState
             icon={Building2}
             title="لا توجد مكاتب في هذه المحافظة"
-            description="جرّب تغيير المحافظة من الأعلى."
           />
         )}
       </main>
