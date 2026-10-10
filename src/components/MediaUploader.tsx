@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { uploadMedia as uploadMediaServer } from "@/lib/backend.functions";
+import { getPendingSignupAvatar } from "@/lib/pending-signup-avatar";
 
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -33,6 +34,12 @@ export async function uploadMedia(file: File, userId: string, folder: string) {
   if (!publicUrl) throw new Error("تعذّر إنشاء رابط المرفق.");
 
   return publicUrl;
+}
+
+export async function uploadPendingSignupAvatar(userId: string) {
+  const file = await getPendingSignupAvatar();
+  if (!file) throw new Error("الصورة المختارة غير متاحة. اختر الصورة مرة أخرى.");
+  return uploadMedia(file, userId, "avatars");
 }
 
 export function MediaUploader({
