@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CalendarDays, Loader2, Phone, X } from "lucide-react";
 import { saudiAppointmentDateTime, saudiInputDateTime } from "@/lib/saudi-time";
+import { appNowMs } from "@/lib/clock";
 
 export function EditViewingBookingModal({
   open,
@@ -29,7 +30,7 @@ export function EditViewingBookingModal({
 
   useEffect(() => {
     if (!open) return;
-    const minimumSaudi = saudiInputDateTime(new Date(Date.now() + 60_000));
+    const minimumSaudi = saudiInputDateTime(new Date(appNowMs() + 60_000));
     setDate(visitDate ? String(visitDate).slice(0, 10) : minimumSaudi.slice(0, 10));
     setTime(visitTime ? String(visitTime).slice(0, 5) : minimumSaudi.slice(11, 16));
     setPhone(contactPhone ?? "");
@@ -37,7 +38,7 @@ export function EditViewingBookingModal({
 
   if (!open) return null;
 
-  const minimumSaudi = saudiInputDateTime(new Date(Date.now() + 60_000));
+  const minimumSaudi = saudiInputDateTime(new Date(appNowMs() + 60_000));
   const minimumDate = minimumSaudi.slice(0, 10);
   const minimumTime = minimumSaudi.slice(11, 16);
 
@@ -46,7 +47,7 @@ export function EditViewingBookingModal({
     if (!date || !time) return;
 
     const appointment = saudiAppointmentDateTime(date, time);
-    if (!Number.isFinite(appointment.getTime()) || appointment.getTime() <= Date.now()) return;
+    if (!Number.isFinite(appointment.getTime()) || appointment.getTime() <= appNowMs()) return;
 
     onConfirm({
       visitDate: date,
