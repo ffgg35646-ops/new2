@@ -442,9 +442,7 @@ function AdminNotifications() {
                 إرسال رسالة داخل التطبيق
               </h1>
 
-              <p className="mt-2 max-w-xl text-sm leading-7 opacity-80">
-                اختر الجمهور، حدد المستلمين، ثم أرسل إشعارًا يظهر لهم مباشرة داخل التطبيق.
-              </p>
+              
             </div>
 
             <div className="hidden size-16 shrink-0 place-items-center rounded-3xl bg-background/10 md:grid">
@@ -487,9 +485,7 @@ function AdminNotifications() {
                   اختر المستلمين
                 </h2>
               </div>
-              <p className="mt-1 text-xs leading-6 text-muted-foreground">
-                يمكنك تحديد أفراد أو مكاتب أو جميع الحسابات المتاحة.
-              </p>
+              
             </div>
 
             <div className="rounded-2xl bg-forest-soft px-3 py-2 text-xs font-bold text-forest">
@@ -825,9 +821,7 @@ function AdminNotifications() {
                   {selected.size}
                 </span>
               </div>
-              <p className="mt-1 text-[11px] leading-6 text-muted-foreground">
-                سيظهر الإشعار داخل جرس التطبيق لدى الحسابات المحددة.
-              </p>
+              
             </div>
 
             <button
