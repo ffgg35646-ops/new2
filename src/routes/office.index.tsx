@@ -1,6 +1,7 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import {
   Building2,
   CalendarDays,
@@ -10,6 +11,7 @@ import {
   Heart,
   Home,
   Plus,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -42,6 +44,7 @@ function OfficeDashboard() {
   const isOwner = membership?.isOwner ?? false;
   const { data: newRequests = 0 } = useNewInquiriesCount(office?.id);
   const { package: currentPackage, expired, expiresAt, propertyLimit } = useMyPlan();
+  const [showFavorites, setShowFavorites] = useState(false);
 
   const { data: stats } = useQuery({
     queryKey: ["office-stats", office?.id],
@@ -65,6 +68,7 @@ function OfficeDashboard() {
           .from("property_inquiries")
           .select("id,type,status,contact_name,created_at,properties(title)")
           .eq("office_id", office!.id)
+          .in("status", ["new", "accepted"])
           .order("created_at", { ascending: false })
           .limit(5),
       ]);
@@ -77,6 +81,19 @@ function OfficeDashboard() {
         bookings: bookings.data ?? [],
         inquiries: inquiries.data ?? [],
       };
+    },
+  });
+
+  const { data: savedPeople = [], isLoading: savedPeopleLoading, error: savedPeopleError } = useQuery({
+    queryKey: ["office-property-favorites", office?.id],
+    enabled: !!office?.id && showFavorites,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("office_property_favorites" as never);
+      if (error) throw error;
+      return (Array.isArray(data) ? data : []) as unknown as Array<{
+        user_name: string;
+        office_name: string;
+      }>;
     },
   });
 
@@ -131,7 +148,7 @@ function OfficeDashboard() {
           <Stat icon={Home} label="نشط" value={stats?.published ?? 0} />
           <Stat icon={ClipboardList} label="طلبات مستلمة ومقبولة" value={newRequests} />
           <Stat icon={Eye} label="مشاهدات" value={stats?.views ?? 0} />
-          <Stat icon={Heart} label="حفظ" value={stats?.favorites ?? 0} />
+          <Stat icon={Heart} label="حفظ" value={stats?.favorites ?? 0} onClick={() => setShowFavorites(true)} />
         </section>
 
         <Link
@@ -237,17 +254,95 @@ function OfficeDashboard() {
           )}
         </section>
       </main>
+
+      {showFavorites && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
+          role="presentation"
+          onClick={() => setShowFavorites(false)}
+        >
+          <section
+            className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl ring-1 ring-line"
+            role="dialog"
+            aria-modal="true"
+            aria-label="الأشخاص الذين حفظوا عروض المكتب"
+            dir="rtl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-line p-4">
+              <div className="min-w-0">
+                <h2 className="font-display text-base font-extrabold">{office?.name}</h2>
+                <p className="mt-1 text-xs text-muted-foreground">الأشخاص الذين حفظوا عروض المكتب</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFavorites(false)}
+                aria-label="إغلاق"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-background ring-1 ring-line"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-3">
+              {savedPeopleLoading ? (
+                <div className="grid place-items-center py-8">
+                  <span className="text-sm text-muted-foreground">جارٍ التحميل...</span>
+                </div>
+              ) : savedPeopleError ? (
+                <p role="alert" className="py-4 text-center text-xs text-terracotta">
+                  تعذّر تحميل الأسماء.
+                </p>
+              ) : savedPeople.length ? (
+                <ul className="space-y-2">
+                  {savedPeople.map((person, index) => (
+                    <li
+                      key={person.user_name + "-" + index}
+                      className="flex items-center gap-3 rounded-2xl bg-background p-3 ring-1 ring-line"
+                    >
+                      <span className="min-w-0 flex-1 text-sm font-bold">{person.user_name}</span>
+                      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{person.office_name}</span>
+                      <Heart className="size-4 shrink-0 fill-terracotta text-terracotta" aria-label="حفظ" />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   );
 }
 
-function Stat({ icon: Icon, label, value }: { icon: typeof Home; label: string; value: number }) {
-  return (
-    <div className="rounded-2xl bg-surface p-3 text-center ring-1 ring-line">
+function Stat({
+  icon: Icon,
+  label,
+  value,
+  onClick,
+}: {
+  icon: typeof Home;
+  label: string;
+  value: number;
+  onClick?: () => void;
+}) {
+  const classes = "rounded-2xl bg-surface p-3 text-center ring-1 ring-line" +
+    (onClick ? " cursor-pointer transition hover:ring-2 hover:ring-forest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest" : "");
+
+  const content = (
+    <>
       <Icon className="mx-auto size-4 text-terracotta" />
       <div className="mt-1 font-display text-lg font-extrabold">{value}</div>
       <div className="text-[10px] text-muted-foreground">{label}</div>
-    </div>
+    </>
+  );
+
+  return onClick ? (
+    <button type="button" onClick={onClick} className={classes} aria-haspopup="dialog">
+      {content}
+    </button>
+  ) : (
+    <div className={classes}>{content}</div>
   );
 }
