@@ -12,7 +12,7 @@ export const appQueryPersister =
     storage,
 
     // اسم منفصل للكاش الجديد.
-    prefix: "aqar-batin-query-v2",
+    prefix: "aqar-batin-query-v3",
 
     // احتفظ بالبيانات المحفوظة حتى 24 ساعة.
     // staleTime هو الذي يحدد هل نحتاج تحديثًا في الخلفية.
