@@ -79,30 +79,65 @@ export function MediaUploader({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        {value.map((url) => (
-          <div key={url} className="relative size-20 overflow-hidden rounded-xl ring-1 ring-line">
-            <img src={url} alt="" className="size-full object-cover" />
+      {folder === "avatars" ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {value.map((url) => (
+              <div key={url} className="relative size-20 overflow-hidden rounded-full ring-1 ring-line">
+                <img src={url} alt="معاينة صورة الملف الشخصي" className="size-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => onChange(value.filter((item) => item !== url))}
+                  className="absolute left-1 top-1 grid size-6 place-items-center rounded-full bg-background/95 shadow-sm ring-1 ring-line"
+                  aria-label="إزالة الصورة"
+                  title="إزالة الصورة"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            ))}
             <button
               type="button"
-              onClick={() => onChange(value.filter((u) => u !== url))}
-              className="absolute top-1 left-1 grid size-5 place-items-center rounded-full bg-background/90"
-              aria-label="حذف"
+              onClick={() => inputRef.current?.click()}
+              disabled={busy}
+              className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-surface px-3 py-3 text-sm font-bold text-forest transition-colors hover:bg-forest-soft disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <X className="size-3" />
+              {busy ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
+              <span>{busy ? "جارٍ رفع الصورة..." : value.length ? "تغيير الصورة من الجهاز" : "اختيار صورة من الجهاز"}</span>
             </button>
           </div>
-        ))}
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={busy}
-          className="grid size-20 place-items-center rounded-xl border border-dashed border-line bg-surface text-muted-foreground"
-        >
-          {busy ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
-        </button>
-      </div>
-      <p className="text-[11px] text-muted-foreground">{label} · JPG/PNG/WEBP · حتى 8 ميجابايت</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {label} · JPG أو PNG أو WEBP · حتى 8 ميجابايت
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {value.map((url) => (
+              <div key={url} className="relative size-20 overflow-hidden rounded-xl ring-1 ring-line">
+                <img src={url} alt="" className="size-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => onChange(value.filter((item) => item !== url))}
+                  className="absolute top-1 left-1 grid size-5 place-items-center rounded-full bg-background/90"
+                  aria-label="حذف"
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={busy}
+              className="grid size-20 place-items-center rounded-xl border border-dashed border-line bg-surface text-muted-foreground"
+            >
+              {busy ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">{label} · JPG/PNG/WEBP · حتى 8 ميجابايت</p>
+        </>
+      )}
       <input
         ref={inputRef}
         type="file"
