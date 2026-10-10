@@ -1,8 +1,9 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { BottomNav } from "@/components/BottomNav";
 import { useQuery } from "@tanstack/react-query";
 import { usePackages } from "@/lib/plans";
 
@@ -36,6 +37,7 @@ declare global {
 }
 
 function PayPage() {
+  const navigate = Route.useNavigate();
   const { package: packageId } = Route.useSearch();
   const { data: packages = [] } = usePackages(true);
 
@@ -133,9 +135,35 @@ function PayPage() {
       <AppHeader showSearch={false} />
 
       <div className="mx-auto w-full max-w-md space-y-4 px-4 py-4">
-        <h1 className="font-display text-xl font-extrabold">
-          الدفع الآمن
-        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              const referrer = document.referrer;
+              const sameSiteReferrer = (() => {
+                try {
+                  return !!referrer && new URL(referrer).origin === window.location.origin;
+                } catch {
+                  return false;
+                }
+              })();
+
+              if (sameSiteReferrer && window.history.length > 1) {
+                window.history.back();
+              } else {
+                void navigate({ to: "/plans" });
+              }
+            }}
+            aria-label="الرجوع للخلف"
+            title="رجوع"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-surface ring-1 ring-line"
+          >
+            <ArrowRight className="size-5" />
+          </button>
+          <h1 className="font-display text-xl font-extrabold">
+            الدفع الآمن
+          </h1>
+        </div>
 
         {selected && (
           <div className="rounded-3xl bg-surface p-4 ring-1 ring-line">
@@ -195,6 +223,7 @@ function PayPage() {
           />
         )}
       </div>
+      <BottomNav variant="office" fixed />
     </div>
   );
 }
