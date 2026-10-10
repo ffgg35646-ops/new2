@@ -8,7 +8,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { ChatThread } from "@/components/ChatThread";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { formatDate, timeAgo } from "@/lib/format";
+import { formatDate, timeAgo, parseDateValue } from "@/lib/format";
 import { RoleGuard } from "@/lib/role-guard";
 
 export const Route = createFileRoute("/chats")({
@@ -198,8 +198,8 @@ function ChatsPage() {
         }),
       );
       return rows.sort((a, b) => {
-        const aTime = new Date(a.lastMessage?.created_at ?? a.updated_at).getTime();
-        const bTime = new Date(b.lastMessage?.created_at ?? b.updated_at).getTime();
+        const aTime = (parseDateValue(a.lastMessage?.created_at ?? a.updated_at)?.getTime() ?? 0);
+        const bTime = (parseDateValue(b.lastMessage?.created_at ?? b.updated_at)?.getTime() ?? 0);
         return bTime - aTime;
       });
     },
