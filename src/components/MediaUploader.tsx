@@ -51,19 +51,24 @@ export function MediaUploader({
   label?: string;
 }) {
   const [busy, setBusy] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFiles(files: FileList | null) {
-    if (!files?.length) return;
+    if (!files?.length || busy) return;
     setBusy(true);
+    setUploadError("");
     try {
       const urls: string[] = [];
       for (const file of Array.from(files).slice(0, multiple ? 10 : 1)) {
         urls.push(await uploadMedia(file, userId, folder));
       }
       onChange(multiple ? [...value, ...urls] : urls);
+      toast.success("تم رفع الصورة بنجاح");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "تعذّر رفع الملف");
+      const message = e instanceof Error ? e.message : "تعذّر رفع الملف";
+      setUploadError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -75,7 +80,7 @@ export function MediaUploader({
       <div className="flex flex-wrap gap-2">
         {value.map((url) => (
           <div key={url} className="relative size-20 overflow-hidden rounded-xl ring-1 ring-line">
-            <img src={url} alt="" className="size-full object-cover" />
+            <img src={url} alt="الصورة المرفوعة" className="size-full object-cover" />
             <button
               type="button"
               onClick={() => onChange(value.filter((u) => u !== url))}
@@ -86,24 +91,28 @@ export function MediaUploader({
             </button>
           </div>
         ))}
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={busy}
-          className="grid size-20 place-items-center rounded-xl border border-dashed border-line bg-surface text-muted-foreground"
+        <label
+          className={
+            "relative grid size-20 place-items-center rounded-xl border border-dashed border-line bg-surface text-muted-foreground " +
+            (busy ? "cursor-wait opacity-60" : "cursor-pointer hover:bg-sand")
+          }
+          aria-label={busy ? "جارٍ رفع الصورة" : label}
         >
-          {busy ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
-        </button>
+          {busy ? <Loader2 className="pointer-events-none size-5 animate-spin" /> : <ImagePlus className="pointer-events-none size-5" />}
+          <input
+            ref={inputRef}
+            type="file"
+            accept={ALLOWED.join(",")}
+            multiple={multiple}
+            disabled={busy}
+            aria-label={label}
+            className="absolute inset-0 size-full cursor-pointer opacity-0 disabled:cursor-wait"
+            onChange={(e) => void handleFiles(e.target.files)}
+          />
+        </label>
       </div>
       <p className="text-[11px] text-muted-foreground">{label} · JPG/PNG/WEBP · حتى 8 ميجابايت</p>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ALLOWED.join(",")}
-        multiple={multiple}
-        className="hidden"
-        onChange={(e) => void handleFiles(e.target.files)}
-      />
+      {uploadError && <p role="alert" className="text-xs text-destructive">فشل رفع الصورة: {uploadError}</p>}
     </div>
   );
 }
