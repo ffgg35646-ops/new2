@@ -1676,9 +1676,7 @@ function ReportsTab() {
             )}
 
           <p className="mt-2 text-[10px] text-muted-foreground">
-            {new Date(
-              report.created_at,
-            ).toLocaleString("ar-IQ")}
+            {formatDateTime(report.created_at)}
           </p>
         </div>
       ))}
