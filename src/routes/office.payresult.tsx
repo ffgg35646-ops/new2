@@ -18,7 +18,7 @@ export const Route = createFileRoute("/office/payresult")({
 function ResultPage() {
   const { id, resourcePath } = Route.useSearch();
   const qc = useQueryClient();
-  const [state, setState] = useState<"checking" | "success" | "failed" | "pending">("checking");
+  const [state, setState] = useState<"checking" | "success" | "failed" | "pending" | "verification_error">("checking");
   const [message, setMessage] = useState("");
   const done = useRef(false);
 
@@ -44,11 +44,37 @@ function ResultPage() {
           signal: ctrl.signal,
         });
 
-        return (await res.json()) as {
+        const responseText = await res.text();
+        let parsed: {
           success?: boolean;
           description?: string;
+          error?: string;
+          code?: string;
           status?: string;
           pending?: boolean;
+          verificationError?: boolean;
+        };
+
+        try {
+          parsed = JSON.parse(responseText) as typeof parsed;
+        } catch {
+          return {
+            success: false,
+            pending: false,
+            status: "verification_error",
+            verificationError: true,
+            description: `خدمة التحقق أعادت استجابة غير صالحة (HTTP ${res.status}). لم يتم تأكيد نتيجة البطاقة، ولم يتم تفعيل الباقة.`,
+          };
+        }
+
+        return {
+          ...parsed,
+          description:
+            parsed.description ??
+            parsed.error ??
+            (!res.ok
+              ? `تعذّر التحقق من الدفع (HTTP ${res.status}). لم يتم تفعيل الباقة.`
+              : undefined),
         };
       } finally {
         clearTimeout(t);
@@ -59,6 +85,17 @@ function ResultPage() {
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           const data = await checkOnce(12000);
+
+          if (data?.verificationError || data?.status === "verification_error") {
+            setState("verification_error");
+            setMessage(
+              data.description ||
+                data.error ||
+                "تعذّر تأكيد نتيجة العملية لدى HyperPay. لم يتم تفعيل الباقة.",
+            );
+            return;
+          }
+
           if (data?.success) {
             setState("success");
             setMessage("تم استلام دفعتك وتفعيل الباقة الاحترافية لمدة 30 يومًا 🎉");
@@ -134,12 +171,32 @@ function ResultPage() {
           </>
         )}
 
+        {state === "verification_error" && (
+          <>
+            <XCircle className="size-16 text-terracotta" />
+            <h1 className="mt-4 font-display text-xl font-extrabold">تعذّر التحقق من الدفع</h1>
+            <p className="mt-2 text-sm leading-7 text-muted-foreground">
+              {message}
+            </p>
+            <p className="mt-2 text-xs leading-6 text-muted-foreground">
+              هذه ليست بالضرورة نتيجة رفض من البنك؛ تعذّر تأكيد حالة العملية. لم يتم تفعيل الباقة.
+            </p>
+            <Link
+              to="/office/pay"
+              search={{ package: undefined }}
+              className="mt-6 rounded-2xl bg-forest px-6 py-3 text-sm font-bold text-background"
+            >
+              بدء محاولة جديدة
+            </Link>
+          </>
+        )}
+
         {state === "failed" && (
           <>
             <XCircle className="size-16 text-terracotta" />
             <h1 className="mt-4 font-display text-xl font-extrabold">لم يكتمل الدفع</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {message} لم يتم تفعيل الباقة.
+            <p className="mt-2 text-sm leading-7 text-muted-foreground">
+              {message || "رفضت البوابة العملية أو لم تكتمل."} لم يتم تفعيل الباقة.
             </p>
             <Link
               to="/office/pay"
