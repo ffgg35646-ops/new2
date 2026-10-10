@@ -236,7 +236,7 @@ function OfficeProperties() {
           <EmptyState
             icon={Home}
             title="لا توجد عروض بعد"
-            description="ابدأ بإضافة أول عرض عقاري لمكتبك."
+            
           />
         )}
       </main>
