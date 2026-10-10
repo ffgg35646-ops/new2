@@ -163,7 +163,7 @@ function NewProperty() {
           </div>
         )}
 
-        <section className="space-y-3 rounded-3xl bg-surface p-4 ring-1 ring-line">
+        <section className="app-form-card space-y-4">
           <Row label="نوع العقار">
             {PROPERTY_KINDS.map((k) => (
               <Pill
@@ -232,7 +232,7 @@ function NewProperty() {
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
+              className="app-field-control"
             />
           </label>
 
@@ -256,7 +256,7 @@ function NewProperty() {
           <button
             onClick={() => create.mutate()}
             disabled={create.isPending}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-forest px-4 py-3.5 font-display font-bold text-background shadow-sm transition-colors hover:bg-forest/95 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {create.isPending && <Loader2 className="size-4 animate-spin" />} نشر العرض
           </button>
