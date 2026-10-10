@@ -72,7 +72,7 @@ type OfferRow = {
 
 export const Route = createFileRoute("/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: search["tab"] === "sent" ? ("sent" as const) : search["tab"] === "history" ? ("history" as const) : ("received" as const),
+    tab: search["tab"] === "sent" ? ("sent" as const) : search["tab"] === "history" ? ("history" as const) : search["tab"] === "accepted" ? ("accepted" as const) : ("received" as const),
     request: typeof search["request"] === "string" ? search["request"] : undefined,
     offer: typeof search["offer"] === "string" ? search["offer"] : undefined,
   }),
@@ -93,7 +93,7 @@ function RequestsPage() {
   const { userId } = useAuth();
   const qc = useQueryClient();
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"sent" | "received" | "history">(search["tab"]);
+  const [tab, setTab] = useState<"sent" | "received" | "accepted" | "history">(search["tab"]);
   const [openOfferId, setOpenOfferId] = useState<string | null>(null);
   const [activeRequestsPage, setActiveRequestsPage] = useState(1);
   const [receivedOffersPage, setReceivedOffersPage] = useState(1);
@@ -212,6 +212,7 @@ function RequestsPage() {
     () => personalInquiries.filter((inquiry) => ["ended", "completed", "rejected", "cancelled"].includes(inquiry.status)),
     [personalInquiries],
   );
+  const acceptedCount = acceptedMarketRequests.length + acceptedPersonalInquiries.length;
   const historyCount = historyRequests.length + historyInquiries.length;
   const acceptedMarketRequestIds = useMemo(
     () => new Set(myRequests
@@ -356,21 +357,10 @@ function RequestsPage() {
           </p>
         </div>
 
-        {tab !== "history" && !isLoading && !inquiriesLoading && (
-          <AcceptedPrioritySection
-            requests={acceptedMarketRequests}
-            inquiries={acceptedPersonalInquiries}
-            pending={endRequest.isPending || completeRequest.isPending || updateInquiryStatus.isPending}
-            onEndRequest={(id) => setEndRequestId(id)}
-            onCompleteRequest={(id) => { setCompletionRequestId(id); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
-            onEndInquiry={(id) => setEndInquiryId(id)}
-            onCompleteInquiry={(id) => setCompleteInquiryId(id)}
-          />
-        )}
-
-        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
+        <div className="grid grid-cols-4 gap-1.5 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
           <Tab active={tab === "sent"} label="المرسلة" count={activeSent} onClick={() => setTab("sent")} />
           <Tab active={tab === "received"} label="مستلم" count={receivedCount} onClick={() => setTab("received")} />
+          <Tab active={tab === "accepted"} label="المقبولة" count={acceptedCount} onClick={() => setTab("accepted")} />
           <Tab active={tab === "history"} label="تاريخ الطلبات" count={historyCount} onClick={() => setTab("history")} />
         </div>
 
@@ -430,6 +420,20 @@ function RequestsPage() {
               </div>
             );
           })()
+        ) : tab === "accepted" ? (
+          inquiriesLoading ? (
+            <ListSkeleton />
+          ) : (
+            <AcceptedPrioritySection
+              requests={acceptedMarketRequests}
+              inquiries={acceptedPersonalInquiries}
+              pending={endRequest.isPending || completeRequest.isPending || updateInquiryStatus.isPending}
+              onEndRequest={(id) => setEndRequestId(id)}
+              onCompleteRequest={(id) => { setCompletionRequestId(id); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
+              onEndInquiry={(id) => setEndInquiryId(id)}
+              onCompleteInquiry={(id) => setCompleteInquiryId(id)}
+            />
+          )
         ) : tab === "history" ? (
           inquiriesLoading ? (
             <ListSkeleton />
