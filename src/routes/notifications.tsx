@@ -147,7 +147,7 @@ function NotificationsPage() {
             ))}
           </div>
         ) : (
-          <EmptyState icon={Bell} title="لا توجد إشعارات" description="سننبهك عند وصول أي جديد." />
+          <EmptyState icon={Bell} title="لا توجد إشعارات" />
         )}
       </main>
       <BottomNav />
