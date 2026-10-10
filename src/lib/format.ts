@@ -1,3 +1,5 @@
+import { appNowMs } from "@/lib/clock";
+
 export function formatPrice(value: number | string | null | undefined) {
   const n = Number(value ?? 0);
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
@@ -88,7 +90,7 @@ export function timeAgo(value: unknown) {
   const date = parseDateValue(value);
   if (!date) return "—";
 
-  const diff = Date.now() - date.getTime();
+  const diff = appNowMs() - date.getTime();
   // Created-at labels should not claim a future timestamp is "just now".
   // A clock skew or bad stored date is better shown neutrally than as NaN.
   if (diff < -60_000) return "—";
