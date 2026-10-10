@@ -17,6 +17,7 @@ import { EditViewingBookingModal } from "@/components/EditViewingBookingModal";
 import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
 import { CancelReasonModal } from "@/components/CancelReasonModal";
 import { isSaudiAppointmentStarted, isSaudiAppointmentToday, formatBookingTime } from "@/lib/saudi-time";
+import { appNow } from "@/lib/clock";
 
 export const Route = createFileRoute("/bookings")({
   head: () => ({
@@ -39,10 +40,10 @@ function BookingsPage() {
   const [finishId, setFinishId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [activeBookingsPage, setActiveBookingsPage] = useState(1);
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => appNow());
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    const timer = window.setInterval(() => setNow(appNow()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
 
