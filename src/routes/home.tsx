@@ -245,7 +245,7 @@ function StatCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl bg-surface px-2.5 py-3 text-center ring-1 ring-line">
+    <div className="rounded-2xl bg-surface px-2.5 py-3 text-center ring-1 ring-line shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="mx-auto grid size-8 place-items-center rounded-xl bg-forest-soft text-forest">
         <Icon className="size-4" />
       </div>
@@ -270,7 +270,7 @@ function Chip({
     <button
       onClick={onClick}
       className={cn(
-        "shrink-0 rounded-full px-4 font-semibold transition",
+        "shrink-0 rounded-full px-4 font-semibold transition active:scale-[0.98]",
         small ? "py-1.5 text-xs" : "py-2 text-sm",
         active ? "bg-forest text-background" : "bg-surface text-muted-foreground ring-1 ring-line",
       )}
