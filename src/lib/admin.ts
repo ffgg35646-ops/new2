@@ -73,10 +73,9 @@ type OfficeRow = {
 };
 
 function sortNewest<T extends { created_at: string }>(rows: T[]) {
-  return [...rows].sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() -
-      new Date(a.created_at).getTime(),
+  return [...rows].sort((a, b) =>
+    (parseDateValue(b.created_at)?.getTime() ?? 0) -
+    (parseDateValue(a.created_at)?.getTime() ?? 0),
   );
 }
 
@@ -525,5 +524,5 @@ export function isTodaySaudi(date: unknown) {
   );
 
   return formatter.format(parsedDate) ===
-    formatter.format(new Date());
+    formatter.format(appNow());
 }
