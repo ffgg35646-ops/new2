@@ -78,9 +78,7 @@ function ForgotPasswordPage() {
       </div>
 
       <h1 className="mt-4 font-display text-2xl font-extrabold">نسيت كلمة المرور؟</h1>
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-        أدخل بريدك الإلكتروني المسجّل وسنرسل لك رسالة تتيح لك إنشاء كلمة مرور جديدة.
-      </p>
+      
 
       <div className="mt-6 space-y-3">
         <label className="block">
