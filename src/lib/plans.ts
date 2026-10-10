@@ -117,7 +117,7 @@ export function useMyPlan() {
   const packageId = office?.package_id ?? null;
 
   const packageQuery = useQuery({
-    queryKey: ["my-package", packageId, office?.plan],
+    queryKey: ["my-package", packageId, office?.plan, office?.plan_expires_at ?? null],
     enabled: !!office,
     refetchInterval: 60_000,
     refetchIntervalInBackground: true,
@@ -184,7 +184,9 @@ export function useMyPlan() {
   const currentPlan: OfficePlan =
     expired
       ? "free"
-      : pkg?.code === "pro" || Number(pkg?.price ?? 0) > 0
+      : office?.plan === "pro" ||
+          pkg?.code === "pro" ||
+          Number(pkg?.price ?? 0) > 0
         ? "pro"
         : "free";
 
