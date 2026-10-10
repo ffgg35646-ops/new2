@@ -46,6 +46,7 @@ type PaymentRow = {
 function statusLabel(status: string) {
   if (status === "success") return "ناجحة";
   if (status === "pending") return "قيد المعالجة";
+  if (status === "verification_error") return "تعذّر التحقق";
   if (status === "cancelled") return "ملغاة";
   return "فاشلة";
 }
@@ -55,7 +56,7 @@ function statusClass(status: string) {
     return "bg-forest-soft text-forest";
   }
 
-  if (status === "pending") {
+  if (status === "pending" || status === "verification_error") {
     return "bg-amber-500/10 text-amber-700";
   }
 
