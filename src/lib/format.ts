@@ -33,3 +33,16 @@ export function formatDate(iso: string | null | undefined) {
     day: "numeric",
   });
 }
+
+export function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("ar-SA-u-nu-latn", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+}
