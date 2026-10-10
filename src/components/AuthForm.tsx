@@ -203,7 +203,7 @@ export function AuthForm({
             data: {
               full_name: fullName.trim(),
               role,
-              avatar_url: avatarUrl.trim() || null,
+              avatar_url: avatarUrl && !avatarUrl.startsWith("blob:") ? avatarUrl.trim() || null : null,
             },
           },
         });
