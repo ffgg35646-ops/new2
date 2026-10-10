@@ -4,7 +4,7 @@ import { Building2, Crown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
-import { formatDate } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import {
   useMyPlan,
   useOfficePropertiesCount,
@@ -110,12 +110,12 @@ function Subscription() {
               <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <Row
                   label="بداية الاشتراك"
-                  value={startedAt ? formatDate(startedAt) : "—"}
+                  value={startedAt ? formatDateTime(startedAt) : "—"}
                 />
 
                 <Row
                   label="الانتهاء"
-                  value={expiresAt ? formatDate(expiresAt) : "—"}
+                  value={expiresAt ? formatDateTime(expiresAt) : "—"}
                 />
 
                 <Row
@@ -227,7 +227,7 @@ function Subscription() {
                       <Building2 className="size-3.5 text-terracotta" />
                       <span>{e.note ?? e.plan}</span>
                       <span className="ms-auto text-muted-foreground">
-                        {formatDate(e.created_at)}
+                        {formatDateTime(e.created_at)}
                       </span>
                     </li>
                   ))}
