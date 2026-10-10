@@ -276,9 +276,7 @@ export function AuthForm({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs leading-5 text-muted-foreground">
-                  الصورة اختيارية، وهتظهر بدل الأيقونة بعد إنشاء الحساب.
-                </p>
+                
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -309,7 +307,7 @@ export function AuthForm({
               className="hidden"
               onChange={(event) => void handleAvatarFile(event.target.files?.[0] ?? null)}
             />
-            <p className="mt-2 text-[10px] text-muted-foreground">JPG أو PNG أو WEBP · حتى 8 ميجابايت</p>
+            
           </div>
         )}
         {isRegister && (
