@@ -9,7 +9,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 
 import appCss from "../styles.css?url";
@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { registerPush } from "@/lib/push";
 import { ensureDeviceCookie } from "@/lib/device";
+import { syncServerClock } from "@/lib/clock";
 
 function NotFoundComponent() {
   return (
@@ -223,6 +224,26 @@ function RootComponent() {
 
   useEffect(() => {
     ensureDeviceCookie();
+  }, []);
+
+  // Keep relative labels and appointment checks correct even when the VM clock is wrong.
+  const [, setClockRevision] = useState(0);
+  useEffect(() => {
+    let active = true;
+    const sync = async () => {
+      const synced = await syncServerClock();
+      if (active && synced) setClockRevision((revision) => revision + 1);
+    };
+
+    void sync();
+    const timer = window.setInterval(() => void sync(), 60_000);
+    window.addEventListener("focus", sync);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", sync);
+    };
   }, []);
 
   return (
