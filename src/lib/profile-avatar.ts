@@ -34,8 +34,10 @@ export function profileAvatarFileFromDataUrl(dataUrl: string): File {
   const match = /^data:(image\/(?:jpeg|png|webp));base64,([\s\S]+)$/.exec(dataUrl);
   if (!match) throw new Error("صورة البروفايل المؤقتة غير صالحة.");
 
-  const mimeType = match[1];
-  const binary = atob(match[2]);
+  const mimeType = match[1] ?? "image/jpeg";
+  const encoded = match[2];
+  if (!encoded) throw new Error("بيانات صورة البروفايل غير مكتملة.");
+  const binary = atob(encoded);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) {
     bytes[index] = binary.charCodeAt(index);
