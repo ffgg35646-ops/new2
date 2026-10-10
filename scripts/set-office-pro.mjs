@@ -76,7 +76,7 @@ try {
 
   const findAccount = async (email, kind) => {
     const matches = await users.find(
-      { email: { $regex: `^${email.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}$`, $options: "i" } },
+      { email },
       { projection: { _id: 1, email: 1, role: 1, email_verified: 1 } },
     ).limit(2).toArray();
 
