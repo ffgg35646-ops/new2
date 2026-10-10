@@ -48,8 +48,9 @@ export const Route = createFileRoute("/office/requests")({
       search["tab"] === "inbox" ||
       search["tab"] === "bookings" ||
       search["tab"] === "market" ||
+      search["tab"] === "accepted" ||
       search["tab"] === "sent"
-        ? (search["tab"] as "inbox" | "bookings" | "market" | "sent")
+        ? (search["tab"] as "inbox" | "bookings" | "market" | "accepted" | "sent")
         : undefined,
     request: typeof search.request === "string" ? search.request : undefined,
   }),
@@ -73,7 +74,7 @@ export const Route = createFileRoute("/office/requests")({
 
 function OfficeRequests() {
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"inbox" | "bookings" | "market" | "sent">(
+  const [tab, setTab] = useState<"inbox" | "bookings" | "market" | "accepted" | "sent">(
     search.tab ?? "inbox",
   );
 
@@ -119,6 +120,27 @@ function OfficeRequests() {
     },
   });
 
+  const { data: acceptedCount = 0 } = useQuery({
+    queryKey: ["office-accepted-tab-count", officeId],
+    enabled: !!officeId,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
+      const [requestsResult, inquiriesResult] = await Promise.all([
+        supabase.rpc("office_accepted_property_requests" as never),
+        supabase
+          .from("property_inquiries")
+          .select("id", { count: "exact", head: true })
+          .eq("office_id", officeId!)
+          .eq("status", "accepted"),
+      ]);
+      if (requestsResult.error) throw requestsResult.error;
+      if (inquiriesResult.error) throw inquiriesResult.error;
+      const acceptedRequests = Array.isArray(requestsResult.data) ? requestsResult.data.length : 0;
+      return acceptedRequests + (inquiriesResult.count ?? 0);
+    },
+  });
+
   const { data: inquiriesCount = 0 } = useQuery({
     queryKey: ["office-inquiries-tab-count", officeId],
     enabled: !!officeId,
@@ -141,7 +163,7 @@ function OfficeRequests() {
       <main className="flex-1 space-y-4 px-4 py-4">
         <h1 className="font-display text-xl font-extrabold">الطلبات</h1>
 
-        <div className="flex gap-2">
+        <div className="grid grid-cols-5 gap-1">
           <TabButton
             active={tab === "bookings"}
             onClick={() => setTab("bookings")}
@@ -161,6 +183,12 @@ function OfficeRequests() {
             count={inquiriesCount}
           />
           <TabButton
+            active={tab === "accepted"}
+            onClick={() => setTab("accepted")}
+            label="المقبولة"
+            count={acceptedCount}
+          />
+          <TabButton
             active={tab === "sent"}
             onClick={() => setTab("sent")}
             label="تاريخ الطلبات"
@@ -168,14 +196,13 @@ function OfficeRequests() {
         </div>
 
         {tab === "inbox" ? (
-          <>
-            <AcceptedRequestsInbox officeId={officeId} highlightedRequestId={search.request} />
-            <InquiriesInbox officeId={officeId} />
-          </>
+          <InquiriesInbox officeId={officeId} />
         ) : tab === "bookings" ? (
           <BookingsInbox officeId={officeId} />
         ) : tab === "market" ? (
           <MarketRequests officeId={officeId} />
+        ) : tab === "accepted" ? (
+          <AcceptedRequestsInbox officeId={officeId} highlightedRequestId={search.request} />
         ) : (
           <SentOffers officeId={officeId} />
         )}
