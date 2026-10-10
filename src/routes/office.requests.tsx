@@ -343,7 +343,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
       <EmptyState
         icon={ClipboardList}
         title="لا توجد حجوزات معاينة"
-        description="ستظهر هنا مواعيد العملاء لعقارات مكتبك."
+        
       />
     );
   }
@@ -445,9 +445,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                     إنهاء المعاينة
                   </button>
                   {!isSaudiAppointmentStarted(booking.visit_date, booking.visit_time) && (
-                    <p className="mt-1 text-center text-[10px] text-muted-foreground">
-                      يتاح تأكيد إنهاء المعاينة عند حلول الموعد المحدد.
-                    </p>
+                    
                   )}
                 </>
               )}
@@ -887,9 +885,7 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
         );
       })}
       {!acceptedTotal && (
-        <div className="rounded-2xl bg-surface p-3 text-xs leading-6 text-muted-foreground ring-1 ring-line">
-          لا توجد طلبات مقبولة حتى الآن. عندما توافق على طلب تواصل سيظهر هنا، بدلًا من اختفائه من الطلبات المستلمة.
-        </div>
+        
       )}
       <CompleteViewingReasonModal
         open={!!cancelRequestId}
@@ -977,7 +973,7 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="font-display text-sm font-extrabold">طلبات مستلمة</h2>
-          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">طلبات التواصل التي تنتظر قرار المكتب: قبول أو رفض.</p>
+          
         </div>
         <span className="min-w-6 rounded-full bg-terracotta-soft px-2 py-1 text-center text-[10px] font-extrabold text-terracotta">{rows.length}</span>
       </div>
@@ -1098,7 +1094,7 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
         <EmptyState
           icon={ClipboardList}
           title="لا توجد طلبات تواصل على عروضك"
-          description="ستظهر هنا طلبات التواصل والاستفسارات الخاصة بعقارات مكتبك فقط."
+          
         />
       )}
     </div>
@@ -1618,7 +1614,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
   });
 
   if (isLoading) return <ListSkeleton />;
-  if (!data?.length) return <EmptyState icon={ClipboardList} title="السوق فارغ حاليًا" description="ستظهر هنا طلبات البحث العقاري النشطة في محافظتك." />;
+  if (!data?.length) return <EmptyState icon={ClipboardList} title="السوق فارغ حاليًا"  />;
 
   const details = data.find((request) => request.id === detailsId) ?? null;
   const offerRequest = data.find((request) => request.id === openId) ?? null;
