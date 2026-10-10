@@ -58,7 +58,6 @@ function FavoritesPage() {
           <EmptyState
             icon={Heart}
             title="سجّل الدخول لحفظ عقاراتك"
-            description="ستتمكن من حفظ العقارات ومتابعة تغير أسعارها."
             action={
               <Link
                 to="/auth/individual"
@@ -85,7 +84,6 @@ function FavoritesPage() {
           <EmptyState
             icon={Heart}
             title="لا توجد عقارات محفوظة"
-            description="اضغط على القلب في أي عرض لحفظه هنا."
           />
         )}
       </main>
