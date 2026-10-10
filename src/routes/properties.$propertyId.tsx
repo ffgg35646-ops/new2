@@ -187,11 +187,10 @@ function PropertyDetail() {
     staleTime: 30_000,
   });
 
+  // The server RPC has already checked Pro status and expiry using server time.
   const officeChatEnabled =
     officeChatPlan?.plan === "pro" &&
-    officeChatPlan.chat_enabled === true &&
-    (!officeChatPlan.expires_at ||
-      new Date(officeChatPlan.expires_at).getTime() > Date.now());
+    officeChatPlan.chat_enabled === true;
 
   const { data: similar } = useQuery({
     queryKey: ["similar-properties", propertyId, data?.kind, data?.governorate_id],
@@ -361,12 +360,8 @@ function PropertyDetail() {
         chat_enabled?: boolean;
       } | null;
 
-      if (
-        chatResult?.plan !== "pro" ||
-        chatResult.chat_enabled !== true ||
-        (chatResult.expires_at &&
-          new Date(chatResult.expires_at).getTime() <= Date.now())
-      ) {
+      // Entitlement was calculated by office_effective_plan on the server.
+      if (chatResult?.plan !== "pro" || chatResult.chat_enabled !== true) {
         throw new Error("الدردشة متاحة للمكاتب المشتركة في الباقة الاحترافية فقط");
       }
 
