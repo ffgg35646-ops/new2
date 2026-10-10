@@ -11,9 +11,11 @@ import {
   User,
 } from "lucide-react";
 import {
+  isTodaySaudi,
   useAdminDirectory,
   type AdminIndividual,
 } from "@/lib/admin";
+import { formatDate as formatSaudiDate } from "@/lib/format";
 
 export const Route = createFileRoute("/admin/individuals")({
   head: () => ({
@@ -42,16 +44,7 @@ function IndividualsPage() {
 
   const individuals = data?.individuals ?? [];
 
-  const today = individuals.filter((user) => {
-    const created = new Date(user.created_at);
-    const now = new Date();
-
-    return (
-      created.getFullYear() === now.getFullYear() &&
-      created.getMonth() === now.getMonth() &&
-      created.getDate() === now.getDate()
-    );
-  }).length;
+  const today = individuals.filter((user) => isTodaySaudi(user.created_at)).length;
 
   return (
     <div dir="rtl" className="space-y-5 pb-8">
@@ -249,13 +242,7 @@ function Info({
 }
 
 function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return date.toLocaleDateString("ar-SA");
+  return formatSaudiDate(value);
 }
 
 function Skeleton() {
