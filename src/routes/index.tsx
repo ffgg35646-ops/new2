@@ -37,11 +37,6 @@ function Welcome() {
         <br />
         <span className="text-terracotta">من محافظتك</span>
       </h1>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        
-        وتقييمات موثوقة.
-      </p>
-
       <div className="mt-8 space-y-2.5">
         <Feature icon={ShieldCheck} text="مكاتب عقارية موثقة ومراجعة من الإدارة" />
         <Feature icon={Sparkles} text="اطلب عقارك ودع المكاتب تعرض عليك" />
