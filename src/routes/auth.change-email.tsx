@@ -154,9 +154,7 @@ function ChangeEmailPage() {
           )}
         </div>
 
-        <p className="mt-6 text-center text-[11px] leading-6 text-muted-foreground">
-          إذا لم تصل الرسالة، جرّب إعادة الإرسال من صفحة التحقق.
-        </p>
+        
 
         <button
           type="button"
