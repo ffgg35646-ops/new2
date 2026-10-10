@@ -632,7 +632,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
         heading="لماذا ترفض طلب المعاينة؟"
         variant="reject"
         reasonLabel="سبب الرفض"
-        placeholder="اكتب سبب رفض طلب المعاينة ليظهر للفردي"
+        
         confirmLabel="تأكيد الرفض"
         onClose={() => {
           if (!setStatus.isPending) setRejectId(null);
@@ -654,7 +654,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
         title="إنهاء المعاينة"
         heading="هل تمت المعاينة؟ اكتب السبب أو الملاحظات."
         reasonLabel="سبب إنهاء المعاينة"
-        placeholder="اكتب ما حدث أثناء المعاينة ليظهر للطرف الآخر"
+        
         confirmLabel="تأكيد إنهاء المعاينة"
         onClose={() => {
           if (!setStatus.isPending) setFinishId(null);
@@ -1809,7 +1809,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
             <div><div className="text-[10px] text-muted-foreground">قبول طلب العميل بإرسال عرض</div><h2 className="mt-1 font-display text-lg font-extrabold">ما السبب الذي يجعل العميل يختارك؟</h2></div>
             <button type="button" onClick={() => { if (!sendOffer.isPending) setOpenId(null); }} className="grid size-9 place-items-center rounded-full bg-background ring-1 ring-line" aria-label="إغلاق"><X className="size-4" /></button>
           </div>
-          <textarea rows={4} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="اكتب رسالة تشرح للعميل لماذا يختار مكتبك"
+          <textarea rows={4} value={message} onChange={(event) => setMessage(event.target.value)} 
             className="mt-3 w-full rounded-xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest" />
           <input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="السعر المقترح (اختياري)"
             className="mt-2 w-full rounded-xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest" />
