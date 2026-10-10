@@ -137,3 +137,88 @@
     font-family: var(--font-display);
   }
 }
+
+/* Consistent, clearly visible controls and focus states across the existing palette. */
+@layer components {
+  .app-field-label {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: var(--muted-fg);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.6;
+  }
+
+  .app-field-control {
+    display: block;
+    width: 100%;
+    min-height: 3rem;
+    border: 1px solid var(--line);
+    border-radius: 0.9rem;
+    background: var(--background);
+    padding: 0.75rem 0.9rem;
+    color: var(--foreground);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    outline: none;
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .app-field-control::placeholder {
+    color: var(--muted-fg);
+    opacity: 0.78;
+  }
+
+  .app-field-control:focus-visible {
+    border-color: var(--forest);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--forest) 15%, transparent);
+  }
+
+  .app-field-control:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
+  }
+
+  textarea.app-field-control {
+    min-height: 7rem;
+    resize: vertical;
+  }
+
+  .app-form-card {
+    border: 1px solid var(--line);
+    border-radius: 1.5rem;
+    background: var(--surface);
+    padding: 1rem;
+    box-shadow: 0 8px 24px -22px var(--foreground);
+  }
+
+  .app-page-subtitle {
+    color: var(--muted-fg);
+    font-size: 0.875rem;
+    line-height: 1.8;
+  }
+}
+
+@layer base {
+  body {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--forest);
+    outline-offset: 3px;
+  }
+}
+
