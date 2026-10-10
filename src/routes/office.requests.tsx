@@ -27,7 +27,7 @@ import {
   kindLabel,
   listingLabel,
 } from "@/lib/constants";
-import { formatArea, formatDate, formatPrice, timeAgo } from "@/lib/format";
+import { formatArea, formatDate, formatPrice } from "@/lib/format";
 import { useMyOffice, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
 import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
@@ -806,7 +806,7 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="font-display text-sm font-extrabold">{request.client_name || "عميل"}</h3>
-                <p className="mt-1 text-[11px] text-muted-foreground">{kindLabel(request.kind)} · {listingLabel(request.listing)} · {timeAgo(request.created_at)}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{kindLabel(request.kind)} · {listingLabel(request.listing)}</p>
               </div>
               <span className="shrink-0 rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">تم قبول عرضك</span>
             </div>
@@ -856,7 +856,7 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
                 <h3 className="truncate font-display text-sm font-extrabold">{property?.title || "عقار المكتب"}</h3>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   {property?.property_number ? "رقم العقار: " + property.property_number + " · " : ""}
-                  {inquiryType[inquiry.type] || "طلب تواصل"} · {timeAgo(inquiry.created_at)}
+                  {inquiryType[inquiry.type] || "طلب تواصل"}
                 </p>
               </div>
               <span className="shrink-0 rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">
@@ -986,7 +986,7 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
                   <div className="min-w-0">
                     <div className="truncate text-sm font-bold">{prop?.title ?? "عقار"}</div>
                     <div className="text-[11px] text-muted-foreground">
-                      {prop?.property_number} · {timeAgo(q.created_at)}
+                      {prop?.property_number}
                     </div>
                   </div>
                   <span className="shrink-0 rounded-full bg-terracotta-soft px-2 py-0.5 text-[10px] font-semibold text-terracotta">
