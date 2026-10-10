@@ -448,9 +448,7 @@ function VerifyEmailPage() {
         </button>
       </div>
 
-      {pending?.role === "office" && (
-        
-      )}
+      
 
       <div className="mt-6 space-y-3">
         <button
