@@ -198,7 +198,7 @@ function RequestPage() {
           </p>
         </div>
 
-        <section className="space-y-3 rounded-3xl bg-surface p-4 ring-1 ring-line">
+        <section className="app-form-card space-y-4">
           <Row label="نوع العقار">
             {PROPERTY_KINDS.map((k) => (
               <Pill
@@ -240,13 +240,13 @@ function RequestPage() {
           <Num label="أقل مساحة مطلوبة (م²)" value={areaMin} onChange={setAreaMin} />
 
           <label className="block">
-            <span className="mb-1 block text-[11px] text-muted-foreground">
+            <span className="app-field-label">
               مدة صلاحية الطلب
             </span>
             <select
               value={durationDays}
               onChange={(e) => setDurationDays(Number(e.target.value) as 7 | 30)}
-              className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+              className="app-field-control"
             >
               <option value={7}>7 أيام</option>
               <option value={30}>30 يومًا</option>
@@ -269,12 +269,12 @@ function RequestPage() {
           )}
 
           <label className="block">
-            <span className="mb-1 block text-[11px] text-muted-foreground">وصف الطلب</span>
+            <span className="app-field-label">وصف الطلب</span>
             <textarea
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
+              className="app-field-control"
             />
           </label>
 
@@ -282,14 +282,14 @@ function RequestPage() {
             <button
               onClick={() => create.mutate()}
               disabled={create.isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-terracotta py-3.5 font-display font-bold text-background disabled:opacity-60"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-terracotta px-4 py-3.5 font-display font-bold text-background shadow-sm transition-colors hover:bg-terracotta/95 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {create.isPending && <Loader2 className="size-4 animate-spin" />} نشر الطلب
             </button>
           ) : (
             <Link
               to="/auth/individual"
-              className="block rounded-2xl bg-forest py-3.5 text-center font-display font-bold text-background"
+              className="block rounded-2xl bg-forest py-3.5 text-center font-display font-bold text-background shadow-sm transition-colors hover:bg-forest/95"
             >
               سجّل الدخول لنشر الطلب
             </Link>
@@ -344,13 +344,13 @@ function Num({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] text-muted-foreground">{label}</span>
+      <span className="app-field-label">{label}</span>
       <input
         type="number"
         inputMode="numeric"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+        className="app-field-control"
       />
     </label>
   );

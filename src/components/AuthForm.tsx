@@ -238,22 +238,30 @@ export function AuthForm({
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-8">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-6 sm:px-5 sm:py-8">
       <Link
         to="/"
-        className="flex size-9 items-center justify-center rounded-full bg-surface ring-1 ring-line"
+        className="flex size-10 items-center justify-center rounded-full bg-surface shadow-sm ring-1 ring-line transition-colors hover:bg-sand"
       >
         <ArrowRight className="size-4" />
       </Link>
 
-      <h1 className="mt-8 font-display text-2xl font-extrabold">
-        {role === "office" ? "حساب مكتب عقاري" : "حساب فرد"}
-      </h1>
-      <p className="mt-1.5 text-sm text-muted-foreground">
-        {isRegister ? "أنشئ حسابك للبدء" : "سجّل دخولك للمتابعة"}
-      </p>
+      <div className="mt-7 space-y-2">
+        <span className="inline-flex rounded-full bg-forest-soft px-3 py-1 text-xs font-bold text-forest">
+          {isRegister ? "حساب جديد" : "مرحبًا بعودتك"}
+        </span>
+        <h1 className="font-display text-2xl font-extrabold leading-tight">
+          {role === "office" ? "حساب مكتب عقاري" : "حساب فرد"}
+        </h1>
+        <p className="app-page-subtitle">
+          {isRegister ? "أنشئ حسابك للبدء" : "سجّل دخولك للمتابعة"}
+        </p>
+      </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="app-form-card mt-5 space-y-4 sm:p-5">
+        {isRegister && (
+          <div className="text-sm font-extrabold">بيانات الحساب</div>
+        )}
         {isRegister && (
           <Field
             label={role === "office" ? "اسم المسؤول" : "الاسم الكامل"}
@@ -263,12 +271,12 @@ export function AuthForm({
           />
         )}
         {isRegister && (
-          <div className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+          <div className="rounded-2xl bg-background p-4 ring-1 ring-line">
             <div className="text-xs font-semibold text-muted-foreground">
               {role === "office" ? "صورة البروفايل / شعار المكتب (اختياري)" : "صورة البروفايل (اختياري)"}
             </div>
             <div className="mt-3 flex items-center gap-3">
-              <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full bg-forest-soft text-forest ring-1 ring-line">
+              <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full bg-forest-soft text-forest ring-1 ring-line shadow-sm">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="معاينة صورة البروفايل" className="size-full object-cover" />
                 ) : (
@@ -282,7 +290,7 @@ export function AuthForm({
                     type="button"
                     onClick={() => avatarInputRef.current?.click()}
                     disabled={avatarBusy}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-background disabled:opacity-60"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-forest px-4 py-2 text-xs font-bold text-background shadow-sm transition hover:bg-forest/95 disabled:opacity-60"
                   >
                     {avatarBusy ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
                     {avatarBusy ? "جارٍ رفع الصورة..." : avatarUrl ? "تغيير الصورة" : "اختيار صورة"}
@@ -292,7 +300,7 @@ export function AuthForm({
                       type="button"
                       onClick={() => setAvatarUrl("")}
                       disabled={avatarBusy}
-                      className="inline-flex items-center gap-1 rounded-xl bg-background px-3 py-2 text-xs font-bold text-terracotta ring-1 ring-line disabled:opacity-60"
+                      className="inline-flex min-h-10 items-center gap-1 rounded-xl bg-background px-3 py-2 text-xs font-bold text-terracotta ring-1 ring-line transition hover:bg-terracotta-soft disabled:opacity-60"
                     >
                       <X className="size-3.5" /> إزالة
                     </button>
@@ -319,7 +327,7 @@ export function AuthForm({
               value={selectedGov}
               onChange={(e) => setGovId(e.target.value)}
               disabled={governoratesLoading || !!governoratesError || governorates.length === 0}
-              className="w-full rounded-2xl bg-surface px-4 py-3.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-forest disabled:opacity-60"
+              className="app-field-control"
             >
               {governorates.length === 0 && (
                 <option value="">
@@ -380,6 +388,10 @@ export function AuthForm({
         )}
 
         <>
+          <div className="border-t border-line pt-4">
+            <div className="text-sm font-extrabold">بيانات تسجيل الدخول</div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">تأكد من صحة البريد الإلكتروني قبل المتابعة.</p>
+          </div>
           <Field
             label="البريد الإلكتروني"
             value={email}
@@ -397,7 +409,7 @@ export function AuthForm({
             dir="ltr"
           />
           {isRegister && (
-          <div className="mt-3">
+          <div className="rounded-2xl bg-background p-3 ring-1 ring-line">
             <div className="flex items-start gap-2 text-xs leading-6 text-muted-foreground">
               <input
                 type="checkbox"
@@ -467,7 +479,7 @@ export function AuthForm({
             return next;
           })
         }
-        className="mt-6 text-center text-sm text-forest underline underline-offset-4"
+        className="mt-5 rounded-2xl px-3 py-3 text-center text-sm font-bold text-forest transition-colors hover:bg-forest-soft underline underline-offset-4"
       >
         {isRegister ? "لدي حساب بالفعل" : "ليس لدي حساب — تسجيل جديد"}
       </button>
@@ -514,14 +526,14 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">{label}</span>
+      <span className="app-field-label">{label}</span>
       <input
         type={type}
         dir={dir}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-2xl bg-surface px-4 py-3.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-forest"
+        className="app-field-control"
       />
     </label>
   );
@@ -542,7 +554,7 @@ function Primary({
     <button
       onClick={() => void onClick()}
       disabled={busy || disabled}
-      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
+      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-forest px-4 py-3.5 font-display font-bold text-background shadow-sm transition hover:bg-forest/95 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {busy && <Loader2 className="size-4 animate-spin" />}
       {children}
