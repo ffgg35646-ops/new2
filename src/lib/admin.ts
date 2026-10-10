@@ -509,7 +509,20 @@ export function useOfficeActivity(
   });
 }
 
-export function isTodaySaudi(date: string) {
+export function isTodaySaudi(
+  date: string | number | Date | null | undefined,
+) {
+  if (date === null || date === undefined || date === "") {
+    return false;
+  }
+
+  const parsedDate = date instanceof Date ? date : new Date(date);
+
+  // Bad or missing timestamps should not crash the whole admin dashboard.
+  if (!Number.isFinite(parsedDate.getTime())) {
+    return false;
+  }
+
   const formatter = new Intl.DateTimeFormat(
     "en-CA",
     {
@@ -520,6 +533,6 @@ export function isTodaySaudi(date: string) {
     },
   );
 
-  return formatter.format(new Date(date)) ===
+  return formatter.format(parsedDate) ===
     formatter.format(new Date());
 }
