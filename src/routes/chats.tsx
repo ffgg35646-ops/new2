@@ -211,7 +211,12 @@ function ChatsPage() {
   );
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background pb-24">
+    <div
+      className={
+        "mx-auto flex min-h-screen w-full flex-col bg-background " +
+        (isAdmin ? "max-w-6xl" : "max-w-md pb-24")
+      }
+    >
       <AppHeader showSearch={false} />
 
       <main className="flex-1 space-y-4 px-4 py-4">
