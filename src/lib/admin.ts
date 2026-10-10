@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { parseDateValue } from "@/lib/format";
+import { appNow } from "@/lib/clock";
 
 export type AdminIndividual = {
   id: string;
