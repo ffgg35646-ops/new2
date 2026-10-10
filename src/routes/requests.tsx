@@ -613,9 +613,7 @@ function AcceptedPrioritySection({
         )}
       </div>
 
-      {!total && (
-        
-      )}
+      
 
       {requests.map((request) => {
         const isCompleted = request.status === "fulfilled";
