@@ -58,7 +58,7 @@ export function BottomNav({
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
     queryFn: async () => {
-      const [requestsResult, inquiryResult] = await Promise.all([
+      const [requestsResult, inquiryResult, acceptedInquiryResult] = await Promise.all([
         supabase
           .from("property_requests")
           .select("id,status,accepted_offer_id,office_offers(id,status)")
@@ -69,10 +69,16 @@ export function BottomNav({
           .select("id", { count: "exact", head: true })
           .eq("user_id", individualUserId!)
           .eq("status", "new"),
+        supabase
+          .from("property_inquiries")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", individualUserId!)
+          .eq("status", "accepted"),
       ]);
 
       if (requestsResult.error) throw requestsResult.error;
       if (inquiryResult.error) throw inquiryResult.error;
+      if (acceptedInquiryResult.error) throw acceptedInquiryResult.error;
 
       const rows = (requestsResult.data ?? []) as Array<{
         id: string;
@@ -83,6 +89,9 @@ export function BottomNav({
       const activeRequests = rows.filter(
         (request) => request.status === "active" && !request.accepted_offer_id,
       );
+      const acceptedMarketRequests = rows.filter(
+        (request) => request.status === "active" && !!request.accepted_offer_id,
+      );
       const waitingOffers = rows.reduce((total, request) => {
         if (request.accepted_offer_id) return total;
         return total + (request.office_offers ?? []).filter(
@@ -90,8 +99,11 @@ export function BottomNav({
         ).length;
       }, 0);
 
-      // Accepted items have their own counter and are not double-counted here.
-      return activeRequests.length + waitingOffers + (inquiryResult.count ?? 0);
+      return activeRequests.length
+        + waitingOffers
+        + acceptedMarketRequests.length
+        + (inquiryResult.count ?? 0)
+        + (acceptedInquiryResult.count ?? 0);
     },
   });
 
@@ -156,7 +168,7 @@ export function BottomNav({
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
     queryFn: async () => {
-      const [bookingResult, inquiryResult, marketRequests] = await Promise.all([
+      const [bookingResult, inquiryResult, acceptedInquiryResult, marketRequests, acceptedMarketRequests] = await Promise.all([
         supabase
           .from("viewing_bookings")
           .select("id,status")
@@ -167,9 +179,19 @@ export function BottomNav({
           .select("id", { count: "exact", head: true })
           .eq("office_id", officeId!)
           .eq("status", "new"),
+        supabase
+          .from("property_inquiries")
+          .select("id", { count: "exact", head: true })
+          .eq("office_id", officeId!)
+          .eq("status", "accepted"),
         (async () => {
           if (!officeGovernorateId) return [];
           const { data, error } = await supabase.rpc("office_market_requests" as never);
+          if (error) throw error;
+          return Array.isArray(data) ? data : [];
+        })(),
+        (async () => {
+          const { data, error } = await supabase.rpc("office_accepted_property_requests" as never);
           if (error) throw error;
           return Array.isArray(data) ? data : [];
         })(),
@@ -177,13 +199,14 @@ export function BottomNav({
 
       if (bookingResult.error) throw bookingResult.error;
       if (inquiryResult.error) throw inquiryResult.error;
+      if (acceptedInquiryResult.error) throw acceptedInquiryResult.error;
 
       const activeBookings = (bookingResult.data ?? []).filter((booking: any) => {
         const status = String(booking.status ?? "").trim() || "pending";
         return ["pending", "accepted"].includes(status);
       }).length;
 
-      return marketRequests.length + activeBookings + (inquiryResult.count ?? 0);
+      return marketRequests.length + activeBookings + (inquiryResult.count ?? 0) + (acceptedInquiryResult.count ?? 0) + acceptedMarketRequests.length;
     },
   });
 
