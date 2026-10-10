@@ -335,6 +335,7 @@ export const Route = createFileRoute("/api/payment-status")({
             success: false,
             pending,
             status: statusValue,
+            code: resultCode || null,
             description: description || (
               pending
                 ? "الدفع ما زال قيد المعالجة؛ لم يتم تفعيل الباقة بعد."
