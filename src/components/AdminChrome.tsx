@@ -1,4 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import {
   Bell,
   Building2,
@@ -108,6 +111,71 @@ function Navigation({
   );
 }
 
+function AdminNotificationBell() {
+  const { userId } = useAuth();
+  const qc = useQueryClient();
+
+  const unread = useQuery({
+    queryKey: ["unread-notifications", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId!)
+        .eq("is_read", false);
+
+      if (error) throw error;
+      return count ?? 0;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`admin-notification-bell-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void qc.invalidateQueries({
+            queryKey: ["unread-notifications", userId],
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [userId, qc]);
+
+  return (
+    <Link
+      to="/admin/notifications"
+      search={{ tab: "dashboard" }}
+      preload="intent"
+      className="relative ms-auto grid size-10 place-items-center rounded-full bg-surface ring-1 ring-line"
+      aria-label={`الإشعارات${(unread.data ?? 0) > 0 ? `، ${unread.data} غير مقروء` : ""}`}
+    >
+      <Bell className="size-[18px] text-muted-foreground" />
+      {(unread.data ?? 0) > 0 && (
+        <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-terracotta px-1 text-[10px] font-extrabold text-background">
+          {(unread.data ?? 0) > 99 ? "99+" : unread.data}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 export function AdminChrome({
   children,
 }: {
@@ -162,15 +230,7 @@ export function AdminChrome({
                 </div>
               </div>
 
-              <Link
-                to="/admin/notifications"
-                search={{ tab: "dashboard" }}
-                preload="intent"
-                className="ms-auto grid size-10 place-items-center rounded-full bg-surface ring-1 ring-line"
-                aria-label="الإشعارات"
-              >
-                <Bell className="size-[18px] text-muted-foreground" />
-              </Link>
+              <AdminNotificationBell />
             </div>
           </header>
 
@@ -197,15 +257,7 @@ export function AdminChrome({
               لوحة الإدارة
             </div>
 
-            <Link
-              to="/admin/notifications"
-              search={{ tab: "dashboard" }}
-preload="intent"
-              className="ms-auto grid size-9 place-items-center rounded-full bg-surface ring-1 ring-line"
-              aria-label="الإشعارات"
-            >
-              <Bell className="size-[18px] text-muted-foreground" />
-            </Link>
+            <AdminNotificationBell />
           </div>
         </header>
 
