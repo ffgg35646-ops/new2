@@ -185,9 +185,7 @@ function BookingsPage() {
       <main className="flex-1 space-y-4 px-4 py-4">
         <div>
           <h1 className="font-display text-xl font-extrabold">حجوزات المعاينة</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            المعاينات التي تنتظر الموافقة والمواعيد المؤكدة القادمة فقط.
-          </p>
+          
         </div>
 
         {isLoading ? (
@@ -393,7 +391,6 @@ function BookingsPage() {
           <EmptyState
             icon={CalendarDays}
             title="لا توجد معاينات نشطة"
-            description="ستظهر هنا طلبات المعاينة التي تنتظر الموافقة أو المواعيد المؤكدة القادمة."
             action={
               <Link
                 to="/properties"
