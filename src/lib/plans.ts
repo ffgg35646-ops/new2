@@ -81,12 +81,11 @@ function normalizePackage(row: any): OfficePackage {
 export function effectivePlan(
   office?: {
     plan?: OfficePlan | string | null;
-    plan_expires_at?: string | null;
+    is_pro_current?: boolean | null;
   } | null,
 ): OfficePlan {
-  if (!office || office.plan !== "pro" || !office.plan_expires_at) return "free";
-  const expiry = new Date(office.plan_expires_at).getTime();
-  return Number.isFinite(expiry) && expiry > Date.now() ? "pro" : "free";
+  // Entitlement comes from the server; never trust the device clock for Pro.
+  return office?.plan === "pro" && office.is_pro_current === true ? "pro" : "free";
 }
 
 export function usePackages(activeOnly = true) {
@@ -138,24 +137,13 @@ export function useMyPlan() {
         packageRow = data;
       }
 
-      const expiryTime = office?.plan_expires_at
-        ? new Date(office.plan_expires_at).getTime()
-        : Number.NaN;
       const packageLooksPaid =
         office?.plan === "pro" ||
         String(packageRow?.code ?? "") === "pro" ||
         Number(packageRow?.price ?? 0) > 0;
-      // The backend computes is_pro_current using the database/server clock.
-      // Prefer that authoritative value to avoid client clock skew mislabeling a live plan as expired.
-      const serverSaysProCurrent =
-        typeof office?.is_pro_current === "boolean"
-          ? office.is_pro_current
-          : null;
-      const hasExpiredPaidPlan =
-        packageLooksPaid &&
-        (serverSaysProCurrent !== null
-          ? !serverSaysProCurrent
-          : !Number.isFinite(expiryTime) || expiryTime <= Date.now());
+      // Missing server entitlement must fail closed; do not compare against device time.
+      const serverSaysProCurrent = office?.is_pro_current === true;
+      const hasExpiredPaidPlan = packageLooksPaid && !serverSaysProCurrent;
 
       // حتى لو لم يعمل Cron بعد، اعرض الباقة المجانية بمجرد انتهاء مدة Pro.
       if (hasExpiredPaidPlan || !packageRow) {
@@ -181,20 +169,12 @@ export function useMyPlan() {
 
   const pkg = packageQuery.data;
 
-  const expiryTime = office?.plan_expires_at
-    ? new Date(office.plan_expires_at).getTime()
-    : Number.NaN;
   const packageLooksPaid =
     office?.plan === "pro" ||
     pkg?.code === "pro" ||
     Number(pkg?.price ?? 0) > 0;
-  // Use the server-calculated subscription state whenever available; the
-  // browser's clock may differ from the server/database clock.
-  const expired =
-    packageLooksPaid &&
-    (typeof office?.is_pro_current === "boolean"
-      ? !office.is_pro_current
-      : !Number.isFinite(expiryTime) || expiryTime <= Date.now());
+  // No browser-clock fallback: only the server may decide whether Pro is active.
+  const expired = packageLooksPaid && office?.is_pro_current !== true;
 
   const currentPlan: OfficePlan =
     expired
