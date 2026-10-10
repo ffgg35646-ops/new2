@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { formatDateTime } from "@/lib/format";
 
 export const Route = createFileRoute("/admin/payments")({
   head: () => ({
@@ -302,9 +303,7 @@ function PaymentsPage() {
 
                 <Info
                   label="التاريخ"
-                  value={new Date(
-                    payment.created_at,
-                  ).toLocaleString("ar-SA")}
+                  value={formatDateTime(payment.created_at)}
                 />
               </div>
 
