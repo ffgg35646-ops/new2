@@ -13,7 +13,8 @@
     "format": "prettier --write .",
     "deliver": "node scripts/deliver.mjs",
     "seed:mongo": "node --env-file=.env scripts/seed-mongo.mjs",
-    "repair:social": "node --env-file=.env scripts/repair-social-data.mjs"
+    "repair:social": "node --env-file=.env scripts/repair-social-data.mjs",
+    "migrate:media:blob": "node scripts/migrate-gridfs-to-vercel-blob.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",
@@ -55,6 +56,7 @@
     "@tanstack/router-core": "^1.171.34",
     "@tanstack/router-plugin": "1.168.23",
     "@upstash/redis": "^1.39.0",
+    "@vercel/blob": "^2.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
