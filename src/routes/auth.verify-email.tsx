@@ -449,10 +449,7 @@ function VerifyEmailPage() {
       </div>
 
       {pending?.role === "office" && (
-        <div className="mt-5 rounded-2xl bg-sand p-3.5 text-xs leading-relaxed text-muted-foreground">
-          بعد تأكيد البريد الإلكتروني، سيبقى حساب المكتب
-          <strong> قيد المراجعة</strong> حتى توافق الإدارة.
-        </div>
+        
       )}
 
       <div className="mt-6 space-y-3">
