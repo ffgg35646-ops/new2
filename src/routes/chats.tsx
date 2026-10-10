@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { ChatThread } from "@/components/ChatThread";
-import { EmptyState } from "@/components/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatDate, timeAgo } from "@/lib/format";
@@ -291,13 +290,7 @@ function ChatsPage() {
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="py-4 text-center text-xs text-muted-foreground">
-                  {normalizedSearch
-                    ? "لا يوجد مكتب مطابق."
-                    : "لا توجد مكاتب مشتركة."}
-                </p>
-              )}
+              ) : null}
             </section>
 
             <section className="space-y-3">
@@ -360,18 +353,7 @@ function ChatsPage() {
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <EmptyState
-                  icon={MessageSquare}
-                  title="لا توجد محادثات بعد"
-                  description=""
-                  action={
-                    <Link to="/offices" className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-background">
-                      تصفح المكاتب العقارية
-                    </Link>
-                  }
-                />
-              )}
+              ) : null}
             </section>
           </>
         )}
