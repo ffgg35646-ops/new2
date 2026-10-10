@@ -244,6 +244,11 @@ function OfficeProfile() {
             email={session?.user?.email ?? office?.email ?? ""}
             emailVerified={!!session?.user?.email_confirmed_at}
             avatarUrl={office?.logo_url}
+            userId={userId ?? undefined}
+            canEditAvatar={!!userId && isOwner && !!office}
+            avatarTarget="office"
+            avatarTargetId={office?.id}
+            avatarLabel="صورة المكتب / الشعار"
             rows={readRows
               .filter(([label]) => label !== "البريد الإلكتروني")
               .map(([label, value]) => ({ label, value }))}
