@@ -73,9 +73,7 @@ function ResetPasswordPage() {
         كلمة مرور جديدة
       </h1>
 
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-        أدخل كلمة المرور الجديدة ثم احفظها.
-      </p>
+      
 
       <div className="mt-6 space-y-3">
         <label className="block">
