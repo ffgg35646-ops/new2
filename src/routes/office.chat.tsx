@@ -29,7 +29,7 @@ export const Route = createFileRoute("/office/chat")({
       { property: "og:title", content: "الدردشة مع العملاء | عقار البطين" },
       {
         property: "og:description",
-        content: "",
+        content: "سجل المحادثات والعملاء لمكتبك العقاري ضمن الباقة الاحترافية.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
