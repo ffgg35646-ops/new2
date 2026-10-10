@@ -680,8 +680,8 @@ function AcceptedPrioritySection({
                   className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50">
                   إنهاء الطلب
                 </button>
-                <button type="button" onClick={() => onCompleteRequest(request.id)} disabled={pending}
-                  className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50">
+                <button type="button" onClick={() => onCompleteRequest(request.id)}
+                  className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background">
                   تم اكتمال الطلب
                 </button>
               </div>
@@ -728,8 +728,8 @@ function AcceptedPrioritySection({
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => onEndInquiry(inquiry.id)} disabled={pending}
                   className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50">إنهاء الطلب</button>
-                <button type="button" onClick={() => onCompleteInquiry(inquiry.id)} disabled={pending}
-                  className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50">تم اكتمال الطلب</button>
+                <button type="button" onClick={() => onCompleteInquiry(inquiry.id)}
+                  className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background">تم اكتمال الطلب</button>
               </div>
             )}
           </article>
