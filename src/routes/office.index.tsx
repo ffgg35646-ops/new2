@@ -18,7 +18,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { EmptyState } from "@/components/EmptyState";
 import { BOOKING_STATUS, inquiryTypeLabel } from "@/lib/constants";
-import { formatDate, timeAgo } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { useMyOffice, useNewInquiriesCount } from "@/lib/office";
 import { useMyPlan } from "@/lib/plans";
 
@@ -218,7 +218,7 @@ function OfficeDashboard() {
                     </span>
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {q.contact_name} · {timeAgo(q.created_at)}
+                    {q.contact_name}
                   </div>
                 </Link>
               ))}
