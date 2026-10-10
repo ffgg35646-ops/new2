@@ -71,7 +71,7 @@ type OfferRow = {
 
 export const Route = createFileRoute("/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: search["tab"] === "sent" ? ("sent" as const) : ("received" as const),
+    tab: search["tab"] === "sent" ? ("sent" as const) : search["tab"] === "history" ? ("history" as const) : ("received" as const),
     request: typeof search["request"] === "string" ? search["request"] : undefined,
     offer: typeof search["offer"] === "string" ? search["offer"] : undefined,
   }),
@@ -92,10 +92,9 @@ function RequestsPage() {
   const { userId } = useAuth();
   const qc = useQueryClient();
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"sent" | "received">(search["tab"]);
+  const [tab, setTab] = useState<"sent" | "received" | "history">(search["tab"]);
   const [openOfferId, setOpenOfferId] = useState<string | null>(null);
   const [activeRequestsPage, setActiveRequestsPage] = useState(1);
-  const [historyRequestsPage, setHistoryRequestsPage] = useState(1);
   const [receivedOffersPage, setReceivedOffersPage] = useState(1);
   const [endRequestId, setEndRequestId] = useState<string | null>(null);
   const [endInquiryId, setEndInquiryId] = useState<string | null>(null);
@@ -110,7 +109,6 @@ function RequestsPage() {
 
   useEffect(() => {
     setActiveRequestsPage(1);
-    setHistoryRequestsPage(1);
     setReceivedOffersPage(1);
   }, [tab, userId]);
 
@@ -201,9 +199,18 @@ function RequestsPage() {
     [myRequests],
   );
   const acceptedPersonalInquiries = useMemo(
-    () => personalInquiries.filter((inquiry) => ["accepted", "completed"].includes(inquiry.status)),
+    () => personalInquiries.filter((inquiry) => inquiry.status === "accepted"),
     [personalInquiries],
   );
+  const historyRequests = useMemo(
+    () => myRequests.filter((request) => request.status !== "active"),
+    [myRequests],
+  );
+  const historyInquiries = useMemo(
+    () => personalInquiries.filter((inquiry) => ["ended", "completed", "rejected", "cancelled"].includes(inquiry.status)),
+    [personalInquiries],
+  );
+  const historyCount = historyRequests.length + historyInquiries.length;
   const acceptedMarketRequestIds = useMemo(
     () => new Set(myRequests
       .filter((request) =>
@@ -338,7 +345,7 @@ function RequestsPage() {
           </p>
         </div>
 
-        {!isLoading && !inquiriesLoading && (
+        {tab !== "history" && !isLoading && !inquiriesLoading && (
           <AcceptedPrioritySection
             requests={acceptedMarketRequests}
             inquiries={acceptedPersonalInquiries}
@@ -350,9 +357,10 @@ function RequestsPage() {
           />
         )}
 
-        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
+        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
           <Tab active={tab === "sent"} label="المرسلة" count={activeSent} onClick={() => setTab("sent")} />
           <Tab active={tab === "received"} label="مستلم" count={receivedCount} onClick={() => setTab("received")} />
+          <Tab active={tab === "history"} label="تاريخ الطلبات" count={historyCount} onClick={() => setTab("history")} />
         </div>
 
         {isLoading ? (
@@ -362,28 +370,18 @@ function RequestsPage() {
             const activeRequests = myRequests.filter((request) =>
               request.status === "active" && !request.accepted_offer_id,
             );
-            const historyRequests = myRequests.filter((request) =>
-              request.status !== "active",
-            );
             const activePageCount = Math.max(1, Math.ceil(activeRequests.length / pageSize));
             const currentActivePage = Math.min(activeRequestsPage, activePageCount);
             const visibleActiveRequests = activeRequests.slice(
               (currentActivePage - 1) * pageSize,
               currentActivePage * pageSize,
             );
-            const historyPageCount = Math.max(1, Math.ceil(historyRequests.length / pageSize));
-            const currentHistoryPage = Math.min(historyRequestsPage, historyPageCount);
-            const visibleHistoryRequests = historyRequests.slice(
-              (currentHistoryPage - 1) * pageSize,
-              currentHistoryPage * pageSize,
-            );
-
-            if (!myRequests.length) {
+            if (!activeRequests.length) {
               return (
                 <EmptyState
                   icon={ClipboardList}
-                  title="لا توجد طلبات مرسلة"
-                  description="ابدأ بنشر طلب عقاري ليصل إلى المكاتب الموثقة."
+                  title="لا توجد طلبات مرسلة نشطة"
+                  description={historyRequests.length ? "الطلبات المنتهية والمكتملة موجودة في تبويب تاريخ الطلبات." : "ابدأ بنشر طلب عقاري ليصل إلى المكاتب الموثقة."}
                 />
               );
             }
@@ -418,41 +416,50 @@ function RequestsPage() {
                   </section>
                 )}
 
-                {historyRequests.length > 0 && (
-                  <section className="border-t border-line pt-5">
-                    <div className="mb-2 flex items-center justify-between">
-                      <div>
-                        <h2 className="font-display text-sm font-extrabold">سجل الطلبات</h2>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          الطلبات المنتهية والمكتملة والملغاة
-                        </p>
-                      </div>
-                      <span className="text-[11px] text-muted-foreground">
-                        {historyRequests.length} طلب
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {visibleHistoryRequests.map((request) => (
-                        <RequestCard
-                          key={request.id}
-                          request={request}
-                          highlighted={search["request"] === request.id}
-                          pending={endRequest.isPending}
-                          onEnd={() => setEndRequestId(request.id)}
-                        />
-                      ))}
-                    </div>
-                    <PaginationControls
-                      page={currentHistoryPage}
-                      total={historyRequests.length}
-                      pageSize={pageSize}
-                      onPageChange={setHistoryRequestsPage}
-                    />
-                  </section>
-                )}
               </div>
             );
           })()
+        ) : tab === "history" ? (
+          inquiriesLoading ? (
+            <ListSkeleton />
+          ) : !historyCount ? (
+            <EmptyState
+              icon={ClipboardList}
+              title="لا يوجد تاريخ للطلبات حتى الآن"
+              description="أي طلب تنهيه أو يكتمل أو يرفضه المكتب سيظهر هنا."
+            />
+          ) : (
+            <div className="space-y-4">
+              {historyRequests.length > 0 && (
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="font-display text-sm font-extrabold">طلبات السوق السابقة</h2>
+                    <span className="text-[11px] text-muted-foreground">{historyRequests.length} طلب</span>
+                  </div>
+                  {historyRequests.map((request) => (
+                    <RequestCard
+                      key={request.id}
+                      request={request}
+                      highlighted={search["request"] === request.id}
+                      pending={false}
+                      onEnd={() => {}}
+                    />
+                  ))}
+                </section>
+              )}
+              {historyInquiries.length > 0 && (
+                <section className="space-y-2 border-t border-line pt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="font-display text-sm font-extrabold">طلبات التواصل السابقة</h2>
+                    <span className="text-[11px] text-muted-foreground">{historyInquiries.length} طلب</span>
+                  </div>
+                  {historyInquiries.map((inquiry) => (
+                    <HistoryInquiryCard key={inquiry.id} inquiry={inquiry} />
+                  ))}
+                </section>
+              )}
+            </div>
+          )
         ) : displayedReceivedOffers.length ? (
           <section className="space-y-2">
             <div className="flex items-center justify-between gap-2">
@@ -736,6 +743,52 @@ function AcceptedPrioritySection({
         );
       })}
     </section>
+  );
+}
+
+function HistoryInquiryCard({ inquiry }: { inquiry: IndividualInquiry }) {
+  const inquiryLabel: Record<string, string> = {
+    viewing: "معاينة", buy: "شراء", rent: "استئجار", question: "استفسار",
+  };
+  const statusLabel: Record<string, string> = {
+    completed: "مكتمل", ended: "منتهي", rejected: "مرفوض من المكتب", cancelled: "ملغي",
+  };
+  const statusClass = inquiry.status === "completed"
+    ? "bg-forest-soft text-forest"
+    : inquiry.status === "rejected"
+      ? "bg-terracotta-soft text-terracotta"
+      : "bg-sand text-muted-foreground";
+
+  return (
+    <article className="space-y-3 rounded-2xl bg-surface p-3 ring-1 ring-line">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-display text-sm font-extrabold">{inquiry.property?.title || "عقار المكتب"}</h3>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {inquiry.property?.property_number ? "رقم العقار: " + inquiry.property.property_number + " · " : ""}
+            {inquiryLabel[inquiry.type] || "طلب تواصل"} · {formatDate(inquiry.created_at)}
+          </p>
+        </div>
+        <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold", statusClass)}>
+          {statusLabel[inquiry.status] || "منتهي"}
+        </span>
+      </div>
+      {inquiry.message && (
+        <p className="whitespace-pre-wrap rounded-xl bg-background p-3 text-sm leading-6">{inquiry.message}</p>
+      )}
+      {inquiry.end_reason && (
+        <div className="rounded-xl bg-sand p-3 text-xs leading-5 text-muted-foreground">
+          <span className="font-bold text-foreground">{inquiry.status === "completed" ? "ملاحظة الإكمال: " : "سبب الإنهاء: "}</span>
+          {inquiry.end_reason}
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>المكتب: {inquiry.office?.name || "مكتب عقاري"}</span>
+        <a href={"/properties/" + encodeURIComponent(inquiry.property_id)} className="font-bold text-forest underline">
+          تفاصيل العقار
+        </a>
+      </div>
+    </article>
   );
 }
 
