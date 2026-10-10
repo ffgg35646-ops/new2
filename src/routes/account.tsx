@@ -86,7 +86,6 @@ function AccountPage() {
           <EmptyState
             icon={User}
             title="لم تسجّل الدخول بعد"
-            description="سجّل الدخول للوصول لحجوزاتك ومفضلتك وطلباتك."
             action={
               <Link
                 to="/auth/individual"
