@@ -29,6 +29,7 @@ import { useAuth } from "@/lib/auth";
 import { useFollowState, useSetOfficeNotifications, useToggleFollow } from "@/lib/follows";
 import { cn } from "@/lib/utils";
 import { getCurrentPosition, googleMapsUrl } from "@/lib/location";
+import { formatDateTime, parseDateValue } from "@/lib/format";
 
 import type { PropertyCardData } from "@/components/PropertyCard";
 
@@ -233,23 +234,13 @@ function OfficePage() {
 
   const activityDates = office
     ? [office.updated_at, latestProperty?.created_at ?? null]
-        .filter(Boolean)
-        .map((value) => new Date(String(value)).getTime())
-        .filter((value) => Number.isFinite(value))
+        .map((value) => parseDateValue(value)?.getTime())
+        .filter((value): value is number => Number.isFinite(value))
     : [];
   const lastActivity = activityDates.length
     ? new Date(Math.max(...activityDates))
     : null;
-  const lastActivityLabel = lastActivity
-    ? lastActivity.toLocaleString("ar-SA-u-nu-latn", {
-        timeZone: "Asia/Riyadh",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "—";
+  const lastActivityLabel = lastActivity ? formatDateTime(lastActivity) : "—";
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
