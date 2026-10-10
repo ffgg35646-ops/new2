@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { saudiAppointmentDateTime, saudiInputDateTime } from "@/lib/saudi-time";
+import { appNowMs } from "@/lib/clock";
 
 const REPORT_REASONS = [
   "معلومات غير صحيحة",
@@ -248,7 +249,7 @@ function PropertyDetail() {
       const contactPhone = (bookingContact || profile?.phone || "").trim();
       if (!contactPhone) throw new Error("أدخل رقم الهاتف أو وسيلة اتصال");
       const scheduled = saudiAppointmentDateTime(bookingDate, bookingTime);
-      if (!Number.isFinite(scheduled.getTime()) || scheduled.getTime() <= Date.now()) {
+      if (!Number.isFinite(scheduled.getTime()) || scheduled.getTime() <= appNowMs()) {
         throw new Error("اختر موعدًا مستقبليًا");
       }
       const sessionName =
@@ -696,7 +697,7 @@ function PropertyDetail() {
               <input
                 type="date"
                 value={bookingDate}
-                min={saudiInputDateTime(new Date(Date.now() + 60_000)).slice(0, 10)}
+                min={saudiInputDateTime(new Date(appNowMs() + 60_000)).slice(0, 10)}
                 onChange={(e) => setBookingDate(e.target.value)}
                 className="mt-1.5 w-full min-w-0 rounded-2xl bg-sand px-3 py-3 text-sm font-normal text-foreground outline-none focus:ring-2 focus:ring-forest"
               />
@@ -707,8 +708,8 @@ function PropertyDetail() {
                 type="time"
                 value={bookingTime}
                 min={
-                  bookingDate === saudiInputDateTime(new Date(Date.now() + 60_000)).slice(0, 10)
-                    ? saudiInputDateTime(new Date(Date.now() + 60_000)).slice(11, 16)
+                  bookingDate === saudiInputDateTime(new Date(appNowMs() + 60_000)).slice(0, 10)
+                    ? saudiInputDateTime(new Date(appNowMs() + 60_000)).slice(11, 16)
                     : undefined
                 }
                 step={60}
