@@ -730,12 +730,14 @@ function TabButton({
 type AcceptedPropertyInquiry = {
   id: string;
   property_id: string;
+  user_id: string | null;
   type: string;
   status: string;
   created_at: string;
   message: string | null;
   contact_name: string | null;
   contact_phone: string | null;
+  profiles: { avatar_url: string | null } | null;
   properties: { title: string | null; property_number: string | null } | null;
 };
 
@@ -743,7 +745,7 @@ type AcceptedContactRequest = {
   id: string; accepted_offer_id: string; user_id: string; kind: string | null; listing: string | null;
   governorate_name: string | null; neighborhood: string | null; budget_min: number | null; budget_max: number | null;
   area_min: number | null; description: string; attachment_url: string | null; created_at: string | null;
-  expires_at: string | null; client_name: string; client_phone: string | null; offer_message: string | null;
+  expires_at: string | null; client_name: string; client_phone: string | null; client_avatar_url: string | null; offer_message: string | null;
   offer_price: number | null; offer_status: string;
 };
 
@@ -774,7 +776,7 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
     queryFn: async () => {
       const { data, error } = await supabase
         .from("property_inquiries")
-        .select("id,property_id,type,status,created_at,message,contact_name,contact_phone,properties(title,property_number)")
+        .select("id,property_id,user_id,type,status,created_at,message,contact_name,contact_phone,profiles(avatar_url),properties(title,property_number)")
         .eq("office_id", officeId!)
         .eq("status", "accepted")
         .order("updated_at", { ascending: false })
@@ -843,9 +845,12 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
           <article id={"accepted-request-card-" + request.id} key={request.id}
             className={cn("space-y-3 rounded-2xl bg-surface p-3 ring-1 ring-line", highlightedRequestId === request.id && "ring-2 ring-forest")}>
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-display text-sm font-extrabold">{request.client_name || "عميل"}</h3>
-                <p className="mt-1 text-[11px] text-muted-foreground">{kindLabel(request.kind)} · {listingLabel(request.listing)} · {timeAgo(request.created_at)}</p>
+              <div className="flex min-w-0 items-center gap-2">
+                <ContactPhoto url={request.client_avatar_url} name={request.client_name} />
+                <div className="min-w-0">
+                  <h3 className="font-display text-sm font-extrabold">{request.client_name || "عميل"}</h3>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{kindLabel(request.kind)} · {listingLabel(request.listing)} · {timeAgo(request.created_at)}</p>
+                </div>
               </div>
               <span className="shrink-0 rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">تم قبول عرضك</span>
             </div>
@@ -903,8 +908,13 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
               </span>
             </div>
             <div className="rounded-xl bg-background p-3 ring-1 ring-line">
-              <div className="text-[10px] font-semibold text-muted-foreground">اسم العميل وتفاصيل طلبه</div>
-              <div className="mt-1 text-sm font-extrabold">{inquiry.contact_name || "عميل"}</div>
+              <div className="flex items-center gap-2">
+                <ContactPhoto url={inquiry.profiles?.avatar_url} name={inquiry.contact_name} small />
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold text-muted-foreground">اسم العميل وتفاصيل طلبه</div>
+                  <div className="mt-1 text-sm font-extrabold">{inquiry.contact_name || "عميل"}</div>
+                </div>
+              </div>
               {inquiry.message && <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{inquiry.message}</p>}
             </div>
             <div className="rounded-xl bg-background p-3 ring-1 ring-line">
@@ -967,7 +977,7 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("property_inquiries")
-        .select("*, properties(title,property_number)")
+        .select("*, profiles(avatar_url), properties(title,property_number)")
         .eq("office_id", officeId!)
         .eq("status", "new")
         .order("created_at", { ascending: false })
@@ -1044,7 +1054,14 @@ function InquiriesInbox({ officeId }: { officeId: string | null }) {
                 </div>
 
                 <div className="rounded-xl bg-background p-2.5 text-xs ring-1 ring-line">
-                  <div className="font-semibold">{q.contact_name}</div>
+                  <div className="flex items-center gap-2">
+                    <ContactPhoto
+                      url={(q.profiles as { avatar_url?: string | null } | null)?.avatar_url}
+                      name={q.contact_name}
+                      small
+                    />
+                    <div className="font-semibold">{q.contact_name || "عميل"}</div>
+                  </div>
                   {q.message && (
                     <p className="mt-1 leading-relaxed text-muted-foreground">{q.message}</p>
                   )}
@@ -1190,6 +1207,7 @@ type OfficeOfferHistoryRow = {
   created_at: string | Date;
   property_title: string;
   client_name: string;
+  client_avatar_url: string | null;
   kind: string | null;
   listing: string | null;
   neighborhood: string | null;
@@ -1281,7 +1299,12 @@ function SentOffers({ officeId }: { officeId: string | null }) {
                 {row.description || "لا توجد تفاصيل إضافية محفوظة."}
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2">
-                <Info label="اسم العميل">{row.client_name || "عميل"}</Info>
+                <Info label="اسم العميل">
+                  <span className="flex items-center gap-2">
+                    <ContactPhoto url={row.client_avatar_url} name={row.client_name} small />
+                    <span>{row.client_name || "عميل"}</span>
+                  </span>
+                </Info>
                 <Info label="المساحة">{row.area_min != null ? "من " + formatArea(row.area_min) : "غير محددة"}</Info>
                 <Info label="الميزانية">
                   {row.budget_min != null || row.budget_max != null
@@ -1557,6 +1580,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
         offer_status?: string | null;
         client_name: string;
         client_phone: string | null;
+        client_avatar_url: string | null;
       }>;
 
       const { data: ownOffers, error: offersError } = await supabase
@@ -1669,6 +1693,15 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
       {visibleRequests.map((r) => {
         return (
           <div key={r.id} className="overflow-hidden rounded-2xl bg-surface ring-1 ring-line">
+            <div className="flex items-center gap-2.5 p-3">
+              <ContactPhoto url={r.client_avatar_url} name={r.client_name} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-extrabold">{r.client_name || "عميل"}</div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                  طلب عقاري · {timeAgo(r.created_at)}
+                </div>
+              </div>
+            </div>
             <div className="relative w-full bg-sand">
               {r.attachment_url ? (
                 <img
@@ -1903,5 +1936,31 @@ function WhatsAppIcon({ className = "" }: { className?: string }) {
     >
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.198.297-.767.966-.94 1.164-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.099-.198.05-.372-.025-.521-.075-.149-.669-1.611-.916-2.206-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.075-.792.372-.273.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.077 4.487.71.307 1.263.49 1.694.626.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.268c.001-5.45 4.436-9.884 9.888-9.884a9.83 9.83 0 0 1 6.988 2.898 9.83 9.83 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.89a11.86 11.86 0 0 0 1.595 5.946L.057 24l6.304-1.655a11.88 11.88 0 0 0 5.684 1.448h.005c6.554 0 11.89-5.335 11.893-11.89a11.821 11.821 0 0 0-3.479-8.415" />
     </svg>
+  );
+}
+
+
+function ContactPhoto({
+  url,
+  name,
+  small = false,
+}: {
+  url?: string | null;
+  name?: string | null;
+  small?: boolean;
+}) {
+  const sizeClass = small ? "size-8 text-xs" : "size-10 text-sm";
+  const initial = (name ?? "ع").trim().charAt(0) || "ع";
+  return url ? (
+    <img
+      src={url}
+      alt={name ? "صورة " + name : ""}
+      loading="lazy"
+      className={sizeClass + " shrink-0 rounded-full object-cover ring-1 ring-line"}
+    />
+  ) : (
+    <span className={sizeClass + " grid shrink-0 place-items-center rounded-full bg-forest-soft font-extrabold text-forest ring-1 ring-line"}>
+      {initial}
+    </span>
   );
 }
