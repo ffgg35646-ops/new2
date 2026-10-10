@@ -294,8 +294,8 @@ function ChatsPage() {
               ) : (
                 <p className="py-4 text-center text-xs text-muted-foreground">
                   {normalizedSearch
-                    ? "لا يوجد مكتب بهذا الاسم ضمن الباقة الاحترافية."
-                    : "لا توجد مكاتب مشتركة حاليًا في الباقة الاحترافية."}
+                    ? "لا يوجد مكتب مطابق."
+                    : "لا توجد مكاتب مشتركة."}
                 </p>
               )}
             </section>
