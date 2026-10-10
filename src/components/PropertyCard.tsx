@@ -70,7 +70,7 @@ export function PropertyCard({
   const officeIsVerified = property.offices?.verification_badge === true;
 
   return (
-    <article className="overflow-hidden rounded-3xl bg-surface ring-1 ring-line animate-rise-in">
+    <article className="overflow-hidden rounded-3xl bg-surface ring-1 ring-line shadow-sm transition-shadow duration-200 hover:shadow-md animate-rise-in">
       <div className="relative">
         <Link to="/properties/$propertyId" params={{ propertyId: property.id }}>
           {property.cover_url ? (
@@ -78,7 +78,7 @@ export function PropertyCard({
               src={property.cover_url}
               alt={property.title}
               loading="lazy"
-              className="aspect-[16/10] w-full object-cover"
+              className="aspect-[16/10] w-full object-cover transition-transform duration-300"
             />
           ) : (
             <div className="grid aspect-[16/10] w-full place-items-center bg-sand text-xs text-muted-foreground">
@@ -108,7 +108,7 @@ export function PropertyCard({
           <button
             aria-label="حفظ في المفضلة"
             onClick={() => onToggleFavorite(property.id)}
-            className="absolute top-3 left-3 grid size-8 place-items-center rounded-full bg-surface/90 ring-1 ring-line"
+            className="absolute top-3 left-3 grid size-9 place-items-center rounded-full bg-surface/95 shadow-sm ring-1 ring-line transition-transform hover:scale-105"
           >
             <Heart
               className={cn(
@@ -171,14 +171,14 @@ export function PropertyCard({
       <div className="relative z-20 flex gap-2 border-t border-line bg-surface p-3 pointer-events-auto">
         <a
           href={`/properties/${encodeURIComponent(property.id)}`}
-          className="relative z-20 flex-1 cursor-pointer rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"
+          className="relative z-20 flex-1 cursor-pointer rounded-xl bg-forest py-3 text-center text-xs font-bold text-background shadow-sm transition-colors hover:bg-forest/95"
         >
           عرض التفاصيل
         </a>
         {!isOffice && (
           <a
             href={`/properties/${encodeURIComponent(property.id)}#property-inquiry`}
-            className="relative z-20 flex-1 cursor-pointer rounded-xl bg-terracotta-soft py-2.5 text-center text-xs font-bold text-terracotta"
+            className="relative z-20 flex-1 cursor-pointer rounded-xl bg-terracotta-soft py-3 text-center text-xs font-bold text-terracotta transition-colors hover:bg-terracotta-soft/80"
           >
             إرسال طلب
           </a>
