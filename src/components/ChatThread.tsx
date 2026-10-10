@@ -485,7 +485,7 @@ export function ChatThread({
             onClick={onBack}
             className="text-xs font-semibold text-forest"
           >
-            ← كل المحادثات
+            {readOnly ? "← لوحة الإدارة" : "← كل المحادثات"}
           </button>
           {title && (
             <div className="mt-1 truncate text-sm font-extrabold">{title}</div>
