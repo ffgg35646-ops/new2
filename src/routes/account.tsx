@@ -128,6 +128,8 @@ function AccountPage() {
               email={session?.user?.email ?? profile?.email ?? ""}
               emailVerified={!!session?.user?.email_confirmed_at}
               avatarUrl={profile?.avatar_url}
+              userId={userId ?? undefined}
+              canEditAvatar={!isAdmin && !isOffice && !!userId}
               rows={[
                 ["الاسم الكامل", profileName],
                 ["رقم الجوال", profilePhone],
