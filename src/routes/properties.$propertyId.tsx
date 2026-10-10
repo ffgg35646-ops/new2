@@ -694,9 +694,7 @@ function PropertyDetail() {
           <h2 className="flex items-center gap-2 font-display text-base font-bold">
             <CalendarDays className="size-4 text-terracotta" /> حجز معاينة
           </h2>
-          <p className="text-[11px] font-semibold text-forest">
-            الموعد يُحسب بتوقيت السعودية (UTC+3)، وليس حسب توقيت الهاتف.
-          </p>
+          
           <div className="grid grid-cols-2 gap-2">
             <label className="block text-xs font-semibold text-muted-foreground">
               التاريخ السعودي
@@ -731,9 +729,7 @@ function PropertyDetail() {
             placeholder="رقم الهاتف أو وسيلة الاتصال"
             className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
           />
-          <p className="text-[11px] leading-5 text-muted-foreground">
-            سيظهر للمكتب اسمك ورقم التواصل والمحافظة فقط لإتمام المعاينة.
-          </p>
+          
           <button
             onClick={() => book.mutate()}
             disabled={book.isPending}
