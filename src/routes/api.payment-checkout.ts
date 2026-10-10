@@ -91,10 +91,6 @@ export const Route = createFileRoute("/api/payment-checkout")({
           params.set("paymentType", "DB");
           params.set("merchantTransactionId", merchantTransactionId);
           params.set("shopperResultUrl", origin + "/office/payresult");
-          params.set(
-            "Merchant.data[" + String.fromCharCode(39) + "ignoreDescriptorValidation" + String.fromCharCode(39) + "]",
-            "true",
-          );
 
           // بوابة LIVE لا تستقبل وضع الاختبار، حتى لو بقي المتغير مضبوطًا محليًا.
           const isLiveGateway =
