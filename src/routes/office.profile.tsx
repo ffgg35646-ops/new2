@@ -249,9 +249,7 @@ function OfficeProfile() {
               سبب الرفض: {office.rejection_reason}
             </p>
           )}
-          {office?.verification_status === "pending" && (
-            
-          )}
+          
           {office && (
             <button
               onClick={() => {
