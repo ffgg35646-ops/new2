@@ -112,7 +112,7 @@ export function formatDate(value: unknown) {
   if (!date) return "—";
 
   // All app dates are presented in Saudi Arabia time, never the device time zone.
-  return date.toLocaleDateString("ar-SA-u-nu-latn", {
+  return date.toLocaleDateString("ar-SA-u-ca-gregory-nu-latn", {
     timeZone: "Asia/Riyadh",
     year: "numeric",
     month: "short",
@@ -124,7 +124,7 @@ export function formatDateTime(value: unknown) {
   const date = parseDateValue(value);
   if (!date) return "—";
 
-  return date.toLocaleString("ar-SA-u-nu-latn", {
+  return date.toLocaleString("ar-SA-u-ca-gregory-nu-latn", {
     timeZone: "Asia/Riyadh",
     year: "numeric",
     month: "short",
@@ -140,7 +140,7 @@ export function formatTime(value: unknown) {
   const date = parseDateValue(value);
   if (!date) return "—";
 
-  return date.toLocaleTimeString("ar-SA-u-nu-latn", {
+  return date.toLocaleTimeString("ar-SA-u-ca-gregory-nu-latn", {
     timeZone: "Asia/Riyadh",
     hour: "2-digit",
     minute: "2-digit",
