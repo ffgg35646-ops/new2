@@ -86,7 +86,7 @@ export function ProfileModal({
       <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 px-4">
         <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl bg-background shadow-2xl ring-1 ring-line">
           <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-background px-4 py-4">
-            <div className="grid size-10 place-items-center overflow-hidden rounded-2xl bg-forest-soft text-forest">
+            <div className="grid size-10 place-items-center overflow-hidden rounded-full bg-forest-soft text-forest ring-1 ring-line">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" className="size-full object-cover" />
               ) : (
