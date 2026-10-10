@@ -20,6 +20,9 @@ type ProfileModalProps = {
   rows: ProfileRow[];
   userId?: string | undefined;
   canEditAvatar?: boolean;
+  avatarTarget?: "profile" | "office";
+  avatarTargetId?: string | undefined;
+  avatarLabel?: string | undefined;
 };
 
 export function ProfileModal({
@@ -31,6 +34,9 @@ export function ProfileModal({
   rows,
   userId,
   canEditAvatar = false,
+  avatarTarget = "profile",
+  avatarTargetId,
+  avatarLabel,
 }: ProfileModalProps) {
   const [emailBusy, setEmailBusy] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -48,15 +54,34 @@ export function ProfileModal({
     const nextAvatar = avatarDraft.trim() || null;
     setAvatarSaving(true);
     try {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ avatar_url: nextAvatar, updated_at: new Date().toISOString() })
-        .eq("id", userId);
-      if (profileError) throw profileError;
-
-      await qc.invalidateQueries({ queryKey: ["session"] });
-      await qc.invalidateQueries({ queryKey: ["requests-page"] });
-      toast.success("تم تحديث صورة الملف الشخصي");
+      if (avatarTarget === "office") {
+        if (!avatarTargetId) throw new Error("تعذّر تحديد المكتب الحالي.");
+        const { error } = await supabase
+          .from("offices")
+          .update({ logo_url: nextAvatar, updated_at: new Date().toISOString() })
+          .eq("id", avatarTargetId)
+          .eq("owner_id", userId);
+        if (error) throw error;
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ["my-office-full"] }),
+          qc.invalidateQueries({ queryKey: ["office-governorate"] }),
+          qc.invalidateQueries({ queryKey: ["office"] }),
+          qc.invalidateQueries({ queryKey: ["home-offices"] }),
+          qc.invalidateQueries({ queryKey: ["office-properties"] }),
+        ]);
+        toast.success("تم تحديث صورة المكتب");
+      } else {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ avatar_url: nextAvatar, updated_at: new Date().toISOString() })
+          .eq("id", userId);
+        if (error) throw error;
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ["session"] }),
+          qc.invalidateQueries({ queryKey: ["requests-page"] }),
+        ]);
+        toast.success("تم تحديث صورة الملف الشخصي");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذّر حفظ الصورة");
     } finally {
@@ -110,7 +135,7 @@ export function ProfileModal({
             {canEditAvatar && userId && (
               <section className="space-y-3 rounded-2xl bg-surface p-3.5 ring-1 ring-line">
                 <div>
-                  <h3 className="text-sm font-extrabold">صورة الملف الشخصي</h3>
+                  <h3 className="text-sm font-extrabold">{avatarLabel ?? "صورة الملف الشخصي"}</h3>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     تظهر بجانب طلباتك وتواصلك، ويمكنك تغييرها في أي وقت.
                   </p>
@@ -120,7 +145,7 @@ export function ProfileModal({
                   folder="avatars"
                   value={avatarDraft ? [avatarDraft] : []}
                   onChange={(urls) => setAvatarDraft(urls[0] ?? "")}
-                  label="اختر صورة واضحة لك · اختيارية"
+                  label={avatarTarget === "office" ? "اختيار شعار أو صورة للمكتب · اختيارية" : "اختيار صورة واضحة لك · اختيارية"}
                 />
                 <button
                   type="button"
