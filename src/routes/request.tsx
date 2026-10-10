@@ -246,7 +246,7 @@ function RequestPage() {
             <select
               value={durationDays}
               onChange={(e) => setDurationDays(Number(e.target.value) as 7 | 30)}
-              className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+              className="app-field-control"
             >
               <option value={7}>7 أيام</option>
               <option value={30}>30 يومًا</option>
@@ -350,7 +350,7 @@ function Num({
         inputMode="numeric"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl bg-sand px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-forest"
+        className="app-field-control"
       />
     </label>
   );
