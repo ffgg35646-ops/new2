@@ -206,7 +206,6 @@ function SearchPage() {
           <EmptyState
             icon={SearchX}
             title="لا توجد نتائج"
-            description="وسّع نطاق البحث أو أزل بعض الفلاتر."
           />
         )}
       </main>
