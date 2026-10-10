@@ -1235,7 +1235,7 @@ function SentOffers({ officeId }: { officeId: string | null }) {
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   {[kindText, listingText, row.neighborhood].filter((value) => value && value !== "—").join(" · ")}
                 </p>
-                <p className="mt-1 text-[11px] text-muted-foreground">{formatDate(String(row.created_at))}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{formatDate(row.created_at)}</p>
               </div>
               <span className={cn(
                 "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
