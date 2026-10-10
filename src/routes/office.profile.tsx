@@ -104,6 +104,7 @@ function OfficeProfile() {
   });
   const [falDocs, setFalDocs] = useState<string[]>([]);
   const [licenseDocs, setLicenseDocs] = useState<string[]>([]);
+  const [logoUrl, setLogoUrl] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem("ofoq-theme") === "dark";
@@ -137,6 +138,7 @@ function OfficeProfile() {
     });
     setFalDocs(office.fal_license_url ? [office.fal_license_url] : []);
     setLicenseDocs(office.real_estate_license_url ? [office.real_estate_license_url] : []);
+    setLogoUrl(office.logo_url ?? "");
   }, [office]);
 
   const save = useMutation({
@@ -149,6 +151,7 @@ function OfficeProfile() {
           ...form,
           governorate_id: form.governorate_id || null,
           license_expiry: form.license_expiry || null,
+          logo_url: logoUrl.trim() || null,
           fal_license_url: falDocs[0] ?? null,
           real_estate_license_url: licenseDocs[0] ?? null,
         })
@@ -284,6 +287,19 @@ function OfficeProfile() {
                 <X className="size-3.5" />
               </button>
             </div>
+
+            {userId && (
+              <div className="space-y-2 rounded-xl bg-background p-3 ring-1 ring-line">
+                <div className="text-xs font-semibold text-muted-foreground">صورة المكتب / الشعار</div>
+                <MediaUploader
+                  userId={userId}
+                  folder="properties"
+                  value={logoUrl ? [logoUrl] : []}
+                  onChange={(urls) => setLogoUrl(urls[0] ?? "")}
+                  label="ارفع صورة المكتب"
+                />
+              </div>
+            )}
 
             {TEXT_FIELDS.map(([key, label]) => (
               <label key={key} className="block space-y-1">
