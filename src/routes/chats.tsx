@@ -118,11 +118,8 @@ function ChatsPage() {
         expires_at?: string | null;
         chat_enabled?: boolean;
       } | null;
-      if (
-        plan?.plan !== "pro" ||
-        plan.chat_enabled !== true ||
-        (plan.expires_at && new Date(plan.expires_at).getTime() <= Date.now())
-      ) {
+      // office_effective_plan runs on the server and is the authority for expiry.
+      if (plan?.plan !== "pro" || plan.chat_enabled !== true) {
         throw new Error("الدردشة متاحة للمكاتب المشتركة في الباقة الاحترافية السارية فقط.");
       }
 
