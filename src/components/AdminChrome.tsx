@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 import {
   Bell,
   Building2,
@@ -16,7 +17,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useRouter } from "@tanstack/react-router";
 
 const items = [
   { label: "الرئيسية", href: "/admin", to: "/admin", search: { tab: "dashboard" }, icon: LayoutDashboard },
