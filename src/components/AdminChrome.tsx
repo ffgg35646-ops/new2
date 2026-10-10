@@ -114,6 +114,26 @@ function Navigation({
 function AdminNotificationBell() {
   const { userId } = useAuth();
   const qc = useQueryClient();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  const inbox = useQuery({
+    queryKey: ["admin-notification-preview", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("id,title,body,type,link,is_read,created_at")
+        .eq("user_id", userId!)
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+  });
 
   const unread = useQuery({
     queryKey: ["unread-notifications", userId],
@@ -128,7 +148,7 @@ function AdminNotificationBell() {
       if (error) throw error;
       return count ?? 0;
     },
-    staleTime: 30_000,
+    staleTime: 15_000,
     refetchOnWindowFocus: true,
   });
 
@@ -146,9 +166,8 @@ function AdminNotificationBell() {
           filter: `user_id=eq.${userId}`,
         },
         () => {
-          void qc.invalidateQueries({
-            queryKey: ["unread-notifications", userId],
-          });
+          void qc.invalidateQueries({ queryKey: ["unread-notifications", userId] });
+          void qc.invalidateQueries({ queryKey: ["admin-notification-preview", userId] });
         },
       )
       .subscribe();
@@ -158,24 +177,126 @@ function AdminNotificationBell() {
     };
   }, [userId, qc]);
 
+  async function openNotification(n: NonNullable<typeof inbox.data>[number]) {
+    setOpen(false);
+
+    if (!n.is_read) {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", n.id)
+        .eq("user_id", userId!);
+
+      if (error) {
+        // Keep the notification accessible even if marking it read fails.
+        toast.error("تعذر تحديث حالة الإشعار");
+      } else {
+        void qc.invalidateQueries({ queryKey: ["unread-notifications", userId] });
+        void qc.invalidateQueries({ queryKey: ["admin-notification-preview", userId] });
+      }
+    }
+
+    if (n.link) router.history.push(n.link);
+  }
+
   return (
-    <Link
-      to="/admin/notifications"
-      search={{ tab: "dashboard" }}
-      preload="intent"
-      className="relative ms-auto grid size-10 place-items-center rounded-full bg-surface ring-1 ring-line"
-      aria-label={`الإشعارات${(unread.data ?? 0) > 0 ? `، ${unread.data} غير مقروء` : ""}`}
-    >
-      <Bell className="size-[18px] text-muted-foreground" />
-      {(unread.data ?? 0) > 0 && (
-        <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-terracotta px-1 text-[10px] font-extrabold text-background">
-          {(unread.data ?? 0) > 99 ? "99+" : unread.data}
-        </span>
+    <div className="relative ms-auto">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="relative grid size-10 place-items-center rounded-full bg-surface ring-1 ring-line hover:bg-sand"
+        aria-label={`الإشعارات${(unread.data ?? 0) > 0 ? `، ${unread.data} غير مقروء` : ""}`}
+        aria-expanded={open}
+      >
+        <Bell className="size-[18px] text-muted-foreground" />
+        {(unread.data ?? 0) > 0 && (
+          <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-terracotta px-1 text-[10px] font-extrabold text-background">
+            {(unread.data ?? 0) > 99 ? "99+" : unread.data}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-label="إغلاق قائمة الإشعارات"
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setOpen(false)}
+          />
+          <section
+            dir="rtl"
+            aria-label="قائمة الإشعارات"
+            className="absolute left-0 top-[calc(100%+12px)] z-50 w-[min(92vw,390px)] overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-line"
+          >
+            <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
+              <div>
+                <h2 className="font-display text-base font-extrabold">الإشعارات</h2>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {(unread.data ?? 0) > 0 ? `لديك ${unread.data} إشعار غير مقروء` : "أحدث تحديثات حسابك"}
+                </p>
+              </div>
+              {(unread.data ?? 0) > 0 && (
+                <span className="rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-bold text-background">
+                  {unread.data} جديد
+                </span>
+              )}
+            </div>
+
+            <div className="max-h-[min(65vh,440px)] overflow-y-auto">
+              {inbox.isLoading ? (
+                <div className="px-4 py-10 text-center text-xs text-muted-foreground">جارٍ تحميل الإشعارات...</div>
+              ) : inbox.isError ? (
+                <div className="px-4 py-8 text-center text-xs text-destructive">تعذر تحميل الإشعارات.</div>
+              ) : inbox.data?.length ? (
+                inbox.data.map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => void openNotification(n)}
+                    className={`flex w-full gap-3 border-b border-line px-4 py-3.5 text-right transition hover:bg-sand ${n.is_read ? "bg-surface" : "bg-forest-soft/60"}`}
+                  >
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-background ring-1 ring-line">
+                      <Bell className="size-4 text-forest" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-bold leading-5">{n.title}</span>
+                        {!n.is_read && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-terracotta" />}
+                      </span>
+                      {n.body && (
+                        <span className="mt-1 block line-clamp-2 text-xs leading-5 text-muted-foreground">{n.body}</span>
+                      )}
+                      <span className="mt-1.5 block text-[10px] text-muted-foreground">
+                        {String(n.created_at ?? "").replace("T", " ").slice(0, 16)}
+                      </span>
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-10 text-center">
+                  <Bell className="mx-auto size-7 text-muted-foreground/50" />
+                  <p className="mt-2 text-xs text-muted-foreground">لا توجد إشعارات حتى الآن</p>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                router.history.push("/admin/notifications");
+              }}
+              className="w-full bg-background px-4 py-3.5 text-center text-xs font-extrabold text-forest hover:bg-sand"
+            >
+              عرض كل الإشعارات
+            </button>
+          </section>
+        </>
       )}
-    </Link>
+    </div>
   );
 }
-
 export function AdminChrome({
   children,
 }: {
