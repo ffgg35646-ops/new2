@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { KeyRound, Loader2, Mail, Pencil, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { MediaUploader } from "@/components/MediaUploader";
 
 type ProfileRow = {
   label: string;
@@ -16,6 +18,11 @@ type ProfileModalProps = {
   emailVerified: boolean;
   avatarUrl?: string | null | undefined;
   rows: ProfileRow[];
+  userId?: string | undefined;
+  canEditAvatar?: boolean;
+  avatarTarget?: "profile" | "office";
+  avatarTargetId?: string | undefined;
+  avatarLabel?: string | undefined;
 };
 
 export function ProfileModal({
@@ -25,10 +32,62 @@ export function ProfileModal({
   emailVerified,
   avatarUrl,
   rows,
+  userId,
+  canEditAvatar = false,
+  avatarTarget = "profile",
+  avatarTargetId,
+  avatarLabel,
 }: ProfileModalProps) {
   const [emailBusy, setEmailBusy] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarDraft, setAvatarDraft] = useState(avatarUrl ?? "");
   const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (open) setAvatarDraft(avatarUrl ?? "");
+  }, [avatarUrl, open]);
+
+  async function saveAvatar() {
+    if (!userId || !canEditAvatar) return;
+    const nextAvatar = avatarDraft.trim() || null;
+    setAvatarSaving(true);
+    try {
+      if (avatarTarget === "office") {
+        if (!avatarTargetId) throw new Error("تعذّر تحديد المكتب الحالي.");
+        const { error } = await supabase
+          .from("offices")
+          .update({ logo_url: nextAvatar, updated_at: new Date().toISOString() })
+          .eq("id", avatarTargetId)
+          .eq("owner_id", userId);
+        if (error) throw error;
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ["my-office-full"] }),
+          qc.invalidateQueries({ queryKey: ["office-governorate"] }),
+          qc.invalidateQueries({ queryKey: ["office"] }),
+          qc.invalidateQueries({ queryKey: ["home-offices"] }),
+          qc.invalidateQueries({ queryKey: ["office-properties"] }),
+        ]);
+        toast.success("تم تحديث صورة المكتب");
+      } else {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ avatar_url: nextAvatar, updated_at: new Date().toISOString() })
+          .eq("id", userId);
+        if (error) throw error;
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ["session"] }),
+          qc.invalidateQueries({ queryKey: ["requests-page"] }),
+        ]);
+        toast.success("تم تحديث صورة الملف الشخصي");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذّر حفظ الصورة");
+    } finally {
+      setAvatarSaving(false);
+    }
+  }
 
   if (!open) return null;
 
@@ -47,7 +106,7 @@ export function ProfileModal({
       <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 px-4">
         <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl bg-background shadow-2xl ring-1 ring-line">
           <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-background px-4 py-4">
-            <div className="grid size-10 place-items-center overflow-hidden rounded-2xl bg-forest-soft text-forest">
+            <div className="grid size-10 place-items-center overflow-hidden rounded-full bg-forest-soft text-forest ring-1 ring-line">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" className="size-full object-cover" />
               ) : (
@@ -73,6 +132,32 @@ export function ProfileModal({
           </header>
 
           <main className="space-y-3 p-4">
+            {canEditAvatar && userId && (
+              <section className="space-y-3 rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+                <div>
+                  <h3 className="text-sm font-extrabold">{avatarLabel ?? "صورة الملف الشخصي"}</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    تظهر بجانب طلباتك وتواصلك، ويمكنك تغييرها في أي وقت.
+                  </p>
+                </div>
+                <MediaUploader
+                  userId={userId}
+                  folder="avatars"
+                  value={avatarDraft ? [avatarDraft] : []}
+                  onChange={(urls) => setAvatarDraft(urls[0] ?? "")}
+                  label={avatarTarget === "office" ? "اختيار شعار أو صورة للمكتب · اختيارية" : "اختيار صورة واضحة لك · اختيارية"}
+                />
+                <button
+                  type="button"
+                  onClick={() => void saveAvatar()}
+                  disabled={avatarSaving || avatarDraft.trim() === (avatarUrl ?? "").trim()}
+                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-forest px-4 py-3 text-sm font-bold text-background shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {avatarSaving && <Loader2 className="size-4 animate-spin" />}
+                  حفظ صورة الملف الشخصي
+                </button>
+              </section>
+            )}
             {rows.map((row) => (
               <div
                 key={row.label}

@@ -2569,7 +2569,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             .toArray(),
           profilesCollection
             .find({ id: { $in: userIds } })
-            .project({ id: 1, full_name: 1, phone: 1 })
+            .project({ id: 1, full_name: 1, phone: 1, avatar_url: 1 })
             .toArray(),
           governoratesCollection.findOne(
             { id: office.governorate_id },
@@ -2592,6 +2592,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             {
               full_name: String(profile.full_name ?? "عميل"),
               phone: profile.phone ? String(profile.phone) : null,
+              avatar_url: profile.avatar_url ? String(profile.avatar_url) : null,
             },
           ]),
         );
@@ -2620,6 +2621,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               offer_id: offerByRequest.get(String(request.id ?? request._id ?? "")) ?? null,
               client_name: profile?.full_name ?? "عميل",
               client_phone: profile?.phone ?? null,
+              client_avatar_url: profile?.avatar_url ?? null,
             };
           }),
           error: null,
@@ -2651,7 +2653,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const [profiles, properties] = await Promise.all([
           userIds.length
             ? getMongoCollection<Record<string, unknown>>("profiles")
-                .then((collection) => collection.find({ id: { $in: userIds } }).project({ id: 1, full_name: 1 }).toArray())
+                .then((collection) => collection.find({ id: { $in: userIds } }).project({ id: 1, full_name: 1, avatar_url: 1 }).toArray())
             : Promise.resolve([]),
           propertyIds.length
             ? getMongoCollection<Record<string, unknown>>("properties")
@@ -2710,6 +2712,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             created_at: offer.completed_at ?? offer.ended_at ?? offer.updated_at ?? offer.created_at ?? new Date(),
             property_title: title,
             client_name: String(offer.completed_client_name ?? profile?.full_name ?? "عميل"),
+            client_avatar_url: profile?.avatar_url ? String(profile.avatar_url) : null,
             kind: request?.kind ?? offer.completed_request_kind ?? null,
             listing: request?.listing ?? offer.completed_request_listing ?? null,
             neighborhood: request?.neighborhood ?? offer.completed_neighborhood ?? null,
@@ -2808,7 +2811,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           acceptedOfferIds.length
             ? offers.find({ id: { $in: acceptedOfferIds }, office_id: officeId }).toArray()
             : Promise.resolve([]),
-          profiles.find({ id: { $in: userIds } }).project({ id: 1, full_name: 1, phone: 1 }).toArray(),
+          profiles.find({ id: { $in: userIds } }).project({ id: 1, full_name: 1, phone: 1, avatar_url: 1 }).toArray(),
           office.governorate_id
             ? governorates.findOne({ id: office.governorate_id }, { projection: { name_ar: 1 } })
             : Promise.resolve(null),
@@ -2839,6 +2842,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               expires_at: request.expires_at ?? null,
               client_name: profile?.full_name ?? "عميل",
               client_phone: profile?.phone ? String(profile.phone) : null,
+              client_avatar_url: profile?.avatar_url ? String(profile.avatar_url) : null,
               offer_message: offer?.message ?? null,
               offer_price: offer?.price ?? null,
               offer_status: offer?.status ?? "accepted",
@@ -4979,7 +4983,7 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
     }
 
     const folder = data.get("folder");
-    if (typeof folder !== "string" || !["properties", "requests", "licenses", "support"].includes(folder)) {
+    if (typeof folder !== "string" || !["properties", "requests", "licenses", "support", "avatars"].includes(folder)) {
       throw new Error("نوع مجلد الرفع غير مدعوم.");
     }
 

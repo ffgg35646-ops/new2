@@ -130,7 +130,9 @@ async function loadSession(): Promise<SessionInfo> {
           dbProfile.full_name || fallbackProfile.full_name,
         phone: dbProfile.phone || fallbackProfile.phone,
         email: dbProfile.email || fallbackProfile.email,
-        avatar_url: dbProfile.avatar_url || fallbackProfile.avatar_url,
+        avatar_url: Object.prototype.hasOwnProperty.call(dbProfile, "avatar_url")
+          ? dbProfile.avatar_url
+          : fallbackProfile.avatar_url,
       }
     : fallbackProfile;
 

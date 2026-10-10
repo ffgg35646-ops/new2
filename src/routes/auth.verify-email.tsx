@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadPendingSignupAvatar } from "@/components/MediaUploader";
+import { clearPendingSignupAvatar } from "@/lib/pending-signup-avatar";
 
 export const Route = createFileRoute("/auth/verify-email")({
   head: () => ({
@@ -215,7 +217,23 @@ function VerifyEmailPage() {
 
       const raw = localStorage.getItem("ufuq.pending-signup");
       if (raw) {
-        const payload = JSON.parse(raw) as Record<string, unknown>;
+        let payload = JSON.parse(raw) as Record<string, unknown>;
+
+        // A selected avatar is stored locally until verification creates a session.
+        if (payload._avatar_pending === true) {
+          try {
+            const avatarUrl = await uploadPendingSignupAvatar(data.user.id);
+            payload = {
+              ...payload,
+              _avatar_url: avatarUrl,
+              _avatar_pending: false,
+            };
+          } catch {
+            payload = { ...payload, _avatar_url: null, _avatar_pending: false };
+            toast.error("تم تأكيد البريد، لكن تعذّر رفع الصورة. يمكنك إضافتها لاحقًا من ملفك الشخصي.");
+          }
+        }
+
         const { error: signupError } = await supabase.rpc(
           "complete_signup",
           payload as never,
@@ -226,6 +244,11 @@ function VerifyEmailPage() {
 
       localStorage.removeItem("ufuq.pending-signup");
       localStorage.removeItem(PENDING_EMAIL_KEY);
+      try {
+        await clearPendingSignupAvatar();
+      } catch {
+        // Do not block a verified account if local cleanup fails.
+      }
 
       toast.success(
         pending.role === "office"
