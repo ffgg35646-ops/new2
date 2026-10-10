@@ -37,6 +37,9 @@ export function useMyOffice() {
   return useQuery({
     queryKey: ["my-office-full", userId],
     enabled: !!userId,
+    // Always fetch current office fields (including plan expiry) instead of trusting persisted localStorage cache.
+    refetchOnMount: "always",
+    staleTime: 0,
     refetchInterval: 60_000,
     refetchIntervalInBackground: true,
     queryFn: async () => {
