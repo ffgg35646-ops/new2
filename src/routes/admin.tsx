@@ -1,4 +1,5 @@
 import { RoleGuard } from "@/lib/role-guard";
+import { formatDateTime } from "@/lib/format";
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -727,7 +728,7 @@ function PlansTab() {
                       </p>
                       {office.plan_expires_at && (
                         <p className="mt-1 text-[10px] text-muted-foreground">
-                          تاريخ الانتهاء: {new Date(office.plan_expires_at).toLocaleDateString("ar-SA", { timeZone: "Asia/Riyadh" })}
+                          تاريخ الانتهاء: {formatDateTime(office.plan_expires_at)}
                         </p>
                       )}
                     </div>
