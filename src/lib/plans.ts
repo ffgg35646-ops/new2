@@ -119,6 +119,9 @@ export function useMyPlan() {
   const packageQuery = useQuery({
     queryKey: ["my-package", packageId, office?.plan, office?.plan_expires_at ?? null],
     enabled: !!office,
+    // Do not let a persisted package result hide a manually updated subscription.
+    refetchOnMount: "always",
+    staleTime: 0,
     refetchInterval: 60_000,
     refetchIntervalInBackground: true,
     queryFn: async () => {
