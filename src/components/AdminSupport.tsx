@@ -67,7 +67,7 @@ export function AdminSupport() {
       ];
 
       if (!ids.length) {
-        return new Map<string, Person>();
+        return {};
       }
 
       const [profilesRes, rolesRes] =
@@ -91,10 +91,7 @@ export function AdminSupport() {
         throw rolesRes.error;
       }
 
-      const result = new Map<
-        string,
-        Person
-      >();
+      const result: Record<string, Person> = {};
 
       for (const profile of profilesRes.data ??
         []) {
@@ -104,12 +101,12 @@ export function AdminSupport() {
               item.user_id === profile.id,
           )?.role ?? "user";
 
-        result.set(profile.id, {
+        result[profile.id] = {
           full_name:
             profile.full_name ||
             "مستخدم",
           role,
-        });
+        };
       }
 
       return result;
@@ -194,7 +191,7 @@ export function AdminSupport() {
 
   if (selected) {
     const person =
-      people.data?.get(selected.user_id);
+      people.data?.[selected.user_id];
 
     return (
       <section className="space-y-3">
@@ -277,9 +274,7 @@ export function AdminSupport() {
         <div className="space-y-2.5">
           {tickets.data.map((ticket) => {
             const person =
-              people.data?.get(
-                ticket.user_id,
-              );
+              people.data?.[ticket.user_id];
 
             return (
               <button
