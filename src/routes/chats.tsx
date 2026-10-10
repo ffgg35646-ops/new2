@@ -60,6 +60,7 @@ type ProOfficeRow = {
   reviews_count?: number | null;
   completed_requests_count?: number;
   is_pro_current?: boolean;
+  is_deleted?: boolean | null;
   verification_badge?: boolean;
   updated_at: string;
 };
@@ -95,13 +96,14 @@ function ChatsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offices")
-        .select("id,name,logo_url,plan,plan_expires_at,package_id,updated_at,rating_avg,reviews_count,completed_requests_count,is_pro_current,verification_badge")
-        .eq("is_deleted", false)
+        .select("id,name,logo_url,plan,plan_expires_at,package_id,updated_at,rating_avg,reviews_count,completed_requests_count,is_pro_current,is_deleted,verification_badge")
         .order("updated_at", { ascending: false })
         .limit(500);
       if (error) throw error;
+      // Older office records may not contain is_deleted=false. Treat only an
+      // explicit true as deleted so existing Pro memberships remain discoverable.
       return ((data ?? []) as unknown as ProOfficeRow[])
-        .filter((row) => row.is_pro_current === true);
+        .filter((row) => row.is_deleted !== true && row.is_pro_current === true);
     },
   });
 
