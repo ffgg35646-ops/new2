@@ -200,7 +200,6 @@ function HomePage() {
             <EmptyState
               icon={HomeIcon}
               title="لا توجد عقارات مطابقة"
-              description="جرّب تغيير نوع العقار أو المحافظة، أو انشر طلبك ليصلك عرض من المكاتب."
               action={
                 <Link
                   to="/request"
