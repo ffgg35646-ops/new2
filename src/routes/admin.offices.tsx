@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAdminDirectory, type AdminOffice } from "@/lib/admin";
 import { cn } from "@/lib/utils";
+import { formatDate as formatSaudiDate } from "@/lib/format";
 
 export const Route = createFileRoute("/admin/offices")({
   head: () => ({
@@ -266,13 +267,7 @@ function Info({
 }
 
 function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return date.toLocaleDateString("ar-SA");
+  return formatSaudiDate(value);
 }
 
 function Skeleton() {
