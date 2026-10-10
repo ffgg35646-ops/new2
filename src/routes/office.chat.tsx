@@ -29,7 +29,7 @@ export const Route = createFileRoute("/office/chat")({
       { property: "og:title", content: "الدردشة مع العملاء | عقار البطين" },
       {
         property: "og:description",
-        content: "سجل المحادثات والعملاء لمكتبك العقاري ضمن الباقة الاحترافية.",
+        content: "",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -242,7 +242,7 @@ function OfficeChatPage() {
           <EmptyState
             icon={MessageSquare}
             title="لا توجد محادثات بعد"
-            description="ستظهر هنا محادثاتك مع العملاء المهتمين بعقاراتك."
+            description=""
           />
         )}
       </div>
