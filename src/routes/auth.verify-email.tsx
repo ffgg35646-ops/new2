@@ -417,9 +417,7 @@ function VerifyEmailPage() {
         {pending?.email ?? ""}
       </p>
 
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        افتح الرسالة وخذ رمز التأكيد المكوّن من 6 أرقام، ثم اكتبه هنا.
-      </p>
+      
 
       <div className="mt-6">
         <label className="block">
