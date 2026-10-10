@@ -250,9 +250,7 @@ function OfficeProfile() {
             </p>
           )}
           {office?.verification_status === "pending" && (
-            <p className="mt-2 rounded-xl bg-sand p-2.5 text-xs text-muted-foreground">
-              أكمل بيانات الترخيص العقاري ورخصة فال لتسريع توثيق المكتب.
-            </p>
+            
           )}
           {office && (
             <button
