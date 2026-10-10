@@ -48,6 +48,7 @@ type IndividualInquiry = {
   message: string | null;
   contact_phone: string | null;
   end_reason?: string | null;
+  completion_note?: string | null;
   property: { title: string | null; property_number: string | null } | null;
   office: { id: string; name: string | null; phone: string | null; whatsapp: string | null } | null;
 };
@@ -154,7 +155,7 @@ function RequestsPage() {
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from("property_inquiries")
-        .select("id,property_id,office_id,type,status,created_at,message,contact_phone,end_reason")
+        .select("id,property_id,office_id,type,status,created_at,message,contact_phone,end_reason,completion_note")
         .eq("user_id", userId!)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -186,6 +187,7 @@ function RequestsPage() {
         message: row.message == null ? null : String(row.message),
         contact_phone: row.contact_phone == null ? null : String(row.contact_phone),
         end_reason: row.end_reason == null ? null : String(row.end_reason),
+        completion_note: row.completion_note == null ? null : String(row.completion_note),
         property: propertiesById.get(String(row.property_id ?? "")) as IndividualInquiry["property"] ?? null,
         office: officesById.get(String(row.office_id ?? "")) as IndividualInquiry["office"] ?? null,
       })) as IndividualInquiry[];
@@ -240,14 +242,17 @@ function RequestsPage() {
       } as never);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setEndRequestId(null);
       toast.success("تم إنهاء الطلب وإرسال إشعار للمكتب");
-      void qc.invalidateQueries({ queryKey: ["requests-page"] });
-      void qc.invalidateQueries({ queryKey: ["open-requests"] });
-      void qc.invalidateQueries({ queryKey: ["office-accepted-property-requests"] });
-      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
-      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["requests-page"] }),
+        qc.invalidateQueries({ queryKey: ["open-requests"] }),
+        qc.invalidateQueries({ queryKey: ["office-accepted-property-requests"] }),
+        qc.invalidateQueries({ queryKey: ["office-sent-offers"] }),
+        qc.invalidateQueries({ queryKey: ["unread-notifications"] }),
+      ]);
+      setTab("history");
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر إنهاء الطلب"),
   });
@@ -262,16 +267,19 @@ function RequestsPage() {
       if (error) throw error;
       return vars;
     },
-    onSuccess: (vars) => {
+    onSuccess: async (vars) => {
       setEndInquiryId(null);
       setCompleteInquiryId(null);
       toast.success(vars.status === "completed"
         ? "تم تسجيل اكتمال طلب التواصل وإشعار المكتب"
         : "تم إنهاء طلب التواصل وإشعار المكتب");
-      void qc.invalidateQueries({ queryKey: ["individual-property-inquiries"] });
-      void qc.invalidateQueries({ queryKey: ["office-inquiries"] });
-      void qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] });
-      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["individual-property-inquiries"] }),
+        qc.invalidateQueries({ queryKey: ["office-inquiries"] }),
+        qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] }),
+        qc.invalidateQueries({ queryKey: ["unread-notifications"] }),
+      ]);
+      setTab("history");
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث طلب التواصل"),
   });
@@ -300,16 +308,19 @@ function RequestsPage() {
       } as never);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setCompletionRequestId(null);
       setCompletionSearch("");
       setSelectedCompletionOfferId(null);
       toast.success("تم تسجيل الطلب مكتملًا وإشعار المكاتب");
-      void qc.invalidateQueries({ queryKey: ["requests-page"] });
-      void qc.invalidateQueries({ queryKey: ["open-requests"] });
-      void qc.invalidateQueries({ queryKey: ["office-accepted-property-requests"] });
-      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
-      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["requests-page"] }),
+        qc.invalidateQueries({ queryKey: ["open-requests"] }),
+        qc.invalidateQueries({ queryKey: ["office-accepted-property-requests"] }),
+        qc.invalidateQueries({ queryKey: ["office-sent-offers"] }),
+        qc.invalidateQueries({ queryKey: ["unread-notifications"] }),
+      ]);
+      setTab("history");
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تأكيد اكتمال الطلب"),
   });
@@ -776,10 +787,10 @@ function HistoryInquiryCard({ inquiry }: { inquiry: IndividualInquiry }) {
       {inquiry.message && (
         <p className="whitespace-pre-wrap rounded-xl bg-background p-3 text-sm leading-6">{inquiry.message}</p>
       )}
-      {inquiry.end_reason && (
+      {(inquiry.status === "completed" ? inquiry.completion_note : inquiry.end_reason) && (
         <div className="rounded-xl bg-sand p-3 text-xs leading-5 text-muted-foreground">
           <span className="font-bold text-foreground">{inquiry.status === "completed" ? "ملاحظة الإكمال: " : "سبب الإنهاء: "}</span>
-          {inquiry.end_reason}
+          {inquiry.status === "completed" ? inquiry.completion_note : inquiry.end_reason}
         </div>
       )}
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
