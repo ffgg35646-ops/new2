@@ -30,12 +30,12 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
   const isPro = office.is_pro_current === true;
   const isVerified = office.verification_badge === true;
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-surface p-3 ring-1 ring-line animate-rise-in">
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-3.5 ring-1 ring-line shadow-sm transition-shadow duration-200 hover:shadow-md animate-rise-in">
       {office.logo_url ? (
         <img
           src={office.logo_url}
           alt={office.name}
-          className="size-11 rounded-xl object-cover"
+          className="size-11 shrink-0 rounded-xl object-cover ring-1 ring-line"
           loading="lazy"
         />
       ) : (
@@ -43,7 +43,7 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
           {office.name.trim().charAt(0)}
         </div>
       )}
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)]">
         <div className="flex items-center gap-1.5">
           <span className="truncate font-display text-sm font-bold">{office.name}</span>
           {isVerified && (
@@ -57,7 +57,7 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
             </span>
           )}
         </div>
-        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5 text-muted-foreground">
           <Star className="size-3 fill-terracotta text-terracotta" />
           {Number(office.rating_avg ?? office.rating ?? 0).toFixed(1)}
           <span>({office.reviews_count ?? 0} تقييم)</span>
@@ -107,7 +107,7 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
         aria-pressed={notifyOn}
         title={notifyOn ? "إشعارات المكتب مفعّلة" : "تفعيل إشعارات المكتب"}
         className={[
-          "grid size-9 shrink-0 place-items-center rounded-full ring-1 transition",
+          "grid size-9 shrink-0 place-items-center rounded-full ring-1 transition-colors",
           notifyOn
             ? "bg-forest-soft text-forest ring-forest/30"
             : "bg-background text-muted-foreground ring-line hover:bg-sand",
@@ -119,7 +119,7 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
       <Link
         to="/offices/$officeId"
         params={{ officeId: office.id }}
-        className="ms-auto shrink-0 rounded-full bg-forest px-3.5 py-2 text-xs font-semibold text-background"
+        className="ms-auto shrink-0 rounded-full bg-forest px-4 py-2.5 text-xs font-bold text-background shadow-sm transition-colors hover:bg-forest/95"
       >
         دخول المكتب
       </Link>
