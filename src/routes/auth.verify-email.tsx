@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadMedia } from "@/components/MediaUploader";
+import { profileAvatarFileFromDataUrl } from "@/lib/profile-avatar";
 
 export const Route = createFileRoute("/auth/verify-email")({
   head: () => ({
@@ -19,6 +21,8 @@ export const Route = createFileRoute("/auth/verify-email")({
 });
 
 const PENDING_EMAIL_KEY = "ufuq.pending-email";
+const PENDING_SIGNUP_KEY = "ufuq.pending-signup";
+const PENDING_AVATAR_KEY = "ufuq.pending-avatar-data";
 const RESEND_STATE_KEY = "ufuq.email-send-state";
 const LEGACY_RESEND_STATE_KEY = "ufuq.email-resend-state";
 const MAX_RESENDS = 15;
@@ -213,9 +217,21 @@ function VerifyEmailPage() {
         throw new Error("تم تأكيد الرمز لكن لم يتم العثور على المستخدم.");
       }
 
-      const raw = localStorage.getItem("ufuq.pending-signup");
+      const raw = localStorage.getItem(PENDING_SIGNUP_KEY);
       if (raw) {
-        const payload = JSON.parse(raw) as Record<string, unknown>;
+        let payload = JSON.parse(raw) as Record<string, unknown>;
+        const avatarData = localStorage.getItem(PENDING_AVATAR_KEY);
+
+        if (avatarData && !payload._avatar_url && data.user.id) {
+          const avatarUrl = await uploadMedia(
+            profileAvatarFileFromDataUrl(avatarData),
+            data.user.id,
+            "properties",
+          );
+          payload = { ...payload, _avatar_url: avatarUrl };
+          localStorage.setItem(PENDING_SIGNUP_KEY, JSON.stringify(payload));
+        }
+
         const { error: signupError } = await supabase.rpc(
           "complete_signup",
           payload as never,
@@ -224,7 +240,8 @@ function VerifyEmailPage() {
         if (signupError) throw signupError;
       }
 
-      localStorage.removeItem("ufuq.pending-signup");
+      localStorage.removeItem(PENDING_SIGNUP_KEY);
+      localStorage.removeItem(PENDING_AVATAR_KEY);
       localStorage.removeItem(PENDING_EMAIL_KEY);
 
       toast.success(
