@@ -94,7 +94,7 @@ function OfficeStatusPage() {
         </h1>
 
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          حساب المكتب موثق الآن ويمكنك استخدام لوحة المكتب
+          
           وإدارة العقارات والطلبات.
         </p>
 
@@ -168,10 +168,7 @@ function OfficeStatusPage() {
         طلبك قيد المراجعة
       </h1>
 
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        تم استلام بيانات المكتب وتأكيد بريدك الإلكتروني.
-        الإدارة ستراجع بيانات المكتب ثم توافق أو ترفض الطلب.
-      </p>
+      
 
       <div className="mt-5 w-full rounded-2xl bg-sand p-4 text-right">
         <div className="text-sm font-bold">
@@ -179,7 +176,7 @@ function OfficeStatusPage() {
         </div>
 
         <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-          بعد اعتماد الحساب ستتمكن من الدخول وإدارة العقارات
+          
           والطلبات من لوحة المكتب.
         </p>
       </div>
