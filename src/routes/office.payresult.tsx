@@ -50,6 +50,7 @@ function ResultPage() {
           description?: string;
           error?: string;
           code?: string;
+          gatewayDescription?: string;
           status?: string;
           pending?: boolean;
           verificationError?: boolean;
@@ -118,7 +119,11 @@ function ResultPage() {
           }
 
           setState("failed");
-          setMessage(data?.description || "لم يكتمل الدفع، ولم يتم تفعيل الباقة.");
+          const gatewayCode = data?.code ? ` (كود HyperPay: ${data.code})` : "";
+          setMessage(
+            (data?.description || data?.error || "لم يكتمل الدفع، ولم يتم تفعيل الباقة.") +
+              gatewayCode,
+          );
           return;
         } catch {
           if (attempt === 3) {
