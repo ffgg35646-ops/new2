@@ -93,10 +93,7 @@ function OfficeStatusPage() {
           تم اعتماد حساب المكتب
         </h1>
 
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          
-          وإدارة العقارات والطلبات.
-        </p>
+        
 
         <Link
           to="/office"
@@ -175,10 +172,7 @@ function OfficeStatusPage() {
           لا يمكنك استخدام لوحة المكتب الآن
         </div>
 
-        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-          
-          والطلبات من لوحة المكتب.
-        </p>
+        
       </div>
 
       <button
