@@ -384,7 +384,7 @@ function ChatsPage() {
           </>
         )}
       </main>
-      <BottomNav variant="individual" />
+      {!isAdmin && <BottomNav variant="individual" />}
     </div>
   );
 }
