@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Building2, Crown, Loader2, MessageSquare, Search, Star } from "lucide-react";
@@ -353,7 +353,13 @@ function ChatsPage() {
                     </li>
                   ))}
                 </ul>
-              ) : null}
+              ) : (
+                <div className="py-4 text-center">
+                  <Link to="/offices" className="text-sm font-semibold text-forest underline underline-offset-4">
+                    ادخل لصفحه المكاتب العقاريه
+                  </Link>
+                </div>
+              )}
             </section>
           </>
         )}
