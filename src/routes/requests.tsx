@@ -60,7 +60,7 @@ type OfferRow = {
   status: string;
   created_at: string;
   end_reason?: string | null;
-  offices: { id: string; name: string; phone: string | null; whatsapp: string | null } | null;
+  offices: { id: string; name: string; phone: string | null; whatsapp: string | null; logo_url: string | null } | null;
   properties: { id: string; title: string } | null;
   requestId: string;
   requestStatus: string;
@@ -124,7 +124,7 @@ function RequestsPage() {
       const { data, error } = await supabase
         .from("property_requests")
         .select(
-          "*, office_offers(id,message,price,status,created_at,end_reason,offices(id,name,phone,whatsapp),properties(id,title))",
+          "*, office_offers(id,message,price,status,created_at,end_reason,offices(id,name,phone,whatsapp,logo_url),properties(id,title))",
         )
         .order("created_at", { ascending: false })
         .limit(100);
@@ -937,7 +937,19 @@ function OfferCard({
   return (
     <div id={"offer-card-" + offer.id} className={cn("rounded-2xl bg-surface p-3 ring-1 ring-line", highlighted && "ring-2 ring-forest")}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0"><div className="font-display text-sm font-extrabold">{office?.name ?? "مكتب عقاري"}</div><div className="mt-1 text-[11px] text-muted-foreground">عرض على طلبك · {formatDate(offer.created_at)}</div></div>
+        <div className="flex min-w-0 items-center gap-2">
+          {office?.logo_url ? (
+            <img src={office.logo_url} alt={"شعار " + (office.name ?? "المكتب")} loading="lazy" className="size-10 shrink-0 rounded-full object-cover ring-1 ring-line" />
+          ) : (
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-forest-soft text-sm font-extrabold text-forest ring-1 ring-line">
+              {(office?.name ?? "م").trim().charAt(0) || "م"}
+            </span>
+          )}
+          <div className="min-w-0">
+            <div className="truncate font-display text-sm font-extrabold">{office?.name ?? "مكتب عقاري"}</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">عرض على طلبك · {formatDate(offer.created_at)}</div>
+          </div>
+        </div>
         <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
           offer.status === "accepted" || offer.status === "completed" ? "bg-forest-soft text-forest" :
           offer.status === "rejected" || offer.status === "ended" || offer.status === "deleted" ? "bg-terracotta-soft text-terracotta" : "bg-sand text-muted-foreground")}>
