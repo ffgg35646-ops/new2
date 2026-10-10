@@ -73,7 +73,7 @@ export const Route = createFileRoute("/api/payment-status")({
             console.error("[payment-status] HyperPay returned non-JSON response", {
               status: response.status,
               contentType: gatewayContentType,
-              bodyPreview: gatewayBody.replace(/\\s+/g, " ").slice(0, 200),
+              bodyPreview: gatewayBody.replace(/\s+/g, " ").slice(0, 200),
             });
             return Response.json(
               {

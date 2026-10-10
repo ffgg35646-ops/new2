@@ -128,7 +128,7 @@ export const Route = createFileRoute("/api/payment-checkout")({
             console.error("[payment-checkout] HyperPay returned non-JSON response", {
               status: hpResponse.status,
               contentType: hpContentType,
-              bodyPreview: hpBody.replace(/\\s+/g, " ").slice(0, 200),
+              bodyPreview: hpBody.replace(/\s+/g, " ").slice(0, 200),
             });
             return Response.json(
               {
