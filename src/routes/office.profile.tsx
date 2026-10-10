@@ -104,6 +104,7 @@ function OfficeProfile() {
   });
   const [falDocs, setFalDocs] = useState<string[]>([]);
   const [licenseDocs, setLicenseDocs] = useState<string[]>([]);
+  const [logoImages, setLogoImages] = useState<string[]>([]);
 
   useEffect(() => {
     const saved = localStorage.getItem("ofoq-theme") === "dark";
@@ -137,6 +138,7 @@ function OfficeProfile() {
     });
     setFalDocs(office.fal_license_url ? [office.fal_license_url] : []);
     setLicenseDocs(office.real_estate_license_url ? [office.real_estate_license_url] : []);
+    setLogoImages(office.logo_url ? [office.logo_url] : []);
   }, [office]);
 
   const save = useMutation({
@@ -151,6 +153,7 @@ function OfficeProfile() {
           license_expiry: form.license_expiry || null,
           fal_license_url: falDocs[0] ?? null,
           real_estate_license_url: licenseDocs[0] ?? null,
+          logo_url: logoImages[0] ?? null,
         })
         .eq("id", office.id);
       if (error) throw error;
@@ -161,6 +164,8 @@ function OfficeProfile() {
       qc.invalidateQueries({ queryKey: ["my-office-full"] });
       qc.invalidateQueries({ queryKey: ["office-governorate"] });
       qc.invalidateQueries({ queryKey: ["office"] });
+      qc.invalidateQueries({ queryKey: ["home-offices"] });
+      qc.invalidateQueries({ queryKey: ["office-properties"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر حفظ البيانات"),
   });
@@ -284,6 +289,24 @@ function OfficeProfile() {
                 <X className="size-3.5" />
               </button>
             </div>
+
+            {userId && (
+              <div className="space-y-2 rounded-2xl bg-background p-3.5 ring-1 ring-line">
+                <div>
+                  <h3 className="text-sm font-extrabold">صورة المكتب / الشعار</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    ستظهر بجانب عروض المكتب وفي بطاقات العقارات وملف المكتب العام.
+                  </p>
+                </div>
+                <MediaUploader
+                  userId={userId}
+                  folder="avatars"
+                  value={logoImages}
+                  onChange={(urls) => setLogoImages(urls.slice(0, 1))}
+                  label="اختيار شعار أو صورة للمكتب · اختياري"
+                />
+              </div>
+            )}
 
             {TEXT_FIELDS.map(([key, label]) => (
               <label key={key} className="block space-y-1">
