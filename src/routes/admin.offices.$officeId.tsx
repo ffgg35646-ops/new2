@@ -26,6 +26,7 @@ import {
 } from "@/lib/admin";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/lib/format";
 
 export const Route = createFileRoute(
   "/admin/offices/$officeId",
@@ -274,9 +275,7 @@ function OfficeDetails() {
 
           <Info
             label="تاريخ التسجيل"
-            value={new Date(
-              office.created_at,
-            ).toLocaleString("ar-SA")}
+            value={formatDateTime(office.created_at)}
           />
         </div>
 
