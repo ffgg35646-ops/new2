@@ -95,7 +95,8 @@ export const Route = createFileRoute("/api/payment-checkout")({
           params.set("currency", "SAR");
           params.set("paymentType", "DB");
           params.set("merchantTransactionId", merchantTransactionId);
-          params.set("shopperResultUrl", origin + "/office/payresult");
+          // Do not set shopperResultUrl on the checkout-creation request as well as the
+          // payment widget form action. HyperPay rejects the second value as an overwrite.
 
           // بوابة LIVE لا تستقبل وضع الاختبار، حتى لو بقي المتغير مضبوطًا محليًا.
           const isLiveGateway =
