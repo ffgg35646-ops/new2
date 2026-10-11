@@ -20,17 +20,13 @@ if (!/^\d+$/.test(buildNumber) || Number(buildNumber) < 1) {
 }
 const env = loadEnv("production", root, "");
 const configuredUrl =
-  process.env["CAPACITOR_SERVER_URL"] ||
-  env["CAPACITOR_SERVER_URL"] ||
-  process.env["VITE_PUBLIC_APP_URL"] ||
-  env["VITE_PUBLIC_APP_URL"] ||
-  process.env["PUBLIC_APP_URL"] ||
-  env["PUBLIC_APP_URL"] ||
+  process.env["IOS_APP_URL"] ||
+  env["IOS_APP_URL"] ||
   "";
 
 if (!configuredUrl.trim()) {
   console.error(
-    "iOS release stopped: provide CAPACITOR_SERVER_URL (or VITE_PUBLIC_APP_URL) with the deployed HTTPS app URL. No production settings were changed.",
+    "iOS release stopped: provide IOS_APP_URL with the dedicated HTTPS endpoint for the iOS app. It will not fall back to the general web URL. No production settings were changed.",
   );
   process.exit(1);
 }
@@ -52,6 +48,7 @@ if (
 }
 
 process.env["CAPACITOR_BUILD_TARGET"] = "release";
+process.env["IOS_APP_URL"] = appUrl.origin;
 process.env["CAPACITOR_SERVER_URL"] = appUrl.origin;
 
 // Capacitor still requires a webDir when the app loads its hosted web app.
@@ -247,5 +244,5 @@ if (existsSync(podfile)) {
   writeFileSync(podfile, podContent, "utf8");
 }
 
-console.log("iOS project prepared for iOS 14+ using " + appUrl.origin + ".");
-console.log("Web code is served from the deployed app. Native plugin/configuration changes still require a new App Store build.");
+console.log("iOS project prepared for iOS 14+ using the dedicated app endpoint " + appUrl.origin + ".");
+console.log("Web-layer changes deployed to this app-specific endpoint become available without reinstalling the IPA. Native plugin/configuration changes still require a new signed App Store build.");
