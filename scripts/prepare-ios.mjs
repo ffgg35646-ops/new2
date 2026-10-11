@@ -81,16 +81,16 @@ if (existsSync(privacySource) && existsSync(path.dirname(privacyDestination))) {
 
 if (existsSync(xcodeProject)) {
   let project = readFileSync(xcodeProject, "utf8");
-  project = project.replace(/IPHONEOS_DEPLOYMENT_TARGET = [^;]+;/g, "IPHONEOS_DEPLOYMENT_TARGET = 14.0;");
+  project = project.replace(/IPHONEOS_DEPLOYMENT_TARGET = [^;]+;/g, "IPHONEOS_DEPLOYMENT_TARGET = 15.0;");
   writeFileSync(xcodeProject, project, "utf8");
 }
 
 const podfile = path.join(root, "ios", "App", "Podfile");
 if (existsSync(podfile)) {
   let podContent = readFileSync(podfile, "utf8");
-  podContent = podContent.replace(/platform :ios, ['"][^'"]+['"]/, "platform :ios, '14.0'");
+  podContent = podContent.replace(/platform :ios, ['"][^'"]+['"]/, "platform :ios, '15.0'");
   writeFileSync(podfile, podContent, "utf8");
 }
 
-console.log("iOS project prepared for iOS 14+ using " + appUrl.origin + ".");
+console.log("iOS project prepared for iOS 15+ using " + appUrl.origin + ".");
 console.log("Web code is served from the deployed app. Native plugin/configuration changes still require a new App Store build.");
