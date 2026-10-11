@@ -38,9 +38,13 @@ export const Route = createFileRoute("/api/payment-status")({
             });
           }
 
-          const baseUrl = String(process.env["HYPERPAY_BASE_URL"] ?? "").replace(/\/$/, "");
+          // Verify against the same gateway host and entity that created this checkout.
+          // New env vars should only apply to newly-created payment sessions.
+          const baseUrl = String(
+            tx.gateway_base_url ?? process.env["HYPERPAY_BASE_URL"] ?? "",
+          ).replace(/\/$/, "");
           const accessToken = process.env["HYPERPAY_ACCESS_TOKEN"];
-          const entityId = process.env["HYPERPAY_ENTITY_ID"];
+          const entityId = String(tx.gateway_entity_id ?? process.env["HYPERPAY_ENTITY_ID"] ?? "");
 
           if (!baseUrl || !accessToken || !entityId) {
             return Response.json({ error: "إعدادات HyperPay غير مكتملة" }, { status: 500 });
@@ -64,8 +68,15 @@ export const Route = createFileRoute("/api/payment-status")({
             merchantTransactionId?: string;
             paymentType?: string;
             paymentBrand?: string;
-            parameterErrors?: unknown;
-            result?: { code?: string; description?: string };
+            parameterErrors?: Array<{ name?: string; value?: unknown; message?: string }>;
+            buildNumber?: string;
+            timestamp?: string;
+            ndc?: string;
+            result?: {
+              code?: string;
+              description?: string;
+              parameterErrors?: Array<{ name?: string; value?: unknown; message?: string }>;
+            };
           };
 
           try {
@@ -105,24 +116,37 @@ export const Route = createFileRoute("/api/payment-status")({
             });
           }
 
-          if (!response.ok) {
-            const code = data.result?.code ?? `HTTP_${response.status}`;
+          // HyperPay can return application-level errors (including 200.300.404)
+          // inside HTTP 200. Do not treat HTTP 200 as a successful status response.
+          const responseCode = data.result?.code ?? "";
+          if (!response.ok || responseCode === "200.300.404") {
+            const code = responseCode || `HTTP_${response.status}`;
             const gatewayDescription =
               data.result?.description ?? "تعذّر التحقق من نتيجة الدفع لدى HyperPay.";
+            const parameterErrors =
+              data.result?.parameterErrors ?? data.parameterErrors ?? [];
+            const parameterDetails = parameterErrors
+              .map((item) => [item.name, item.message ?? String(item.value ?? "")].filter(Boolean).join(": "))
+              .filter(Boolean)
+              .join("؛ ");
             const noPaymentSession =
               code === "200.300.404" &&
               /No payment session found/i.test(gatewayDescription);
 
             const description = noPaymentSession
-              ? `تعذّر العثور على جلسة الدفع لدى HyperPay (${code}): ${gatewayDescription}. هذا لا يثبت أن البنك رفض البطاقة؛ قد تكون الجلسة منتهية أو من بيئة مختلفة. أنشئ جلسة جديدة في البيئة المطابقة. لم يتم تفعيل الباقة.`
-              : `تعذّر التحقق من نتيجة الدفع لدى HyperPay (${code}): ${gatewayDescription}. لم يتم تفعيل الباقة.`;
+              ? `HyperPay لا يجد جلسة الدفع لهذا المعرف (${code}). قد تكون الجلسة من بيئة أخرى أو انتهت صلاحيتها. تفاصيل البوابة: ${gatewayDescription}. لم يتم تفعيل الباقة.`
+              : parameterDetails
+                ? `HyperPay رفض التحقق (${code}): ${parameterDetails}. ${gatewayDescription}. لم يتم تفعيل الباقة.`
+                : `تعذّر التحقق من نتيجة الدفع لدى HyperPay (${code}): ${gatewayDescription}. لم يتم تأكيد رفض البنك أو نجاح العملية، ولم يتم تفعيل الباقة.`;
 
             console.warn("[payment-status] gateway verification error", {
               checkoutId,
               httpStatus: response.status,
               code,
               description: gatewayDescription,
-              parameterErrors: data.parameterErrors ?? null,
+              parameterErrors,
+              ndc: data.ndc ?? null,
+              buildNumber: data.buildNumber ?? null,
             });
 
             await txs.updateOne(
@@ -134,7 +158,10 @@ export const Route = createFileRoute("/api/payment-status")({
                   result_description: gatewayDescription,
                   verification_error: true,
                   gateway_http_status: response.status,
-                  parameter_errors: data.parameterErrors ?? null,
+                  parameter_errors: parameterErrors,
+                  gateway_ndc: data.ndc ?? null,
+                  gateway_build_number: data.buildNumber ?? null,
+                  gateway_timestamp: data.timestamp ?? null,
                   updated_at: new Date(),
                 },
               },
@@ -148,7 +175,10 @@ export const Route = createFileRoute("/api/payment-status")({
               code,
               description,
               gatewayDescription,
-              parameterErrors: data.parameterErrors ?? null,
+              parameterErrors,
+              ndc: data.ndc ?? null,
+              buildNumber: data.buildNumber ?? null,
+              gatewayTimestamp: data.timestamp ?? null,
             });
           }
 
