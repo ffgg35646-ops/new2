@@ -175,6 +175,8 @@ function OfficeApprovalGate({ children }: { children: ReactNode }) {
     location.pathname.startsWith("/office/");
 
   const isStatusPage = location.pathname === "/office/status";
+  // The gateway return must never be intercepted by office approval redirects.
+  const isPaymentReturnPage = location.pathname === "/office/payresult";
 
   const settled = !isLoading && !isFetching;
 
@@ -184,6 +186,7 @@ function OfficeApprovalGate({ children }: { children: ReactNode }) {
       isOffice &&
       isOfficePage &&
       !isStatusPage &&
+      !isPaymentReturnPage &&
       officeVerificationStatus !== "verified"
     ) {
       navigate({
@@ -196,6 +199,7 @@ function OfficeApprovalGate({ children }: { children: ReactNode }) {
     isOffice,
     isOfficePage,
     isStatusPage,
+    isPaymentReturnPage,
     officeVerificationStatus,
     navigate,
   ]);
@@ -205,6 +209,7 @@ function OfficeApprovalGate({ children }: { children: ReactNode }) {
     isOffice &&
     isOfficePage &&
     !isStatusPage &&
+      !isPaymentReturnPage &&
     officeVerificationStatus !== "verified"
   ) {
     return (
