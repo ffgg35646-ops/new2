@@ -22,7 +22,7 @@ const env = loadEnv("production", root, "");
 const configuredUrl =
   process.env["IOS_APP_URL"] ||
   env["IOS_APP_URL"] ||
-  "";
+  "https://new2-git-release-ios-app-store-prep-sss22.vercel.app";
 
 if (!configuredUrl.trim()) {
   console.error(
