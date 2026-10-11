@@ -1,0 +1,60 @@
+name: iOS Release Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: "Public HTTPS URL of the deployed Aqar Al-Batin app"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  ios-simulator-build:
+    name: Build iOS app for simulator (no signing)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build web application
+        run: npm run build
+
+      - name: Generate/sync Capacitor iOS project
+        env:
+          CAPACITOR_BUILD_TARGET: release
+          CAPACITOR_SERVER_URL: ${{ inputs.server_url }}
+        run: npm run ios:prepare
+
+      - name: Validate native iOS build
+        run: |
+          xcodebuild -version
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/AqarAlBatinDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Upload Xcode build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-failure-log
+          path: |
+            ${{ runner.temp }}/AqarAlBatinDerivedData/Logs/**
+          if-no-files-found: ignore
