@@ -46,6 +46,12 @@ if (isReleaseBuild) {
   ) {
     throw new Error("iOS release build stopped: the app URL must be a public HTTPS address.");
   }
+
+  if (releaseUrl.hostname.toLowerCase() === "new2-git-main-sss22.vercel.app") {
+    throw new Error(
+      "iOS release build stopped: IOS_APP_URL must use the dedicated iOS app endpoint, not the main website.",
+    );
+  }
 }
 
 const config: CapacitorConfig = {
