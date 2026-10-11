@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - release/ios-app-store-prep
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       server_url:
