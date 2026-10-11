@@ -74,7 +74,7 @@ jobs:
 
       - name: Verify the hosted app is public and reachable
         env:
-          CAPACITOR_SERVER_URL: ${{ inputs.server_url || vars.CAPACITOR_SERVER_URL || 'https://new2-sand-rho.vercel.app' }}
+          CAPACITOR_SERVER_URL: ${{ inputs.server_url || vars.CAPACITOR_SERVER_URL || 'https://new2-m5cvaxqrb-sss22.vercel.app' }}
         run: |
           node --input-type=module <<'NODE'
           const rawUrl = String(process.env.CAPACITOR_SERVER_URL || '').trim();
