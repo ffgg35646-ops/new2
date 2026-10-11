@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: "Almarai", system-ui, sans-serif;
-  --font-body: "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-display: Tahoma, Arial, system-ui, sans-serif;
+  --font-body: Tahoma, Arial, system-ui, sans-serif;
   --font-sans: var(--font-body);
 
   --radius-sm: calc(var(--radius) - 6px);
