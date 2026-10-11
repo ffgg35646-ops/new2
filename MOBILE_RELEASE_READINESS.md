@@ -6,14 +6,14 @@ This is the isolated release branch: release/ios-app-store-prep. Do not merge it
 
 - Adds the Capacitor iOS platform dependency while preserving the existing Android dependency.
 - Prevents a release build from silently shipping the development LAN address. A release build must use a public HTTPS app URL.
-- Generates/synchronizes an iOS project on a macOS/Xcode runner and sets the deployment target to iOS 15.
+- Generates/synchronizes an iOS project on a macOS/Xcode runner and sets the deployment target to iOS 14.
 - Adds an iOS privacy-manifest template and records the actual iOS/Android platform for push tokens.
 - Adds a manual GitHub Actions simulator build. It checks compilation only; it does not sign or submit an App Store binary.
 - Leaves main, Vercel production settings, MongoDB, and the HyperPay code untouched.
 
 ## iOS support
 
-The best practical legacy target for this Capacitor 6 line is iOS 15+. iOS 9 and 10 cannot be targeted for a new App Store submission under Apple's current upload rules. Capacitor 6 is now outside its normal support window, so the Xcode 26 simulator preflight is mandatory. Keep the iOS deployment target at 15 for this compatibility attempt; if the current native stack fails the Xcode 26 build or a required security check, use a maintained Capacitor release instead and accept its higher iOS minimum rather than ship an unverified build.
+The best practical legacy target for this Capacitor 6 line is iOS 14+. iOS 9 and 10 cannot be targeted for a new App Store submission under Apple's current upload rules. Capacitor 6 is now outside its normal support window, so the Xcode 26 simulator preflight is mandatory. Keep the iOS deployment target at 14 for this compatibility attempt; if the current native stack fails the Xcode 26 build or a required security check, use a maintained Capacitor release instead and accept its higher iOS minimum rather than ship an unverified build.
 
 ## Prepare a test build
 
@@ -51,7 +51,7 @@ Changes to native plugins, iOS permissions/entitlements, native code, or native 
 
 ## Implemented on this isolated branch
 
-- Adds iOS platform preparation for iOS 15+, replaces generated placeholder app icon sizes with the existing square `public/logo.jpg`, and adds the app privacy manifest to Copy Bundle Resources.
+- Adds iOS platform preparation for iOS 14+, replaces generated placeholder app icon sizes with the existing square `public/logo.jpg`, and adds the app privacy manifest to Copy Bundle Resources.
 - Adds in-app account deletion for individual and office accounts, with associated personal data/content cleanup and limited financial-record anonymization.
 - Publishes public Arabic privacy, terms, and support pages, and links them from the home and account/profile screens.
 - Keeps chat photo uploads private and grants access to the uploader and actual participants in the referenced conversation.
