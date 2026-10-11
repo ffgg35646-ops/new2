@@ -5032,6 +5032,215 @@ export const authGetUser = createServerFn({ method: "GET" })
 export const authSignOut = createServerFn({ method: "POST" })
   .handler(async () => ({ data: await signOut(), error: null }));
 
+export const authDeleteAccount = createServerFn({ method: "POST" }).handler(async () => {
+  const userId = getSessionUserId();
+  if (!userId) throw new Error("انتهت جلسة الدخول. سجّل الدخول ثم حاول مرة أخرى.");
+
+  const db = await getMongoDb();
+  const user = await db.collection<Record<string, any>>("users").findOne(
+    { _id: userId },
+    { projection: { _id: 1, role: 1 } },
+  );
+  if (!user) throw new Error("الحساب غير موجود.");
+  if (String(user.role ?? "") === "admin") {
+    throw new Error("حذف حساب الإدارة يتم من خلال مسؤول آخر.");
+  }
+
+  const office = await db.collection<Record<string, any>>("offices").findOne({
+    owner_id: userId,
+    is_deleted: { $ne: true },
+  });
+  const officeId = office ? String(office.id ?? office._id ?? "") : "";
+
+  const propertyRows = officeId
+    ? await db.collection<Record<string, any>>("properties")
+        .find({ office_id: officeId })
+        .project({ id: 1, _id: 1 })
+        .toArray()
+    : [];
+  const propertyIds = propertyRows
+    .map((row) => String(row.id ?? row._id ?? ""))
+    .filter(Boolean);
+
+  const requestRows = await db.collection<Record<string, any>>("property_requests")
+    .find({ user_id: userId })
+    .project({ id: 1, _id: 1 })
+    .toArray();
+  const requestIds = requestRows
+    .map((row) => String(row.id ?? row._id ?? ""))
+    .filter(Boolean);
+
+  const conversationConditions: Record<string, unknown>[] = [{ user_id: userId }];
+  if (officeId) conversationConditions.push({ office_id: officeId });
+  const conversationRows = await db.collection<Record<string, any>>("conversations")
+    .find({ $or: conversationConditions })
+    .project({ id: 1, _id: 1 })
+    .toArray();
+  const conversationIds = conversationRows
+    .map((row) => String(row.id ?? row._id ?? ""))
+    .filter(Boolean);
+
+  const ticketRows = await db.collection<Record<string, any>>("support_tickets")
+    .find({ user_id: userId })
+    .project({ id: 1, _id: 1 })
+    .toArray();
+  const ticketIds = ticketRows
+    .map((row) => String(row.id ?? row._id ?? ""))
+    .filter(Boolean);
+
+  // Remove this user's uploaded files before deleting the account. If a required
+  // storage credential is missing or a file cannot be removed, leave the account
+  // intact so the user can retry rather than silently orphan personal media.
+  const ownedMedia = await db.collection<Record<string, any>>("media_objects")
+    .find({ owner_id: userId })
+    .project({ id: 1 })
+    .toArray();
+  const legacyMedia = await db.collection<Record<string, any>>("media.files")
+    .find({ "metadata.ownerId": userId })
+    .project({ _id: 1 })
+    .toArray();
+
+  if (ownedMedia.length && !process.env["BLOB_READ_WRITE_TOKEN"]) {
+    throw new Error("تعذر حذف الملفات المرتبطة بالحساب حاليًا. حاول لاحقًا أو تواصل مع الدعم.");
+  }
+  for (const media of ownedMedia) {
+    const mediaId = String(media.id ?? "");
+    if (!mediaId || !(await deleteMedia(mediaId, userId))) {
+      throw new Error("تعذر حذف أحد الملفات المرتبطة بالحساب. لم يتم إغلاق الحساب؛ حاول مرة أخرى أو تواصل مع الدعم.");
+    }
+  }
+  for (const media of legacyMedia) {
+    const mediaId = String(media._id ?? "");
+    if (!mediaId || !(await deleteMedia(mediaId, userId))) {
+      throw new Error("تعذر حذف أحد الملفات القديمة المرتبطة بالحساب. لم يتم إغلاق الحساب؛ حاول مرة أخرى أو تواصل مع الدعم.");
+    }
+  }
+
+  const userIdentityConditions: Record<string, unknown>[] = [
+    { user_id: userId },
+    { owner_id: userId },
+    { reporter_id: userId },
+    { created_by: userId },
+    { author_id: userId },
+    { sender_id: userId },
+    { recipient_id: userId },
+    { blocker_id: userId },
+    { blocked_id: userId },
+    { requester_id: userId },
+    { client_id: userId },
+    { individual_id: userId },
+    { reviewer_id: userId },
+    { follower_id: userId },
+    { followed_user_id: userId },
+    { target_user_id: userId },
+    { reported_user_id: userId },
+    { member_user_id: userId },
+    { staff_user_id: userId },
+  ];
+  const relatedOfficeConditions: Record<string, unknown>[] = officeId
+    ? [{ office_id: officeId }, { target_office_id: officeId }, { followed_office_id: officeId }]
+    : [];
+  const relatedPropertyConditions: Record<string, unknown>[] = propertyIds.length
+    ? [
+        { property_id: { $in: propertyIds } },
+        { property_ids: { $in: propertyIds } },
+      ]
+    : [];
+  const relatedRequestConditions: Record<string, unknown>[] = requestIds.length
+    ? [{ request_id: { $in: requestIds } }]
+    : [];
+  const relatedConversationConditions: Record<string, unknown>[] = conversationIds.length
+    ? [{ conversation_id: { $in: conversationIds } }]
+    : [];
+  const relatedTicketConditions: Record<string, unknown>[] = ticketIds.length
+    ? [{ ticket_id: { $in: ticketIds } }]
+    : [];
+
+  const deleteRelated = async (
+    collectionName: string,
+    extra: Record<string, unknown>[] = [],
+  ) => {
+    const conditions = [
+      ...userIdentityConditions,
+      ...relatedOfficeConditions,
+      ...extra,
+    ];
+    await db.collection(collectionName).deleteMany({ $or: conditions }, { session });
+  };
+
+  const session = db.client.startSession();
+  try {
+    await session.withTransaction(async () => {
+      // Delete messages first, then their parent conversations.
+      await deleteRelated("messages", relatedConversationConditions);
+      await deleteRelated("conversation_blocks", relatedConversationConditions);
+      await deleteRelated("conversations");
+
+      await deleteRelated("support_messages", relatedTicketConditions);
+      await deleteRelated("support_tickets");
+      await deleteRelated("reports");
+
+      await deleteRelated("favorites", relatedPropertyConditions);
+      await deleteRelated("follows");
+      await deleteRelated("saved_searches");
+      await deleteRelated("device_tokens");
+      await deleteRelated("notifications");
+
+      await deleteRelated("office_offers", [
+        ...relatedRequestConditions,
+        ...relatedPropertyConditions,
+      ]);
+      await deleteRelated("property_request_views", relatedRequestConditions);
+      await deleteRelated("property_requests");
+      await deleteRelated("viewing_bookings", relatedPropertyConditions);
+      await deleteRelated("property_inquiries", relatedPropertyConditions);
+      await deleteRelated("property_views", relatedPropertyConditions);
+      await deleteRelated("office_reviews");
+      await deleteRelated("property_images", relatedPropertyConditions);
+      await deleteRelated("office_staff");
+
+      if (officeId) {
+        await db.collection("properties").deleteMany({
+          $or: [{ office_id: officeId }, { owner_id: userId }, { created_by: userId }],
+        }, { session });
+        await db.collection("office_plan_events").deleteMany({ office_id: officeId }, { session });
+      } else {
+        await db.collection("properties").deleteMany({
+          $or: [{ owner_id: userId }, { created_by: userId }],
+        }, { session });
+      }
+
+      // Preserve financial audit records, but detach them from the deleted account.
+      const paymentIdentityConditions: Record<string, unknown>[] = [{ user_id: userId }];
+      if (officeId) paymentIdentityConditions.push({ office_id: officeId });
+      await db.collection("payment_transactions").updateMany(
+        { $or: paymentIdentityConditions },
+        {
+          $unset: {
+            user_id: "",
+            office_id: "",
+            customer_email: "",
+            customer_name: "",
+            customer_phone: "",
+          },
+          $set: { account_deleted_at: new Date(), updated_at: new Date() },
+        },
+        { session },
+      );
+
+      await db.collection("offices").deleteMany({ owner_id: userId }, { session });
+      await db.collection("profiles").deleteMany({ $or: [{ id: userId }, { user_id: userId }] }, { session });
+      await db.collection("user_roles").deleteMany({ user_id: userId }, { session });
+      await db.collection("users").deleteOne({ _id: userId }, { session });
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  await signOut();
+  return { data: { success: true }, error: null };
+});
+
 export const authUpdateUser = createServerFn({ method: "POST" })
   .validator((value: unknown) => value as { password?: string; email?: string })
   .handler(async ({ data }) => ({ data: await updateCurrentUser(data), error: null }));
