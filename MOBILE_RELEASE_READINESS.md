@@ -8,7 +8,8 @@ This is the isolated release branch: release/ios-app-store-prep. Do not merge it
 - Prevents a release build from silently shipping the development LAN address. A release build must use a public HTTPS app URL.
 - Generates/synchronizes an iOS project on a macOS/Xcode runner and sets the deployment target to iOS 14.
 - Adds an iOS privacy-manifest template and records the actual iOS/Android platform for push tokens.
-- Adds a manual GitHub Actions simulator build. It checks compilation only; it does not sign or submit an App Store binary.
+- Adds a manual GitHub Actions simulator build. Run #42 passed compilation on macOS/Xcode 26; it does not sign or submit an App Store binary.
+- Adds an iOS-only version check that prompts users to open App Store when a newer public release exists. This requires the version endpoint to be deployed and a public App Store listing; its prompt has not yet been verified on a physical iPhone.
 - Leaves main, Vercel production settings, MongoDB, and the HyperPay code untouched.
 
 ## iOS support
@@ -45,9 +46,9 @@ Changes to native plugins, iOS permissions/entitlements, native code, or native 
 
 1. **Hosted website inside the native WebView:** the release config still loads the deployed web origin through Capacitor's `server.url`. This keeps the existing TanStack server functions/session behavior working, but Capacitor documents this setting as intended for live reload, not production, and Apple may treat a thin hosted-site wrapper as Guideline 4.2 risk. Do not assume this branch is store-ready until we either bundle the web experience with a tested cross-origin backend/auth design or prove in TestFlight and review notes that the catalogue/requests/chat native experience meets Apple's minimum-functionality rule.
 2. **Pro purchase policy:** the current in-app Pro screen uses HyperPay to unlock premium digital functions. This branch intentionally leaves payment unchanged. Confirm Apple's enterprise-services exception applies to the actual customer/account model; otherwise a StoreKit/In-App Purchase implementation and server-side receipt validation may be required.
-3. **Support email:** set a real, monitored `SUPPORT_EMAIL` before publishing the public support/privacy pages and submitting metadata. A no-reply address is not an adequate support contact.
+3. **Support email and public links:** set a real, monitored `SUPPORT_EMAIL` before publishing the public support/privacy pages and submitting metadata. A no-reply address is not an adequate support contact. The latest Vercel preview status returns `build-rate-limit`; treat that as a hosting-plan limit, not a confirmed source-code compilation error, and do not submit a preview URL until those pages are reachable publicly.
 4. **Apple account/signing:** verify the bundle identifier `cloud.baytialkhass.app` is registered under the correct Apple Developer team, configure signing/certificates, and set up APNs credentials before expecting TestFlight distribution or working iOS push.
-5. **Binary and real-device checks:** the iOS preparation/build workflow has not yet been observed passing in this environment. No signed archive has been uploaded, and no TestFlight or physical-iPhone test has been performed. The App Store Connect privacy answers, screenshots, rating, review credentials, and live policy/support URLs also need completion.
+5. **Binary and real-device checks:** GitHub Actions run #42 (`iOS Release Preflight`, 11 Oct 2026) passed lockfile normalization, `npm ci`, `npm run build`, `npm run ios:prepare`, and `xcodebuild` for the iOS simulator. This verifies compilation only; it does not sign an App Store archive, upload to App Store Connect, or test a real iPhone/TestFlight. The App Store Connect privacy answers, screenshots, rating, review credentials, and live policy/support URLs still need completion.
 
 ## Implemented on this isolated branch
 
