@@ -77,7 +77,8 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
-      - name: Verify the hosted app is public and reachable
+      - name: Verify the dedicated iOS app endpoint is public and reachable
+        if: ${{ inputs.ios_app_url != '' || vars.IOS_APP_URL != '' }}
         env:
           IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL }}
         run: |
@@ -136,8 +137,10 @@ jobs:
       - name: Generate/sync Capacitor iOS project
         env:
           CAPACITOR_BUILD_TARGET: release
-          IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL }}
-          CAPACITOR_SERVER_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL }}
+          # Simulator compilation can run without a deploy endpoint. This placeholder
+          # is only for a non-shipping simulator build; the signed IPA job rejects it.
+          IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://ios-build-placeholder.invalid' }}
+          CAPACITOR_SERVER_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://ios-build-placeholder.invalid' }}
         run: npm run ios:prepare
 
       - name: Validate native iOS build
