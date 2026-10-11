@@ -30,6 +30,7 @@ import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getPublicAppUrl, PUBLIC_APP_URL_HELP } from "@/lib/public-app-url";
 import { SupportCenter } from "@/components/SupportCenter";
+import { AccountDeletionAction } from "@/components/AccountDeletionAction";
 import { uploadMedia } from "@/components/MediaUploader";
 import { prepareProfileAvatar, profileAvatarFileFromDataUrl } from "@/lib/profile-avatar";
 
@@ -537,6 +538,8 @@ function OfficeProfile() {
           </span>
           <span className="text-xs text-muted-foreground">{dark ? "مفعّل" : "معطّل"}</span>
         </button>
+
+        <AccountDeletionAction />
 
         <button
           onClick={async () => {
