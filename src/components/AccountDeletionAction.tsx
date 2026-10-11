@@ -15,7 +15,6 @@ export function AccountDeletionAction() {
     setDeleting(true);
     try {
       const result = await authDeleteAccount();
-      if (result?.error) throw new Error(result.error.message);
       if (!result?.data?.success) throw new Error("لم يتم تأكيد حذف الحساب.");
 
       toast.success("تم حذف الحساب والبيانات المرتبطة به.");
