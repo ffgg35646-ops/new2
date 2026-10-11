@@ -32,6 +32,17 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Normalize the existing lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Upload normalized lockfile for repository repair
+        uses: actions/upload-artifact@v4
+        with:
+          name: normalized-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Install locked dependencies
         run: npm ci
 
