@@ -29,7 +29,7 @@ export const PLAN_LABEL: Record<OfficePlan, string> = {
 
 export const PLAN_PRICE: Record<OfficePlan, string> = {
   free: "0 ريال",
-  pro: "199 ريال / شهريًا",
+  pro: "200 ريال / شهريًا",
 };
 
 export const FREE_FEATURES = [
@@ -60,7 +60,10 @@ function normalizePackage(row: any): OfficePackage {
     code: row.code ?? null,
     name: String(row.name ?? "باقة"),
     description: row.description ?? null,
-    price: Number(row.price ?? 0),
+    price:
+      String(row.code ?? "").toLowerCase() === "pro"
+        ? 200
+        : Number(row.price ?? 0),
     duration_days:
       String(row.code ?? "").toLowerCase() === "pro"
         ? 30
