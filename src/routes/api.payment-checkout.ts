@@ -83,9 +83,15 @@ export const Route = createFileRoute("/api/payment-checkout")({
 
           const origin = getTrustedCheckoutOrigin(request);
           // Fail closed: never send a real card to a checkout which redirects to an old deployment.
-          const requestOrigin = new URL(request.url).origin;
-          if (process.env["NODE_ENV"] === "production" && requestOrigin !== origin) {
-            console.error("[payment-checkout] callback origin mismatch", { configuredOrigin: origin, requestOrigin });
+          // Behind Vercel's proxy request.url may be an internal deployment hostname.
+          // Browser POST Origin is the actual site the customer is using.
+          const browserOrigin = request.headers.get("origin");
+          if (process.env["NODE_ENV"] === "production" && browserOrigin !== origin) {
+            console.error("[payment-checkout] callback origin mismatch", {
+              configuredOrigin: origin,
+              browserOrigin: browserOrigin ?? "(missing)",
+              requestHost: new URL(request.url).host,
+            });
             return Response.json({
               error: "رابط عودة الدفع لا يطابق رابط الموقع الحالي. حدّث PUBLIC_APP_URL في إعدادات النشر قبل بدء عملية دفع جديدة.",
             }, { status: 503 });
