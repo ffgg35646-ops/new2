@@ -63,9 +63,18 @@ jobs:
           git commit -m "build: normalize package lock for clean installs"
           git push origin "HEAD:$HEAD_BRANCH"
 
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build web application
+        run: npm run build
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
       - name: Verify the hosted app is public and reachable
         env:
-          CAPACITOR_SERVER_URL: ${{ inputs.server_url || vars.CAPACITOR_SERVER_URL || '' }}
+          CAPACITOR_SERVER_URL: ${{ inputs.server_url || vars.CAPACITOR_SERVER_URL || 'https://new2-sand-rho.vercel.app' }}
         run: |
           node --input-type=module <<'NODE'
           const rawUrl = String(process.env.CAPACITOR_SERVER_URL || '').trim();
@@ -99,7 +108,7 @@ jobs:
             console.error(`Final host: ${finalUrl.hostname}`);
             process.exit(1);
           }
-          if (/authentication required|sign in to vercel|vercel deployment protection/i.test(body)) {
+          if (/authentication required|sign in to vercel|vercel deployment protection|deployment protection|continue with github|log in to continue/i.test(body)) {
             console.error('iOS preflight stopped: the hosted app is protected and cannot be opened by the installed app.');
             process.exit(1);
           }
@@ -107,14 +116,13 @@ jobs:
             console.error('iOS preflight stopped: the hosted app URL did not return an HTML app page.');
             process.exit(1);
           }
-          console.log(`Hosted app is reachable: ${url.origin} (HTTP ${response.status}).`);
+          if (!body.includes('عقار البطين')) {
+            console.error('iOS preflight stopped: the URL did not serve the Aqar Al-Batin application page.');
+            process.exit(1);
+          }
+          console.log(`Hosted Aqar Al-Batin app is reachable: ${url.origin} (HTTP ${response.status}).`);
           NODE
 
-      - name: Install locked dependencies
-        run: npm ci
-
-      - name: Build web application
-        run: npm run build
 
       - name: Generate/sync Capacitor iOS project
         env:
