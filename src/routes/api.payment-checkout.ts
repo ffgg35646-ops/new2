@@ -121,29 +121,34 @@ export const Route = createFileRoute("/api/payment-checkout")({
           let hpData: {
             id?: string;
             integrity?: string;
-            result?: { code?: string; description?: string };
+            result?: { code?: string; description?: string; parameterErrors?: unknown };
           };
 
           try {
             hpData = JSON.parse(hpBody) as typeof hpData;
           } catch {
-            console.error("[payment-checkout] HyperPay returned non-JSON response", {
+            console.error("[payment-checkout] gateway returned non-JSON response", {
               status: hpResponse.status,
               contentType: hpContentType,
               bodyPreview: hpBody.replace(/\s+/g, " ").slice(0, 200),
             });
             return Response.json(
               {
-                error:
-                  "بوابة HyperPay أعادت صفحة غير متوقعة بدل بيانات الدفع. راجع HYPERPAY_BASE_URL وبيئة الاختبار/الإنتاج في إعدادات النشر.",
+                error: "تعذّر بدء الدفع حاليًا. حاول مرة أخرى لاحقًا أو تواصل مع الدعم.",
               },
               { status: 502 },
             );
           }
 
           if (!hpResponse.ok || !hpData.id) {
+            console.warn("[payment-checkout] gateway rejected checkout creation", {
+              httpStatus: hpResponse.status,
+              code: hpData.result?.code ?? null,
+              description: hpData.result?.description ?? null,
+              parameterErrors: hpData.result?.parameterErrors ?? null,
+            });
             return Response.json(
-              { error: hpData.result?.description || "تعذر إنشاء عملية الدفع" },
+              { error: "تعذّر بدء الدفع حاليًا. تأكد من بيانات الدفع وحاول مرة أخرى، أو تواصل مع الدعم." },
               { status: 502 },
             );
           }
