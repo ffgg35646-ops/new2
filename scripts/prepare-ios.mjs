@@ -47,6 +47,11 @@ if (
   process.exit(1);
 }
 
+if (appUrl.hostname.toLowerCase() === "new2-git-main-sss22.vercel.app") {
+  console.error("iOS release stopped: IOS_APP_URL must use the dedicated iOS app endpoint, not the main website.");
+  process.exit(1);
+}
+
 process.env["CAPACITOR_BUILD_TARGET"] = "release";
 process.env["IOS_APP_URL"] = appUrl.origin;
 process.env["CAPACITOR_SERVER_URL"] = appUrl.origin;
