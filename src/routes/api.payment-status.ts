@@ -182,6 +182,11 @@ export const Route = createFileRoute("/api/payment-status")({
             });
           }
 
+          const resultCode = data.result?.code ?? "";
+          const description = data.result?.description ?? "";
+          const success = /^(000\\.000\\.|000\\.100\\.1|000\\.[36])/.test(resultCode);
+          const pending = resultCode.startsWith("000.200");
+
           if (
             data.merchantTransactionId &&
             String(data.merchantTransactionId) !== String(tx.merchant_transaction_id ?? "")
@@ -203,10 +208,30 @@ export const Route = createFileRoute("/api/payment-status")({
             return Response.json({ error: "عملة الدفع لا تطابق عملة الاشتراك." }, { status: 502 });
           }
 
-          const resultCode = data.result?.code ?? "";
-          const description = data.result?.description ?? "";
-          const success = /^(000\.000\.|000\.100\.1|000\.[36])/.test(resultCode);
-          const pending = resultCode.startsWith("000.200");
+          // لا نفعّل Pro إلا بعد نجاح مؤكد ومبلغ 200 ريال سعودي كامل.
+          if (
+            success &&
+            (!Number.isFinite(Number(data.amount)) || Math.abs(Number(data.amount) - 200) >= 0.01)
+          ) {
+            return Response.json({
+              success: false,
+              pending: false,
+              status: "verification_error",
+              verificationError: true,
+              description: "لم تؤكد HyperPay استلام مبلغ 200 ريال كاملًا؛ لذلك لم يتم تفعيل الباقة.",
+            }, { status: 502 });
+          }
+
+          if (success && String(data.currency ?? "").toUpperCase() !== "SAR") {
+            return Response.json({
+              success: false,
+              pending: false,
+              status: "verification_error",
+              verificationError: true,
+              description: "لم تؤكد HyperPay أن الدفع تم بالريال السعودي؛ لذلك لم يتم تفعيل الباقة.",
+            }, { status: 502 });
+          }
+
           const statusValue = success ? "success" : pending ? "pending" : "failed";
           const now = new Date();
 
