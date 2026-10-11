@@ -156,6 +156,11 @@ export const Route = createFileRoute("/api/payment-checkout")({
             package_id: pkg.id,
             amount,
             currency: "SAR",
+            // Keep the exact HyperPay context used to create this checkout.
+            // If deployment env vars change before the callback, status verification
+            // must still query the same gateway host and entity that issued the ID.
+            gateway_base_url: baseUrl,
+            gateway_entity_id: entityId,
             status: "pending",
             created_at: new Date(),
             updated_at: new Date(),
