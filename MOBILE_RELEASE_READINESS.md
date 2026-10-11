@@ -3,23 +3,24 @@
 ## Status
 
 - Work is isolated on `release/ios-app-store-prep`; `main` and the finished web product are not changed by this release branch.
+- The stable app-only branch URL was verified by the GitHub Actions probe: `https://new2-git-release-ios-app-store-prep-sss22.vercel.app`.
 - The previous GitHub Actions run `#63` passed the source build, TypeScript check, iOS preparation, and unsigned iOS simulator build. That is not a signed device IPA.
 - The release workflow now has a separate optional job to create an App Store-signed IPA. No signed IPA exists until Apple signing credentials are configured and export succeeds.
 - The app is not yet approved or verified as ready for App Store submission. A real iPhone/TestFlight run and the policy checks below remain required.
 
 ## Keep the iOS app separate from the main website
 
-Release builds use only the `IOS_APP_URL` setting. They no longer fall back to `VITE_PUBLIC_APP_URL`, a generic public website URL, or the known main-branch URL. The workflow rejects the main-branch URL so the installed app cannot silently follow the website product.
+Release builds use `IOS_APP_URL` when explicitly configured, and otherwise use the verified stable branch URL `https://new2-git-release-ios-app-store-prep-sss22.vercel.app`. They never fall back to `VITE_PUBLIC_APP_URL` or the main-branch URL. The workflow rejects the main-branch URL so the installed app cannot silently follow the website product.
 
 The app currently depends on TanStack Start server functions and authenticated backend behavior. For that reason, the iOS build uses a dedicated hosted endpoint rather than treating the frontend build as a self-contained static bundle. That endpoint must be separate from the public website and must serve the Aqar Al-Batin app experience.
 
-Once the dedicated endpoint is connected to automatic deployment from this iOS release branch, UI changes deployed there become available when the installed app opens/reloads. Users do not need to reinstall the IPA or upload a new IPA to the App Store for those hosted UI changes. This automatic behavior is **not yet verified active**: the app-only endpoint must first exist and be wired to the release branch. GitHub Actions cannot host the TanStack server functions by itself.
+The stable branch endpoint was verified from GitHub Actions to return the Aqar Al-Batin app page. Vercel's Git branch URL follows the latest deployment from that branch, so UI changes pushed to `release/ios-app-store-prep` become available to the installed app after the branch deployment finishes and the app is reopened/reloaded. Users do not need a new IPA upload for those hosted UI changes. Continue to verify that the hosting deployment completes successfully; this is not an automatic update to native iOS code.
 
 Changes to native code, Capacitor plugins, permissions, entitlements, signing, or app capabilities still require a new signed IPA and Apple's normal distribution/review process. Remote UI/code changes must stay within the app's approved purpose; live updates are not a way to bypass App Store review for material changes.
 
 ## Dedicated app endpoint
 
-Set the GitHub Actions repository variable `IOS_APP_URL` to the public HTTPS endpoint used only by the iOS app, or supply the same value to the workflow's `ios_app_url` input. Do not point it to the main website. The workflow checks reachability, verifies that the endpoint serves Aqar Al-Batin, and stops instead of silently choosing the wrong URL.
+The default mobile endpoint is `https://new2-git-release-ios-app-store-prep-sss22.vercel.app`. The GitHub Actions repository variable `IOS_APP_URL` or workflow input `ios_app_url` can override it if the mobile endpoint ever changes. Do not point that override to the main website. Before a signed IPA build, the workflow checks reachability and verifies that the endpoint serves Aqar Al-Batin.
 
 For a local macOS/Xcode preparation:
 
