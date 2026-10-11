@@ -5042,7 +5042,11 @@ export const authDeleteAccount = createServerFn({ method: "POST" }).handler(asyn
     { projection: { _id: 1, role: 1 } },
   );
   if (!user) throw new Error("الحساب غير موجود.");
-  if (String(user.role ?? "") === "admin") {
+  const adminRole = await db.collection<Record<string, any>>("user_roles").findOne({
+    user_id: userId,
+    role: "admin",
+  });
+  if (String(user.role ?? "") === "admin" || adminRole) {
     throw new Error("حذف حساب الإدارة يتم من خلال مسؤول آخر.");
   }
 
