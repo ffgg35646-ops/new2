@@ -1,63 +1,52 @@
-# Aqar Al-Batin — Mobile release readiness
+# Aqar Al-Batin — iOS release readiness
 
-This is the isolated release branch: release/ios-app-store-prep. Do not merge it into main until the native preflight and TestFlight checks pass.
+## Status
 
-## What this branch prepares
+- Work is isolated on `release/ios-app-store-prep`; `main` and the finished web product are not changed by this release branch.
+- The previous GitHub Actions run `#63` passed the source build, TypeScript check, iOS preparation, and unsigned iOS simulator build. That is not a signed device IPA.
+- The release workflow now has a separate optional job to create an App Store-signed IPA. No signed IPA exists until Apple signing credentials are configured and export succeeds.
+- The app is not yet approved or verified as ready for App Store submission. A real iPhone/TestFlight run and the policy checks below remain required.
 
-- Adds the Capacitor iOS platform dependency while preserving the existing Android dependency.
-- Prevents a release build from silently shipping the development LAN address. A release build must use a public HTTPS app URL.
-- Generates/synchronizes an iOS project on a macOS/Xcode runner and sets the deployment target to iOS 14.
-- Adds an iOS privacy-manifest template and records the actual iOS/Android platform for push tokens.
-- Adds a manual GitHub Actions simulator build. Run #42 passed compilation on macOS/Xcode 26; it does not sign or submit an App Store binary.
-- Adds an iOS-only version check that prompts users to open App Store when a newer public release exists. This requires the version endpoint to be deployed and a public App Store listing; its prompt has not yet been verified on a physical iPhone.
-- Leaves main, Vercel production settings, MongoDB, and the HyperPay code untouched.
+## Keep the iOS app separate from the main website
 
-## iOS support
+Release builds use only the `IOS_APP_URL` setting. They no longer fall back to `VITE_PUBLIC_APP_URL`, a generic public website URL, or the known main-branch URL. The workflow rejects the main-branch URL so the installed app cannot silently follow the website product.
 
-The best practical legacy target for this Capacitor 6 line is iOS 14+. iOS 9 and 10 cannot be targeted for a new App Store submission under Apple's current upload rules. Capacitor 6 is now outside its normal support window, so the Xcode 26 simulator preflight is mandatory. Keep the iOS deployment target at 14 for this compatibility attempt; if the current native stack fails the Xcode 26 build or a required security check, use a maintained Capacitor release instead and accept its higher iOS minimum rather than ship an unverified build.
+The app currently depends on TanStack Start server functions and authenticated backend behavior. For that reason, the iOS build uses a dedicated hosted endpoint rather than treating the frontend build as a self-contained static bundle. That endpoint must be separate from the public website and must serve the Aqar Al-Batin app experience.
 
-## Prepare a test build
+Once the dedicated endpoint is connected to automatic deployment from this iOS release branch, UI changes deployed there become available when the installed app opens/reloads. Users do not need to reinstall the IPA or upload a new IPA to the App Store for those hosted UI changes. This automatic behavior is **not yet verified active**: the app-only endpoint must first exist and be wired to the release branch. GitHub Actions cannot host the TanStack server functions by itself.
 
-Run the GitHub Actions workflow named “iOS Release Preflight” on this branch and provide the public HTTPS URL of the deployed Aqar Al-Batin app. It does not modify Vercel or the production branch.
+Changes to native code, Capacitor plugins, permissions, entitlements, signing, or app capabilities still require a new signed IPA and Apple's normal distribution/review process. Remote UI/code changes must stay within the app's approved purpose; live updates are not a way to bypass App Store review for material changes.
 
-For local Mac/Xcode preparation, use the release URL and run:
+## Dedicated app endpoint
 
-    CAPACITOR_BUILD_TARGET=release CAPACITOR_SERVER_URL=https://YOUR-PUBLIC-HTTPS-APP-URL npm run ios:prepare
+Set the GitHub Actions repository variable `IOS_APP_URL` to the public HTTPS endpoint used only by the iOS app, or supply the same value to the workflow's `ios_app_url` input. Do not point it to the main website. The workflow checks reachability, verifies that the endpoint serves Aqar Al-Batin, and stops instead of silently choosing the wrong URL.
 
-Never build a Store release with a LAN address, localhost, or plain HTTP.
+For a local macOS/Xcode preparation:
 
-## Updates and rollback
+```sh
+CAPACITOR_BUILD_TARGET=release IOS_APP_URL=https://YOUR-DEDICATED-IOS-APP-URL npm run ios:prepare
+```
 
-This app currently uses Capacitor's hosted-server pattern. Web UI fixes deployed to the hosted app become available when users reopen/reload the app. If a web change is faulty, revert that change on GitHub so the normal deployment pipeline returns to the last known-good code. Users do not need to delete or reinstall the iOS app to roll back a web-layer change.
+## Export a signed IPA
 
-Changes to native plugins, iOS permissions/entitlements, native code, or native app settings require a new signed App Store/TestFlight build. A website rollback cannot undo native changes. Keep website-delivered changes within the app's approved purpose; do not use this path to introduce unrelated features.
+Configure these GitHub Actions repository secrets. Do not commit certificates, passwords, or provisioning profiles to Git.
 
-## Review blockers to check before submitting
+- `APPLE_TEAM_ID`: Apple Developer Team ID.
+- `IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64`: base64 encoding of the Apple Distribution .p12 certificate.
+- `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`: password protecting that P12.
+- `IOS_APP_STORE_PROFILE_BASE64`: base64 encoding of the App Store provisioning profile for `cloud.baytialkhass.app`.
 
-1. **Minimum functionality (Guideline 4.2):** Apple can reject a thin website wrapper. Test the actual iOS build, not just Safari. Make sure the real-estate search, office/client workflows, viewing requests, messaging, and available native interactions work from inside the app.
-2. **Payments (Guidelines 3.1.1 / 3.1.3):** Pro unlocks digital in-app features and currently uses HyperPay. This branch intentionally does not change payment code. Before submission, confirm whether this office subscription qualifies for Apple's enterprise-services exception. Otherwise Apple may require In-App Purchase. Do not assume HyperPay is permitted merely because it works on the website.
-3. **Account deletion and user-generated content:** Confirm that a user can request account deletion inside the app, reports can be sent, abusive users/content can be blocked or moderated as required, and public support contact information is available.
-4. **Privacy:** Verify the published privacy policy URL, App Privacy answers, data retention/deletion disclosures, required-reason API declarations, and privacy manifests for all included SDKs. Do not state that data is not collected if accounts, messages, photos, phone/email, or property information are stored.
-5. **Push notifications:** iOS push requires the Apple Push Notifications capability/key and backend delivery configured for iOS tokens. The code now records the actual platform; this alone does not create APNs credentials.
-6. **Store assets and reviewer access:** Provide the required 1024×1024 app icon, device screenshots, accurate description/age rating, support and privacy URLs, working review credentials for individual and office flows, and instructions for reaching gated features.
-7. **Real-device testing:** Install through TestFlight and test signup/login, payment return handling without making a real charge, photo upload, chat, push permissions, keyboard/RTL layout, network loss/recovery, and account deletion on the oldest supported iPhone that can be tested.
+Then manually dispatch the workflow **iOS Release Validation and IPA**, set `build_signed_ipa=true`, and let the signing/export job run. If it succeeds, download the `aqar-albatin-signed-ipa` artifact from that GitHub Actions run. It is currently configured to export for App Store Connect; it is not automatically uploaded to App Store Connect.
 
-## Current hard blockers — do not submit until resolved
+## Remaining App Store checks
 
-1. **Hosted website inside the native WebView:** the release config still loads the deployed web origin through Capacitor's `server.url`. This keeps the existing TanStack server functions/session behavior working, but Capacitor documents this setting as intended for live reload, not production, and Apple may treat a thin hosted-site wrapper as Guideline 4.2 risk. Do not assume this branch is store-ready until we either bundle the web experience with a tested cross-origin backend/auth design or prove in TestFlight and review notes that the catalogue/requests/chat native experience meets Apple's minimum-functionality rule.
-2. **Pro purchase policy:** the current in-app Pro screen uses HyperPay to unlock premium digital functions. This branch intentionally leaves payment unchanged. Confirm Apple's enterprise-services exception applies to the actual customer/account model; otherwise a StoreKit/In-App Purchase implementation and server-side receipt validation may be required.
-3. **Support email and public links:** set a real, monitored `SUPPORT_EMAIL` before publishing the public support/privacy pages and submitting metadata. A no-reply address is not an adequate support contact. The latest Vercel preview status returns `build-rate-limit`; treat that as a hosting-plan limit, not a confirmed source-code compilation error, and do not submit a preview URL until those pages are reachable publicly.
-4. **Apple account/signing:** verify the bundle identifier `cloud.baytialkhass.app` is registered under the correct Apple Developer team, configure signing/certificates, and set up APNs credentials before expecting TestFlight distribution or working iOS push.
-5. **Binary and real-device checks:** GitHub Actions run #42 (`iOS Release Preflight`, 11 Oct 2026) passed lockfile normalization, `npm ci`, `npm run build`, `npm run ios:prepare`, and `xcodebuild` for the iOS simulator. This verifies compilation only; it does not sign an App Store archive, upload to App Store Connect, or test a real iPhone/TestFlight. The App Store Connect privacy answers, screenshots, rating, review credentials, and live policy/support URLs still need completion.
+1. **Minimum functionality (Guideline 4.2):** test the real app, not Safari alone. Apple may reject an app that appears to be only a website wrapper. Verify property browsing, individual/office workflows, requests, messaging, and native interactions inside the app.
+2. **Payments (Guidelines 3.1.1 / 3.1.3):** Pro currently uses HyperPay for premium digital features. Confirm that the exact office/business subscription qualifies for an applicable exception; otherwise StoreKit/In-App Purchase and server-side receipt validation may be necessary. Do not assume web payment approval implies App Store approval.
+3. **Apple signing and identifier:** confirm `cloud.baytialkhass.app` is registered to the correct Developer Team and that the certificate/profile match this bundle ID.
+4. **Push notifications:** configure the Apple Push Notifications capability/key and backend delivery for iOS, then test on a physical device.
+5. **Privacy and support:** verify the public privacy policy, terms and support links, monitored support contact, privacy declarations/manifests, required-reason API declarations, retention/deletion behavior, and user-generated-content moderation.
+6. **Store listing and review:** prepare the 1024×1024 icon, screenshots, description, age rating, reviewer credentials, and instructions for gated office/client features.
+7. **Physical device/TestFlight:** test login/signup, payment return without a real charge, photo upload, chat, push permissions, Arabic RTL and keyboard layouts, network loss/recovery, and account deletion.
+8. **Native baseline:** this project uses Capacitor 6, which is outside its normal support window. The Xcode 26 simulator build passed previously, but re-check current dependencies and compatibility before release.
 
-## Implemented on this isolated branch
-
-- Adds iOS platform preparation for iOS 14+, replaces generated placeholder app icon sizes with the existing square `public/logo.jpg`, and adds the app privacy manifest to Copy Bundle Resources.
-- Adds in-app account deletion for individual and office accounts, with associated personal data/content cleanup and limited financial-record anonymization.
-- Publishes public Arabic privacy, terms, and support pages, and links them from the home and account/profile screens.
-- Keeps chat photo uploads private and grants access to the uploader and actual participants in the referenced conversation.
-- Adds a manual/branch-triggered macOS/Xcode simulator preflight workflow.
-
-## Apple review
-
-No code change can guarantee acceptance. If Apple cites Guideline 4.2 or 3.1.1, do not resubmit the same build unchanged; resolve the cited reason first. Review Apple's current App Review Guidelines and submission requirements before uploading.
+A successful simulator build or signed IPA export does not guarantee App Store approval. Do not mark this app ready for submission until the dedicated endpoint, policy questions, signing, and physical-device/TestFlight checks are resolved.
