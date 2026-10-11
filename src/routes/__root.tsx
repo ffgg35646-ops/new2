@@ -17,6 +17,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { registerPush } from "@/lib/push";
+import { AppStoreUpdatePrompt } from "@/components/AppStoreUpdatePrompt";
 import { ensureDeviceCookie } from "@/lib/device";
 import { syncServerClock } from "@/lib/clock";
 
@@ -254,6 +255,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <PushRegistrar />
+      <AppStoreUpdatePrompt />
       <BookingReminderSync />
       <OfficeApprovalGate>
         <Outlet />
