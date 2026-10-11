@@ -55,11 +55,9 @@ export function AppStoreUpdatePrompt() {
         setCurrentVersion(appInfo.version);
 
         const dismissedVersion = localStorage.getItem("aqar-dismissed-ios-store-version");
-        const backendOrigin = String(import.meta.env.VITE_PUBLIC_APP_URL ?? "").trim();
-        const endpoint = new URL(
-          "/api/app-store-version",
-          backendOrigin || window.location.origin,
-        );
+        // Resolve the Store version check against the iOS app's own deployment.
+        // Do not make an installed IPA depend on the general website domain.
+        const endpoint = new URL("/api/app-store-version", window.location.origin);
         const response = await fetch(endpoint, {
           method: "GET",
           cache: "no-store",
