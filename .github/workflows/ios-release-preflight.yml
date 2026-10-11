@@ -40,12 +40,12 @@ jobs:
       - name: Report which release settings exist (presence only)
         shell: bash
         run: |
-          printf 'Dedicated iOS app URL configured: %s\\n' "${HAS_IOS_APP_URL}"
+          printf 'IOS_APP_URL repository override configured: %s\\n' "${HAS_IOS_APP_URL}"
           printf 'Apple Team ID configured: %s\\n' "${HAS_APPLE_TEAM_ID}"
           printf 'Apple Distribution certificate configured: %s\\n' "${HAS_DISTRIBUTION_CERTIFICATE}"
           printf 'Certificate password configured: %s\\n' "${HAS_CERTIFICATE_PASSWORD}"
           printf 'App Store provisioning profile configured: %s\\n' "${HAS_APP_STORE_PROFILE}"
-          echo "No secret values were read or printed."
+          echo "If no repository override exists, the workflow uses the verified stable iOS branch URL."\n          echo "No secret values were read or printed."
 
       - name: Check whether the stable iOS branch preview is actually live
         shell: bash
@@ -130,9 +130,10 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Verify the dedicated iOS app endpoint is public and reachable
-        if: ${{ inputs.ios_app_url != '' || vars.IOS_APP_URL != '' }}
+        # A missing endpoint must not break simulator builds, but signed IPA builds require this check.
+        continue-on-error: ${{ inputs.build_signed_ipa != true }}
         env:
-          IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL }}
+          IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://new2-git-release-ios-app-store-prep-sss22.vercel.app' }}
         run: |
           node --input-type=module <<'NODE'
           const rawUrl = String(process.env.IOS_APP_URL || '').trim();
@@ -189,10 +190,8 @@ jobs:
       - name: Generate/sync Capacitor iOS project
         env:
           CAPACITOR_BUILD_TARGET: release
-          # Simulator compilation can run without a deploy endpoint. This placeholder
-          # is only for a non-shipping simulator build; the signed IPA job rejects it.
-          IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://ios-build-placeholder.invalid' }}
-          CAPACITOR_SERVER_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://ios-build-placeholder.invalid' }}
+          IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://new2-git-release-ios-app-store-prep-sss22.vercel.app' }}
+          CAPACITOR_SERVER_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://new2-git-release-ios-app-store-prep-sss22.vercel.app' }}
         run: npm run ios:prepare
 
       - name: Validate native iOS build
@@ -223,7 +222,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     env:
-      IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL }}
+      IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://new2-git-release-ios-app-store-prep-sss22.vercel.app' }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
       IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
