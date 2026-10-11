@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AppHeader } from "@/components/AppHeader";
+
 
 export const Route = createFileRoute("/office/payresult")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -12,8 +12,20 @@ export const Route = createFileRoute("/office/payresult")({
   head: () => ({
     meta: [{ title: "نتيجة الدفع | عقار البطين" }],
   }),
-  component: ResultPage,
+  component: PaymentResultEntry,
 });
+
+// Keep the server HTML and the first browser render identical after a payment redirect.
+function PaymentResultEntry() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return (
+    <main className="grid min-h-screen place-items-center bg-background px-4" aria-live="polite">
+      <p className="text-sm text-muted-foreground">جارٍ فتح نتيجة الدفع…</p>
+    </main>
+  );
+  return <ResultPage />;
+}
 
 function ResultPage() {
   const { id, resourcePath } = Route.useSearch();
@@ -139,7 +151,6 @@ function ResultPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader showSearch={false} />
       <div className="mx-auto grid w-full max-w-md place-items-center px-4 py-16 text-center">
         {state === "checking" && (
           <>
