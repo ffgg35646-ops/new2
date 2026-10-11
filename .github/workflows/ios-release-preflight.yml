@@ -23,6 +23,58 @@ permissions:
   contents: write
 
 jobs:
+  ios-release-readiness:
+    name: Check iOS release prerequisites (without exposing secrets)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release/ios-app-store-prep'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      IOS_APP_URL_VALUE: ${{ vars.IOS_APP_URL }}
+      HAS_IOS_APP_URL: ${{ vars.IOS_APP_URL != '' }}
+      HAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
+      HAS_DISTRIBUTION_CERTIFICATE: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64 != '' }}
+      HAS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD != '' }}
+      HAS_APP_STORE_PROFILE: ${{ secrets.IOS_APP_STORE_PROFILE_BASE64 != '' }}
+    steps:
+      - name: Report which release settings exist (presence only)
+        shell: bash
+        run: |
+          printf 'Dedicated iOS app URL configured: %s\\n' "${HAS_IOS_APP_URL}"
+          printf 'Apple Team ID configured: %s\\n' "${HAS_APPLE_TEAM_ID}"
+          printf 'Apple Distribution certificate configured: %s\\n' "${HAS_DISTRIBUTION_CERTIFICATE}"
+          printf 'Certificate password configured: %s\\n' "${HAS_CERTIFICATE_PASSWORD}"
+          printf 'App Store provisioning profile configured: %s\\n' "${HAS_APP_STORE_PROFILE}"
+          echo "No secret values were read or printed."
+
+      - name: Check whether the stable iOS branch preview is actually live
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const configured = String(process.env.IOS_APP_URL_VALUE || '').trim();
+          const candidate = configured || "https://new2-git-release-ios-app-store-prep-sss22.vercel.app";
+          try {
+            const url = new URL(candidate);
+            if (url.protocol !== "https:") {
+              console.log("IOS_APP_ENDPOINT_UNAVAILABLE: endpoint is not HTTPS.");
+              process.exit(0);
+            }
+            if (!configured && url.hostname.toLowerCase() === "new2-git-main-sss22.vercel.app") {
+              console.log("IOS_APP_ENDPOINT_UNAVAILABLE: the candidate is the main website.");
+              process.exit(0);
+            }
+            const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000) });
+            const body = (await response.text()).slice(0, 100000);
+            if (response.ok && new URL(response.url).hostname === url.hostname && body.includes("عقار البطين")) {
+              console.log("IOS_APP_ENDPOINT_AVAILABLE=" + url.origin);
+            } else {
+              console.log("IOS_APP_ENDPOINT_UNAVAILABLE: HTTP " + response.status + " or wrong page.");
+            }
+          } catch (error) {
+            console.log("IOS_APP_ENDPOINT_UNAVAILABLE: " + String(error?.message || error));
+          }
+          NODE
+
   ios-simulator-build:
     name: Build iOS app for simulator (no signing)
     runs-on: macos-26
@@ -134,33 +186,6 @@ jobs:
           NODE
 
 
-      - name: Probe the stable iOS branch preview URL (diagnostic only)
-        if: github.event_name == 'push' && vars.IOS_APP_URL == ''
-        continue-on-error: true
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          const candidate = "https://new2-git-release-ios-app-store-prep-sss22.vercel.app";
-          try {
-            const response = await fetch(candidate, {
-              redirect: "follow",
-              signal: AbortSignal.timeout(15000),
-            });
-            const body = (await response.text()).slice(0, 100000);
-            if (
-              response.ok &&
-              new URL(response.url).hostname === new URL(candidate).hostname &&
-              body.includes("عقار البطين")
-            ) {
-              console.log("STABLE_IOS_PREVIEW_AVAILABLE=" + candidate);
-            } else {
-              console.log("Stable iOS branch preview is not serving the Aqar app yet (HTTP " + response.status + ").");
-            }
-          } catch (error) {
-            console.log("Stable iOS branch preview is not reachable yet: " + String(error?.message || error));
-          }
-          NODE
-
       - name: Generate/sync Capacitor iOS project
         env:
           CAPACITOR_BUILD_TARGET: release
@@ -181,23 +206,6 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/AqarAlBatinDerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             build
-
-      - name: Report signing readiness without exposing secrets
-        if: github.event_name == 'push' && github.ref == 'refs/heads/release/ios-app-store-prep'
-        env:
-          HAS_IOS_APP_URL: ${{ vars.IOS_APP_URL != '' }}
-          HAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
-          HAS_DISTRIBUTION_CERTIFICATE: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64 != '' }}
-          HAS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD != '' }}
-          HAS_APP_STORE_PROFILE: ${{ secrets.IOS_APP_STORE_PROFILE_BASE64 != '' }}
-        shell: bash
-        run: |
-          printf 'Dedicated iOS app URL configured: %s\n' "${HAS_IOS_APP_URL}"
-          printf 'Apple Team ID configured: %s\n' "${HAS_APPLE_TEAM_ID}"
-          printf 'Apple Distribution certificate configured: %s\n' "${HAS_DISTRIBUTION_CERTIFICATE}"
-          printf 'Certificate password configured: %s\n' "${HAS_CERTIFICATE_PASSWORD}"
-          printf 'App Store provisioning profile configured: %s\n' "${HAS_APP_STORE_PROFILE}"
-          echo "Only presence is checked. No secret values are printed."
 
       - name: Upload Xcode build log on failure
         if: failure()
