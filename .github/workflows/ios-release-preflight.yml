@@ -40,11 +40,11 @@ jobs:
       - name: Report which release settings exist (presence only)
         shell: bash
         run: |
-          printf 'IOS_APP_URL repository override configured: %s\\n' "${HAS_IOS_APP_URL}"
-          printf 'Apple Team ID configured: %s\\n' "${HAS_APPLE_TEAM_ID}"
-          printf 'Apple Distribution certificate configured: %s\\n' "${HAS_DISTRIBUTION_CERTIFICATE}"
-          printf 'Certificate password configured: %s\\n' "${HAS_CERTIFICATE_PASSWORD}"
-          printf 'App Store provisioning profile configured: %s\\n' "${HAS_APP_STORE_PROFILE}"
+          printf 'IOS_APP_URL repository override configured: %s\n' "${HAS_IOS_APP_URL}"
+          printf 'Apple Team ID configured: %s\n' "${HAS_APPLE_TEAM_ID}"
+          printf 'Apple Distribution certificate configured: %s\n' "${HAS_DISTRIBUTION_CERTIFICATE}"
+          printf 'Certificate password configured: %s\n' "${HAS_CERTIFICATE_PASSWORD}"
+          printf 'App Store provisioning profile configured: %s\n' "${HAS_APP_STORE_PROFILE}"
           echo "If no repository override exists, the workflow uses the verified stable iOS branch URL."\n          echo "No secret values were read or printed."
 
       - name: Check whether the stable iOS branch preview is actually live
@@ -65,10 +65,23 @@ jobs:
             }
             const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000) });
             const body = (await response.text()).slice(0, 100000);
-            if (response.ok && new URL(response.url).hostname === url.hostname && body.includes("عقار البطين")) {
-              console.log("IOS_APP_ENDPOINT_AVAILABLE=" + url.origin);
+            if (!response.ok || new URL(response.url).hostname !== url.hostname || !body.includes("عقار البطين")) {
+              console.log("IOS_APP_ENDPOINT_UNAVAILABLE: root page returned HTTP " + response.status + " or wrong page.");
+              process.exit(0);
+            }
+            const apiResponse = await fetch(new URL("/api/app-store-version", url.origin), {
+              headers: { Accept: "application/json" },
+              signal: AbortSignal.timeout(10000),
+            });
+            const api = apiResponse.ok ? await apiResponse.json().catch(() => null) : null;
+            if (
+              apiResponse.ok &&
+              apiResponse.headers.get("content-type")?.includes("application/json") &&
+              api && typeof api.published === "boolean"
+            ) {
+              console.log("IOS_APP_ENDPOINT_AVAILABLE=" + url.origin + " (app page and server route both work)");
             } else {
-              console.log("IOS_APP_ENDPOINT_UNAVAILABLE: HTTP " + response.status + " or wrong page.");
+              console.log("IOS_APP_ENDPOINT_PARTIAL: page loads, but the app's server route did not return expected JSON.");
             }
           } catch (error) {
             console.log("IOS_APP_ENDPOINT_UNAVAILABLE: " + String(error?.message || error));
