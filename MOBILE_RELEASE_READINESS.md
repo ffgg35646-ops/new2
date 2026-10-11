@@ -41,6 +41,22 @@ Changes to native plugins, iOS permissions/entitlements, native code, or native 
 6. **Store assets and reviewer access:** Provide the required 1024×1024 app icon, device screenshots, accurate description/age rating, support and privacy URLs, working review credentials for individual and office flows, and instructions for reaching gated features.
 7. **Real-device testing:** Install through TestFlight and test signup/login, payment return handling without making a real charge, photo upload, chat, push permissions, keyboard/RTL layout, network loss/recovery, and account deletion on the oldest supported iPhone that can be tested.
 
+## Current hard blockers — do not submit until resolved
+
+1. **Hosted website inside the native WebView:** the release config still loads the deployed web origin through Capacitor's `server.url`. This keeps the existing TanStack server functions/session behavior working, but Capacitor documents this setting as intended for live reload, not production, and Apple may treat a thin hosted-site wrapper as Guideline 4.2 risk. Do not assume this branch is store-ready until we either bundle the web experience with a tested cross-origin backend/auth design or prove in TestFlight and review notes that the catalogue/requests/chat native experience meets Apple's minimum-functionality rule.
+2. **Pro purchase policy:** the current in-app Pro screen uses HyperPay to unlock premium digital functions. This branch intentionally leaves payment unchanged. Confirm Apple's enterprise-services exception applies to the actual customer/account model; otherwise a StoreKit/In-App Purchase implementation and server-side receipt validation may be required.
+3. **Support email:** set a real, monitored `SUPPORT_EMAIL` before publishing the public support/privacy pages and submitting metadata. A no-reply address is not an adequate support contact.
+4. **Apple account/signing:** verify the bundle identifier `cloud.baytialkhass.app` is registered under the correct Apple Developer team, configure signing/certificates, and set up APNs credentials before expecting TestFlight distribution or working iOS push.
+5. **Binary and real-device checks:** the iOS preparation/build workflow has not yet been observed passing in this environment. No signed archive has been uploaded, and no TestFlight or physical-iPhone test has been performed. The App Store Connect privacy answers, screenshots, rating, review credentials, and live policy/support URLs also need completion.
+
+## Implemented on this isolated branch
+
+- Adds iOS platform preparation for iOS 15+, replaces generated placeholder app icon sizes with the existing square `public/logo.jpg`, and adds the app privacy manifest to Copy Bundle Resources.
+- Adds in-app account deletion for individual and office accounts, with associated personal data/content cleanup and limited financial-record anonymization.
+- Publishes public Arabic privacy, terms, and support pages, and links them from the home and account/profile screens.
+- Keeps chat photo uploads private and grants access to the uploader and actual participants in the referenced conversation.
+- Adds a manual/branch-triggered macOS/Xcode simulator preflight workflow.
+
 ## Apple review
 
 No code change can guarantee acceptance. If Apple cites Guideline 4.2 or 3.1.1, do not resubmit the same build unchanged; resolve the cited reason first. Review Apple's current App Review Guidelines and submission requirements before uploading.
