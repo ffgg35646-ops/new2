@@ -13,7 +13,7 @@ This is the isolated release branch: release/ios-app-store-prep. Do not merge it
 
 ## iOS support
 
-The best practical legacy target for this Capacitor 6 line is iOS 13+. iOS 9 and 10 cannot be targeted for a new App Store submission under Apple's current upload rules. Keep the iOS deployment target at 13 for this release branch; do not upgrade Capacitor major versions without checking whether they raise the minimum OS.
+The best practical legacy target for this Capacitor 6 line is iOS 13+. iOS 9 and 10 cannot be targeted for a new App Store submission under Apple's current upload rules. Capacitor 6 is now outside its normal support window, so the Xcode 26 simulator preflight is mandatory. Keep the iOS deployment target at 13 for this compatibility attempt; if the current native stack fails the Xcode 26 build or a required security check, use a maintained Capacitor release instead and accept its higher iOS minimum rather than ship an unverified build.
 
 ## Prepare a test build
 
