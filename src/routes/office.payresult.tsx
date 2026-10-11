@@ -95,7 +95,7 @@ function ResultPage() {
     }
 
     (async () => {
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      for (let attempt = 1; attempt <= 10; attempt++) {
         try {
           const data = await checkOnce(12000);
 
@@ -115,7 +115,7 @@ function ResultPage() {
           }
 
           if (data?.pending) {
-            if (attempt < 3) {
+            if (attempt < 10) {
               await new Promise((resolve) => setTimeout(resolve, 2000));
               continue;
             }
