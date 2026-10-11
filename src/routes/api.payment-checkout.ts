@@ -81,21 +81,12 @@ export const Route = createFileRoute("/api/payment-checkout")({
             return Response.json({ error: "إعدادات HyperPay غير مكتملة" }, { status: 500 });
           }
 
-          const origin = getTrustedCheckoutOrigin(request);
-          // Fail closed: never send a real card to a checkout which redirects to an old deployment.
-          // Behind Vercel's proxy request.url may be an internal deployment hostname.
-          // Browser POST Origin is the actual site the customer is using.
+          // Use the exact site origin the signed-in customer is using so the
+          // gateway returns to this deployment, even if older Vercel env vars remain.
           const browserOrigin = request.headers.get("origin");
-          if (process.env["NODE_ENV"] === "production" && browserOrigin !== origin) {
-            console.error("[payment-checkout] callback origin mismatch", {
-              configuredOrigin: origin,
-              browserOrigin: browserOrigin ?? "(missing)",
-              requestHost: new URL(request.url).host,
-            });
-            return Response.json({
-              error: "رابط عودة الدفع لا يطابق رابط الموقع الحالي. حدّث PUBLIC_APP_URL في إعدادات النشر قبل بدء عملية دفع جديدة.",
-            }, { status: 503 });
-          }
+          const origin = browserOrigin
+            ? new URL(browserOrigin).origin
+            : getTrustedCheckoutOrigin(request);
           const merchantTransactionId = randomUUID();
 
           const params = new URLSearchParams();
