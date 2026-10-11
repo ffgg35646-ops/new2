@@ -27,7 +27,7 @@ Never build a Store release with a LAN address, localhost, or plain HTTP.
 
 ## Updates and rollback
 
-This app currently uses Capacitor's hosted-server pattern. Web UI fixes deployed to the hosted app become available when users reopen/reload the app; if a web deployment is faulty, roll back that web deployment to the last known-good release. Users do not need to delete or reinstall the iOS app to roll back a web-layer deployment.
+This app currently uses Capacitor's hosted-server pattern. Web UI fixes deployed to the hosted app become available when users reopen/reload the app. If a web change is faulty, revert that change on GitHub so the normal deployment pipeline returns to the last known-good code. Users do not need to delete or reinstall the iOS app to roll back a web-layer change.
 
 Changes to native plugins, iOS permissions/entitlements, native code, or native app settings require a new signed App Store/TestFlight build. A website rollback cannot undo native changes. Keep website-delivered changes within the app's approved purpose; do not use this path to introduce unrelated features.
 
