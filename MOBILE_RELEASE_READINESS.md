@@ -4,7 +4,7 @@
 
 - Work is isolated on `release/ios-app-store-prep`; `main` and the finished web product are not changed by this release branch.
 - The stable app-only branch URL was verified by the GitHub Actions probe: `https://new2-git-release-ios-app-store-prep-sss22.vercel.app`.
-- The previous GitHub Actions run `#63` passed the source build, TypeScript check, iOS preparation, and unsigned iOS simulator build. That is not a signed device IPA.
+- GitHub Actions run [#90](https://github.com/ffgg35646-ops/new2/actions/runs/38131763345) passed the source build, TypeScript check, dedicated app endpoint validation, Capacitor iOS preparation, and Xcode iOS simulator build. That is not a signed device IPA.
 - The release workflow now has a separate optional job to create an App Store-signed IPA. No signed IPA exists until Apple signing credentials are configured and export succeeds.
 - The app is not yet approved or verified as ready for App Store submission. A real iPhone/TestFlight run and the policy checks below remain required.
 
@@ -37,7 +37,14 @@ Configure these GitHub Actions repository secrets. Do not commit certificates, p
 - `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`: password protecting that P12.
 - `IOS_APP_STORE_PROFILE_BASE64`: base64 encoding of the App Store provisioning profile for `cloud.baytialkhass.app`.
 
-Then manually dispatch the workflow **iOS Release Validation and IPA**, set `build_signed_ipa=true`, and let the signing/export job run. If it succeeds, download the `aqar-albatin-signed-ipa` artifact from that GitHub Actions run. It is currently configured to export for App Store Connect; it is not automatically uploaded to App Store Connect.
+On Kali/Linux, make one-line base64 copies of the two files without printing the certificate/password contents into chat:
+
+```sh
+base64 -w 0 AppleDistribution.p12 > AppleDistribution.p12.base64.txt
+base64 -w 0 AqarAlBatin_AppStore.mobileprovision > AqarAlBatin_AppStore.mobileprovision.base64.txt
+```
+
+Copy each resulting file's contents into the matching GitHub secret above. Then manually dispatch the workflow **iOS Release Validation and IPA**, set `build_signed_ipa=true`, and let the signing/export job run. If it succeeds, download the `aqar-albatin-signed-ipa` artifact from that GitHub Actions run. It is configured to export for App Store Connect; it is not automatically uploaded to App Store Connect.
 
 ## Remaining App Store checks
 
