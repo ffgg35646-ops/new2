@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/integrations/supabase/client";
 
 export async function registerPush(userId: string) {
@@ -8,13 +9,9 @@ export async function registerPush(userId: string) {
     return;
   }
 
-  const isNative =
-    typeof (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-      ?.isNativePlatform === "function" &&
-    (
-      window as unknown as { Capacitor: { isNativePlatform: () => boolean } }
-    ).Capacitor.isNativePlatform();
-  if (!isNative) return;
+  if (!Capacitor.isNativePlatform()) return;
+  const platform = Capacitor.getPlatform();
+  if (platform !== "ios" && platform !== "android") return;
 
   try {
     const perm = await PushNotifications.requestPermissions();
@@ -26,7 +23,7 @@ export async function registerPush(userId: string) {
       void supabase
         .from("device_tokens")
         .upsert(
-          { user_id: userId, token: token.value, platform: "android" },
+          { user_id: userId, token: token.value, platform },
           { onConflict: "token" },
         );
     });

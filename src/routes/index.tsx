@@ -64,6 +64,11 @@ function Welcome() {
           تصفح بدون تسجيل
         </Link>
       </div>
+      <footer className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+        <Link to="/privacy-policy" className="underline underline-offset-4">سياسة الخصوصية</Link>
+        <Link to="/terms-of-use" className="underline underline-offset-4">شروط الاستخدام</Link>
+        <Link to="/support" className="underline underline-offset-4">الدعم والتواصل</Link>
+      </footer>
     </div>
   );
 }

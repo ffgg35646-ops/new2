@@ -125,9 +125,37 @@ async function resolveMediaAccess(
     isAdmin = !!adminUser || !!adminRole;
   }
 
+  let isChatParticipant = false;
+  if (viewerId) {
+    const message = await db.collection<any>("messages").findOne(
+      { image_url: { $in: mediaPaths } },
+      { projection: { conversation_id: 1 } },
+    );
+    if (message?.conversation_id) {
+      const conversation = await db.collection<any>("conversations").findOne(
+        { id: String(message.conversation_id) },
+        { projection: { user_id: 1, office_id: 1 } },
+      );
+      if (conversation) {
+        isChatParticipant = String(conversation.user_id ?? "") === viewerId;
+        if (!isChatParticipant && conversation.office_id != null) {
+          const office = await db.collection<any>("offices").findOne(
+            {
+              id: String(conversation.office_id),
+              owner_id: viewerId,
+              is_deleted: { $ne: true },
+            },
+            { projection: { id: 1 } },
+          );
+          isChatParticipant = !!office;
+        }
+      }
+    }
+  }
+
   return {
     isPrivate: true,
-    allowed: !!viewerId && !!expectedOwner && (viewerId === expectedOwner || isAdmin),
+    allowed: !!viewerId && (isAdmin || viewerId === expectedOwner || isChatParticipant),
   };
 }
 

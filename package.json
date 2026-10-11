@@ -14,10 +14,12 @@
     "deliver": "node scripts/deliver.mjs",
     "seed:mongo": "node --env-file=.env scripts/seed-mongo.mjs",
     "repair:social": "node --env-file=.env scripts/repair-social-data.mjs",
-    "migrate:media:blob": "node scripts/migrate-gridfs-to-vercel-blob.mjs"
+    "migrate:media:blob": "node scripts/migrate-gridfs-to-vercel-blob.mjs",
+    "ios:prepare": "node scripts/prepare-ios.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",
+    "@capacitor/ios": "^6.2.2",
     "@capacitor/cli": "^6.2.2",
     "@capacitor/core": "^6.2.2",
     "@capacitor/push-notifications": "^6.0.5",
@@ -79,7 +81,9 @@
     "tw-animate-css": "^1.3.4",
     "vaul": "^1.1.2",
     "vite-tsconfig-paths": "^6.0.2",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/app-launcher": "^6.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",

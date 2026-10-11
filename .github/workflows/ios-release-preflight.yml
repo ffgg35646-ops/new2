@@ -1,0 +1,374 @@
+name: iOS Release Validation and IPA
+
+on:
+  push:
+    branches:
+      - release/ios-app-store-prep
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      ios_app_url:
+        description: "Dedicated public HTTPS endpoint for the iOS app UI (not the general website URL)"
+        required: false
+        type: string
+      build_signed_ipa:
+        description: "Build and export a signed App Store IPA (requires Apple signing secrets)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  ios-release-readiness:
+    name: Check iOS release prerequisites (without exposing secrets)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release/ios-app-store-prep'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      IOS_APP_URL_VALUE: ${{ vars.IOS_APP_URL }}
+      HAS_IOS_APP_URL: ${{ vars.IOS_APP_URL != '' }}
+      HAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
+      HAS_DISTRIBUTION_CERTIFICATE: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64 != '' }}
+      HAS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD != '' }}
+      HAS_APP_STORE_PROFILE: ${{ secrets.IOS_APP_STORE_PROFILE_BASE64 != '' }}
+    steps:
+      - name: Report which release settings exist (presence only)
+        shell: bash
+        run: |
+          printf 'IOS_APP_URL repository override configured: %s\n' "${HAS_IOS_APP_URL}"
+          printf 'Apple Team ID configured: %s\n' "${HAS_APPLE_TEAM_ID}"
+          printf 'Apple Distribution certificate configured: %s\n' "${HAS_DISTRIBUTION_CERTIFICATE}"
+          printf 'Certificate password configured: %s\n' "${HAS_CERTIFICATE_PASSWORD}"
+          printf 'App Store provisioning profile configured: %s\n' "${HAS_APP_STORE_PROFILE}"
+          echo "If no repository override exists, the workflow uses the verified stable iOS branch URL."\n          echo "No secret values were read or printed."
+
+      - name: Check whether the stable iOS branch preview is actually live
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const configured = String(process.env.IOS_APP_URL_VALUE || '').trim();
+          const candidate = configured || "https://new2-git-release-ios-app-store-prep-sss22.vercel.app";
+          try {
+            const url = new URL(candidate);
+            if (url.protocol !== "https:") {
+              console.log("IOS_APP_ENDPOINT_UNAVAILABLE: endpoint is not HTTPS.");
+              process.exit(0);
+            }
+            if (!configured && url.hostname.toLowerCase() === "new2-git-main-sss22.vercel.app") {
+              console.log("IOS_APP_ENDPOINT_UNAVAILABLE: the candidate is the main website.");
+              process.exit(0);
+            }
+            const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000) });
+            const body = (await response.text()).slice(0, 100000);
+            if (!response.ok || new URL(response.url).hostname !== url.hostname || !body.includes("عقار البطين")) {
+              console.log("IOS_APP_ENDPOINT_UNAVAILABLE: root page returned HTTP " + response.status + " or wrong page.");
+              process.exit(0);
+            }
+            const apiResponse = await fetch(new URL("/api/app-store-version", url.origin), {
+              headers: { Accept: "application/json" },
+              signal: AbortSignal.timeout(10000),
+            });
+            const api = apiResponse.ok ? await apiResponse.json().catch(() => null) : null;
+            if (
+              apiResponse.ok &&
+              apiResponse.headers.get("content-type")?.includes("application/json") &&
+              api && typeof api.published === "boolean"
+            ) {
+              console.log("IOS_APP_ENDPOINT_AVAILABLE=" + url.origin + " (app page and server route both work)");
+            } else {
+              console.log("IOS_APP_ENDPOINT_PARTIAL: page loads, but the app's server route did not return expected JSON.");
+            }
+          } catch (error) {
+            console.log("IOS_APP_ENDPOINT_UNAVAILABLE: " + String(error?.message || error));
+          }
+          NODE
+
+  ios-simulator-build:
+    name: Build iOS app for simulator (no signing)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Normalize the existing lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Upload normalized lockfile for repository repair
+        uses: actions/upload-artifact@v4
+        with:
+          name: normalized-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Persist normalized lockfile on the iOS release branch
+        if: (github.event_name == 'push' && github.ref_name == 'release/ios-app-store-prep') || (github.event_name == 'pull_request' && github.head_ref == 'release/ios-app-store-prep' && github.event.pull_request.head.repo.full_name == github.repository)
+        env:
+          HEAD_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          cp package-lock.json "$RUNNER_TEMP/package-lock.normalized.json"
+          git restore --source=HEAD --staged --worktree package-lock.json
+          git fetch origin "$HEAD_BRANCH"
+          git switch --force-create "$HEAD_BRANCH" FETCH_HEAD
+          cp "$RUNNER_TEMP/package-lock.normalized.json" package-lock.json
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already matches package.json."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "build: normalize package lock for clean installs"
+          git push origin "HEAD:$HEAD_BRANCH"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build web application
+        run: npm run build
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Verify the dedicated iOS app endpoint is public and reachable
+        # A missing endpoint must not break simulator builds, but signed IPA builds require this check.
+        continue-on-error: ${{ inputs.build_signed_ipa != true }}
+        env:
+          IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://new2-git-release-ios-app-store-prep-sss22.vercel.app' }}
+        run: |
+          node --input-type=module <<'NODE'
+          const rawUrl = String(process.env.IOS_APP_URL || '').trim();
+          let url;
+          try {
+            url = new URL(rawUrl);
+          } catch {
+            console.error('iOS preflight stopped: IOS_APP_URL is missing or invalid. Set a dedicated iOS app endpoint; the main website is not used as a fallback.');
+            process.exit(1);
+          }
+          if (url.protocol !== 'https:' || !url.hostname) {
+            console.error('iOS preflight stopped: IOS_APP_URL must be a public HTTPS URL.');
+            process.exit(1);
+          }
+          if (url.hostname.toLowerCase() === 'new2-git-main-sss22.vercel.app') {
+            console.error('iOS preflight stopped: IOS_APP_URL points to the main website. Configure the separate app-only endpoint.');
+            process.exit(1);
+          }
+          let response;
+          try {
+            response = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(20000) });
+          } catch (error) {
+            console.error('iOS preflight stopped: the dedicated iOS app endpoint cannot be reached from the build runner.');
+            console.error(String(error?.message || error));
+            process.exit(1);
+          }
+          const finalUrl = new URL(response.url);
+          const body = (await response.text()).slice(0, 100000);
+          if (!response.ok) {
+            console.error(`iOS preflight stopped: app endpoint returned HTTP ${response.status}.`);
+            process.exit(1);
+          }
+          if (finalUrl.hostname !== url.hostname) {
+            console.error('iOS preflight stopped: the hosted app redirected to another host (possibly an access/login page).');
+            console.error(`Final host: ${finalUrl.hostname}`);
+            process.exit(1);
+          }
+          if (/authentication required|sign in to vercel|vercel deployment protection|deployment protection|continue with github|log in to continue/i.test(body)) {
+            console.error('iOS preflight stopped: the app endpoint is protected and cannot be opened by the installed app.');
+            process.exit(1);
+          }
+          if (!String(response.headers.get('content-type') || '').includes('text/html')) {
+            console.error('iOS preflight stopped: IOS_APP_URL did not return an HTML app page.');
+            process.exit(1);
+          }
+          if (!body.includes('عقار البطين')) {
+            console.error('iOS preflight stopped: IOS_APP_URL did not serve the Aqar Al-Batin application page.');
+            process.exit(1);
+          }
+          console.log(`Dedicated iOS app endpoint is reachable: ${url.origin} (HTTP ${response.status}).`);
+          NODE
+
+
+      - name: Generate/sync Capacitor iOS project
+        env:
+          CAPACITOR_BUILD_TARGET: release
+          IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://new2-git-release-ios-app-store-prep-sss22.vercel.app' }}
+          CAPACITOR_SERVER_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://new2-git-release-ios-app-store-prep-sss22.vercel.app' }}
+        run: npm run ios:prepare
+
+      - name: Validate native iOS build
+        run: |
+          xcodebuild -version
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/AqarAlBatinDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Upload Xcode build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-failure-log
+          path: |
+            ${{ runner.temp }}/AqarAlBatinDerivedData/Logs/**
+          if-no-files-found: ignore
+
+  ios-signed-ipa:
+    name: Archive and export signed App Store IPA
+    needs: ios-simulator-build
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_signed_ipa }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL || 'https://new2-git-release-ios-app-store-prep-sss22.vercel.app' }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
+      IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+      IOS_APP_STORE_PROFILE_BASE64: ${{ secrets.IOS_APP_STORE_PROFILE_BASE64 }}
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+
+      - name: Verify required Apple signing secrets
+        shell: bash
+        run: |
+          set -eo pipefail
+          missing=""
+          if [ -z "$APPLE_TEAM_ID" ]; then missing="$missing APPLE_TEAM_ID"; fi
+          if [ -z "$IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64" ]; then missing="$missing IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64"; fi
+          if [ -z "$IOS_DISTRIBUTION_CERTIFICATE_PASSWORD" ]; then missing="$missing IOS_DISTRIBUTION_CERTIFICATE_PASSWORD"; fi
+          if [ -z "$IOS_APP_STORE_PROFILE_BASE64" ]; then missing="$missing IOS_APP_STORE_PROFILE_BASE64"; fi
+          if [ -n "$missing" ]; then
+            echo "Cannot create a signed IPA yet. Add these GitHub Actions secrets:$missing"
+            exit 1
+          fi
+          if [ -z "$IOS_APP_URL" ]; then
+            echo "Cannot create an IPA yet. Set the Actions variable IOS_APP_URL to the dedicated iOS app endpoint."
+            exit 1
+          fi
+          if [ "$(node -e 'try { const u=new URL(process.argv[1]); console.log(u.protocol==="https:" && u.hostname!=="new2-git-main-sss22.vercel.app" ? "ok" : "no") } catch { console.log("no") }' "$IOS_APP_URL")" != "ok" ]; then
+            echo "IOS_APP_URL must be a public HTTPS endpoint dedicated to the app, not the main website."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build web assets and type-check
+        run: |
+          npm run build
+          npx tsc --noEmit
+
+      - name: Generate/sync iOS project
+        env:
+          CAPACITOR_BUILD_TARGET: release
+          IOS_APP_URL: ${{ inputs.ios_app_url || vars.IOS_APP_URL }}
+          IOS_BUILD_NUMBER: ${{ github.run_number }}
+        run: npm run ios:prepare
+
+      - name: Install Apple distribution certificate and provisioning profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/aqar-release.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          CERTIFICATE_PATH="$RUNNER_TEMP/ios-distribution.p12"
+          PROFILE_PATH="$RUNNER_TEMP/ios-app-store.mobileprovision"
+          PROFILE_PLIST="$RUNNER_TEMP/ios-profile.plist"
+
+          printf '%s' "$IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64" | base64 -D -o "$CERTIFICATE_PATH"
+          printf '%s' "$IOS_APP_STORE_PROFILE_BASE64" | base64 -D -o "$PROFILE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$IOS_DISTRIBUTION_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
+          PROFILE_UUID="$(/usr/libexec/PlistBuddy -c 'Print UUID' "$PROFILE_PLIST")"
+          PROFILE_APP_ID="$(/usr/libexec/PlistBuddy -c 'Print Entitlements:application-identifier' "$PROFILE_PLIST")"
+          case "$PROFILE_APP_ID" in
+            *".cloud.baytialkhass.app") ;;
+            *) echo "Provisioning profile does not match cloud.baytialkhass.app"; exit 1 ;;
+          esac
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          echo "IOS_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "IOS_PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+
+      - name: Archive app for generic iOS device
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -destination "generic/platform=iOS" \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/AqarAlBatin.xcarchive" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$IOS_PROFILE_UUID" \
+            archive
+
+      - name: Export signed IPA for App Store Connect
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>$APPLE_TEAM_ID</string>
+            <key>provisioningProfiles</key><dict>
+              <key>cloud.baytialkhass.app</key><string>$IOS_PROFILE_UUID</string>
+            </dict>
+          </dict></plist>
+          PLIST
+          xcodebuild \
+            -archivePath "$RUNNER_TEMP/AqarAlBatin.xcarchive" \
+            -exportArchive \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/ipa-output"
+
+      - name: Upload signed IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqar-albatin-signed-ipa
+          path: ${{ runner.temp }}/ipa-output/*.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove signing keychain
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "$IOS_KEYCHAIN_PATH" ]; then
+            security delete-keychain "$IOS_KEYCHAIN_PATH" || true
+          fi
