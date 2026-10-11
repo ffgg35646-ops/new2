@@ -5037,7 +5037,8 @@ export const authDeleteAccount = createServerFn({ method: "POST" }).handler(asyn
   if (!userId) throw new Error("انتهت جلسة الدخول. سجّل الدخول ثم حاول مرة أخرى.");
 
   const db = await getMongoDb();
-  const user = await db.collection<Record<string, any>>("users").findOne(
+  const users = db.collection<{ _id: string; role?: string }>("users");
+  const user = await users.findOne(
     { _id: userId },
     { projection: { _id: 1, role: 1 } },
   );
@@ -5234,7 +5235,7 @@ export const authDeleteAccount = createServerFn({ method: "POST" }).handler(asyn
       await db.collection("offices").deleteMany({ owner_id: userId }, { session });
       await db.collection("profiles").deleteMany({ $or: [{ id: userId }, { user_id: userId }] }, { session });
       await db.collection("user_roles").deleteMany({ user_id: userId }, { session });
-      await db.collection("users").deleteOne({ _id: userId }, { session });
+      await db.collection<{ _id: string }>("users").deleteOne({ _id: userId }, { session });
     });
   } finally {
     await session.endSession();
