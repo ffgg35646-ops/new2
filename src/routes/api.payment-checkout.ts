@@ -68,10 +68,8 @@ export const Route = createFileRoute("/api/payment-checkout")({
             );
           }
 
-          const amount = Number(pkg.price ?? 0);
-          if (!Number.isFinite(amount) || amount <= 0) {
-            return Response.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
-          }
+          // سعر Pro ثابت: 200 ريال سعودي لمدة 30 يومًا.
+          const amount = 200;
 
           const baseUrl = String(process.env["HYPERPAY_BASE_URL"] ?? "").replace(/\/$/, "");
           const accessToken = process.env["HYPERPAY_ACCESS_TOKEN"];
