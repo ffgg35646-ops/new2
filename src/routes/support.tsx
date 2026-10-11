@@ -4,7 +4,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 const getPublicSupportEmail = createServerFn({ method: "GET" }).handler(async () => {
   const configured =
-    String(process.env["SUPPORT_EMAIL"] || process.env["MAIL_FROM"] || "");
+    String(process.env["SUPPORT_EMAIL"] || "");
   const email = configured.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? "";
   return { email };
 });
