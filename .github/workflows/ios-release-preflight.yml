@@ -15,7 +15,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   ios-simulator-build:
@@ -42,6 +42,26 @@ jobs:
           path: package-lock.json
           if-no-files-found: error
           retention-days: 3
+
+      - name: Persist normalized lockfile on the iOS release branch
+        if: (github.event_name == 'push' && github.ref_name == 'release/ios-app-store-prep') || (github.event_name == 'pull_request' && github.head_ref == 'release/ios-app-store-prep' && github.event.pull_request.head.repo.full_name == github.repository)
+        env:
+          HEAD_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          cp package-lock.json "$RUNNER_TEMP/package-lock.normalized.json"
+          git restore --source=HEAD --staged --worktree package-lock.json
+          git fetch origin "$HEAD_BRANCH"
+          git switch --force-create "$HEAD_BRANCH" FETCH_HEAD
+          cp "$RUNNER_TEMP/package-lock.normalized.json" package-lock.json
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already matches package.json."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "build: normalize package lock for clean installs"
+          git push origin "HEAD:$HEAD_BRANCH"
 
       - name: Install locked dependencies
         run: npm ci
