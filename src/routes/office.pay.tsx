@@ -66,6 +66,7 @@ function PayPage() {
 
         let data: {
           checkoutId?: string;
+          resultUrl?: string;
           integrity?: string;
           baseUrl?: string;
           error?: string;
@@ -101,6 +102,9 @@ function PayPage() {
 
         const base = data.baseUrl as string;
         const resultUrl = `${window.location.origin}/office/payresult`;
+        if (!data.resultUrl || data.resultUrl !== resultUrl) {
+          throw new Error("رابط العودة من بوابة الدفع لا يطابق الموقع المفتوح. لم يتم عرض نموذج البطاقة منعًا لتحويلك إلى نشر قديم.");
+        }
 
         window.wpwlOptions = {
           locale: "ar",
