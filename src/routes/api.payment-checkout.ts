@@ -82,6 +82,14 @@ export const Route = createFileRoute("/api/payment-checkout")({
           }
 
           const origin = getTrustedCheckoutOrigin(request);
+          // Fail closed: never send a real card to a checkout which redirects to an old deployment.
+          const requestOrigin = new URL(request.url).origin;
+          if (process.env["NODE_ENV"] === "production" && requestOrigin !== origin) {
+            console.error("[payment-checkout] callback origin mismatch", { configuredOrigin: origin, requestOrigin });
+            return Response.json({
+              error: "رابط عودة الدفع لا يطابق رابط الموقع الحالي. حدّث PUBLIC_APP_URL في إعدادات النشر قبل بدء عملية دفع جديدة.",
+            }, { status: 503 });
+          }
           const merchantTransactionId = randomUUID();
 
           const params = new URLSearchParams();
@@ -158,6 +166,7 @@ export const Route = createFileRoute("/api/payment-checkout")({
 
           return Response.json({
             checkoutId: hpData.id,
+            resultUrl: origin + "/office/payresult",
             integrity: hpData.integrity ?? null,
             baseUrl,
             testMode: testMode || null,
