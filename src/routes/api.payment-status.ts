@@ -184,7 +184,7 @@ export const Route = createFileRoute("/api/payment-status")({
 
           const resultCode = data.result?.code ?? "";
           const description = data.result?.description ?? "";
-          const success = /^(000\\.000\\.|000\\.100\\.1|000\\.[36])/.test(resultCode);
+          const success = /^(000\.000\.|000\.100\.1|000\.[36])/.test(resultCode);
           const pending = resultCode.startsWith("000.200");
 
           if (
