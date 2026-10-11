@@ -11,8 +11,7 @@ on:
     inputs:
       server_url:
         description: "Public HTTPS URL of the deployed Aqar Al-Batin app"
-        required: false
-        default: "https://new2-sand-rho.vercel.app"
+        required: true
         type: string
 
 permissions:
@@ -66,7 +65,7 @@ jobs:
 
       - name: Verify the hosted app is public and reachable
         env:
-          CAPACITOR_SERVER_URL: ${{ inputs.server_url || vars.CAPACITOR_SERVER_URL || 'https://new2-sand-rho.vercel.app' }}
+          CAPACITOR_SERVER_URL: ${{ inputs.server_url || vars.CAPACITOR_SERVER_URL || '' }}
         run: |
           node --input-type=module <<'NODE'
           const rawUrl = String(process.env.CAPACITOR_SERVER_URL || '').trim();
@@ -120,7 +119,7 @@ jobs:
       - name: Generate/sync Capacitor iOS project
         env:
           CAPACITOR_BUILD_TARGET: release
-          CAPACITOR_SERVER_URL: ${{ inputs.server_url || vars.CAPACITOR_SERVER_URL || 'https://new2-sand-rho.vercel.app' }}
+          CAPACITOR_SERVER_URL: ${{ inputs.server_url || vars.CAPACITOR_SERVER_URL || '' }}
         run: npm run ios:prepare
 
       - name: Validate native iOS build
