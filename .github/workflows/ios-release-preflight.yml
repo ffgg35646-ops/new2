@@ -155,6 +155,23 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Report signing readiness without exposing secrets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release/ios-app-store-prep'
+        env:
+          HAS_IOS_APP_URL: ${{ vars.IOS_APP_URL != '' }}
+          HAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
+          HAS_DISTRIBUTION_CERTIFICATE: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64 != '' }}
+          HAS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD != '' }}
+          HAS_APP_STORE_PROFILE: ${{ secrets.IOS_APP_STORE_PROFILE_BASE64 != '' }}
+        shell: bash
+        run: |
+          printf 'Dedicated iOS app URL configured: %s\n' "${HAS_IOS_APP_URL}"
+          printf 'Apple Team ID configured: %s\n' "${HAS_APPLE_TEAM_ID}"
+          printf 'Apple Distribution certificate configured: %s\n' "${HAS_DISTRIBUTION_CERTIFICATE}"
+          printf 'Certificate password configured: %s\n' "${HAS_CERTIFICATE_PASSWORD}"
+          printf 'App Store provisioning profile configured: %s\n' "${HAS_APP_STORE_PROFILE}"
+          echo "Only presence is checked. No secret values are printed."
+
       - name: Upload Xcode build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
