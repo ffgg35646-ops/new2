@@ -5,7 +5,7 @@
 - Work is isolated on `release/ios-app-store-prep`; `main` and the finished web product are not changed by this release branch.
 - The stable app-only branch URL was verified by the GitHub Actions probe: `https://new2-git-release-ios-app-store-prep-sss22.vercel.app`.
 - GitHub Actions run [#90](https://github.com/ffgg35646-ops/new2/actions/runs/38131763345) passed the source build, TypeScript check, dedicated app endpoint validation, Capacitor iOS preparation, and Xcode iOS simulator build. That is not a signed device IPA.
-- The release workflow now has a separate optional job to create an App Store-signed IPA. No signed IPA exists until Apple signing credentials are configured and export succeeds.
+- The release workflow now has a separate optional job to create an App Store-signed IPA. The latest release-readiness diagnostic confirmed the stable app page and its `/api/app-store-version` server route work, but all four Apple signing secrets are currently missing. No signed IPA exists until the signing credentials are configured and export succeeds.
 - The app is not yet approved or verified as ready for App Store submission. A real iPhone/TestFlight run and the policy checks below remain required.
 
 ## Keep the iOS app separate from the main website
