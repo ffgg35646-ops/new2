@@ -5048,7 +5048,6 @@ export const authDeleteAccount = createServerFn({ method: "POST" }).handler(asyn
 
   const office = await db.collection<Record<string, any>>("offices").findOne({
     owner_id: userId,
-    is_deleted: { $ne: true },
   });
   const officeId = office ? String(office.id ?? office._id ?? "") : "";
 
