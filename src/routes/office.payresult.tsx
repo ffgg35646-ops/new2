@@ -102,9 +102,7 @@ function ResultPage() {
           if (data?.verificationError || data?.status === "verification_error") {
             setState("verification_error");
             setMessage(
-              data.description ||
-                data.error ||
-                "تعذّر تأكيد نتيجة العملية لدى HyperPay. لم يتم تفعيل الباقة.",
+              "تعذّر التأكد من نتيجة الدفع حاليًا، ولم يتم تفعيل الباقة. حاول مرة أخرى لاحقًا، وإذا استمرت المشكلة فتواصل مع الدعم.",
             );
             return;
           }
@@ -124,17 +122,14 @@ function ResultPage() {
 
             setState("pending");
             setMessage(
-              data.description ||
-                "الدفع ما زال قيد المعالجة. لم يتم تفعيل الباقة حتى تأكيد نجاح العملية.",
+              "طلب الدفع ما زال قيد المعالجة. لم يتم تفعيل الباقة حتى الآن؛ انتظر قليلًا ثم راجع حالة اشتراكك قبل إعادة المحاولة.",
             );
             return;
           }
 
           setState("failed");
-          const gatewayCode = data?.code ? ` (كود HyperPay: ${data.code})` : "";
           setMessage(
-            (data?.description || data?.error || "لم يكتمل الدفع، ولم يتم تفعيل الباقة.") +
-              gatewayCode,
+            "لم يتم قبول البطاقة. قد يكون السبب عدم كفاية الرصيد، أو أن البطاقة تجريبية أو غير مدعومة لهذه العملية. جرّب بطاقة أخرى أو تواصل مع البنك المُصدر. لم يتم تفعيل الباقة.",
           );
           return;
         } catch {
