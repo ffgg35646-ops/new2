@@ -5,7 +5,9 @@ const isReleaseBuild = process.env["CAPACITOR_BUILD_TARGET"] === "release";
 const env = loadEnv(isReleaseBuild ? "production" : "development", process.cwd(), "");
 
 const iosAppUrl = String(
-  process.env["IOS_APP_URL"] ?? env["IOS_APP_URL"] ?? "",
+  process.env["IOS_APP_URL"] ||
+    env["IOS_APP_URL"] ||
+    "https://new2-git-release-ios-app-store-prep-sss22.vercel.app",
 ).trim();
 
 const explicitServerUrl = String(
