@@ -20,6 +20,7 @@ import { useAuth, signOut } from "@/lib/auth";
 import { useSelectedGovernorate } from "@/lib/governorate";
 import { SupportCenter } from "@/components/SupportCenter";
 import { ProfileModal } from "@/components/ProfileModal";
+import { AccountDeletionAction } from "@/components/AccountDeletionAction";
 
 export const Route = createFileRoute("/account")({
   head: () => ({
@@ -170,6 +171,8 @@ function AccountPage() {
                 {dark ? "مفعّل" : "معطّل"}
               </span>
             </button>
+
+            {!isAdmin && <AccountDeletionAction />}
 
             <button
               onClick={async () => {
