@@ -1,9 +1,23 @@
+import { randomBytes } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { loadEnv } from "vite";
 
 const root = process.cwd();
+const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
+const appVersion = String(packageJson.version ?? "").trim();
+const buildNumber = String(
+  process.env["IOS_BUILD_NUMBER"] ?? process.env["GITHUB_RUN_NUMBER"] ?? "1",
+).trim();
+if (!/^\d+\.\d+\.\d+$/.test(appVersion)) {
+  console.error("iOS release stopped: package.json version must use major.minor.patch format.");
+  process.exit(1);
+}
+if (!/^\d+$/.test(buildNumber) || Number(buildNumber) < 1) {
+  console.error("iOS release stopped: IOS_BUILD_NUMBER must be a positive integer.");
+  process.exit(1);
+}
 const env = loadEnv("production", root, "");
 const configuredUrl =
   process.env["CAPACITOR_SERVER_URL"] ||
@@ -141,8 +155,13 @@ if (existsSync(privacySource) && existsSync(privacySourceDir)) {
   if (existsSync(projectPath)) {
     let project = readFileSync(projectPath, "utf8");
     if (!project.includes("PrivacyInfo.xcprivacy")) {
-      const buildFileId = "A0A100000000000000000001";
-      const fileRefId = "A0A100000000000000000002";
+      const makePbxId = () => {
+        let id = randomBytes(12).toString("hex").toUpperCase();
+        while (project.includes(id)) id = randomBytes(12).toString("hex").toUpperCase();
+        return id;
+      };
+      const buildFileId = makePbxId();
+      const fileRefId = makePbxId();
       const buildFileMarker = "/* Begin PBXBuildFile section */";
       const fileRefMarker = "/* Begin PBXFileReference section */";
       const resourcesMarker = "/* Begin PBXResourcesBuildPhase section */";
@@ -174,18 +193,23 @@ if (existsSync(privacySource) && existsSync(privacySourceDir)) {
         console.error("iOS release stopped: could not locate the App group in the Xcode project.");
         process.exit(1);
       }
-      const appChildrenStart = groupsSection.indexOf("children = (", appGroupIndex);
-      const appChildrenEnd = groupsSection.indexOf(");", appChildrenStart);
-      const appGroupTail = groupsSection.slice(appChildrenEnd, appChildrenEnd + 300);
+      const appGroupEnd = groupsSection.indexOf("};", appGroupIndex);
+      const appGroupText = appGroupEnd >= 0
+        ? groupsSection.slice(appGroupIndex, appGroupEnd)
+        : "";
+      const appChildrenStart = appGroupText.indexOf("children = (");
+      const appChildrenEnd = appGroupText.indexOf(");", appChildrenStart);
       if (
+        appGroupEnd < 0 ||
         appChildrenStart < 0 ||
         appChildrenEnd < 0 ||
-        !groupsSection.slice(appGroupIndex, appGroupIndex + 8000).includes("path = App;")
+        !appGroupText.includes("isa = PBXGroup;") ||
+        !appGroupText.includes("path = App;")
       ) {
         console.error("iOS release stopped: could not safely locate the App group's children list.");
         process.exit(1);
       }
-      const globalChildrenEnd = groupsStart + appChildrenEnd;
+      const globalChildrenEnd = groupsStart + appGroupIndex + appChildrenEnd;
       project = project.slice(0, globalChildrenEnd) +
         "\n\t\t\t\t" + fileRefId + " /* PrivacyInfo.xcprivacy */," +
         project.slice(globalChildrenEnd);
@@ -211,6 +235,8 @@ if (existsSync(privacySource) && existsSync(privacySourceDir)) {
 if (existsSync(xcodeProject)) {
   let project = readFileSync(xcodeProject, "utf8");
   project = project.replace(/IPHONEOS_DEPLOYMENT_TARGET = [^;]+;/g, "IPHONEOS_DEPLOYMENT_TARGET = 14.0;");
+  project = project.replace(/MARKETING_VERSION = [^;]+;/g, "MARKETING_VERSION = " + appVersion + ";");
+  project = project.replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, "CURRENT_PROJECT_VERSION = " + buildNumber + ";");
   writeFileSync(xcodeProject, project, "utf8");
 }
 
