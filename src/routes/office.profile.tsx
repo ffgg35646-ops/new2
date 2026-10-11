@@ -539,6 +539,12 @@ function OfficeProfile() {
           <span className="text-xs text-muted-foreground">{dark ? "مفعّل" : "معطّل"}</span>
         </button>
 
+        <div className="flex flex-wrap gap-4 px-1 text-xs text-muted-foreground">
+          <Link to="/privacy-policy" className="underline underline-offset-4">سياسة الخصوصية</Link>
+          <Link to="/terms-of-use" className="underline underline-offset-4">شروط الاستخدام</Link>
+          <Link to="/support" className="underline underline-offset-4">الدعم</Link>
+        </div>
+
         <AccountDeletionAction />
 
         <button
