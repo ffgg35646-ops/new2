@@ -73,10 +73,126 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
+// Replace the generated placeholder app icon with this app's actual logo.
+const iconSource = path.join(root, "public", "logo.jpg");
+const iconSet = path.join(root, "ios", "App", "App", "Assets.xcassets", "AppIcon.appiconset");
+const iconContentsFile = path.join(iconSet, "Contents.json");
+if (!existsSync(iconSource) || !existsSync(iconContentsFile)) {
+  console.error("iOS release stopped: the app logo or generated AppIcon.appiconset is missing.");
+  process.exit(1);
+}
+
+const iconSizeResult = spawnSync("sips", ["-g", "pixelWidth", "-g", "pixelHeight", iconSource], {
+  encoding: "utf8",
+});
+if (iconSizeResult.status !== 0) {
+  console.error("iOS release stopped: macOS could not inspect public/logo.jpg.");
+  process.exit(1);
+}
+const widthMatch = iconSizeResult.stdout.match(/pixelWidth:\s*(\d+)/);
+const heightMatch = iconSizeResult.stdout.match(/pixelHeight:\s*(\d+)/);
+if (!widthMatch || !heightMatch || widthMatch[1] !== heightMatch[1]) {
+  console.error("iOS release stopped: public/logo.jpg must be a square image before it can be used as an App Store icon.");
+  process.exit(1);
+}
+
+const iconContents = JSON.parse(readFileSync(iconContentsFile, "utf8"));
+const generatedIconFiles = new Set();
+for (const image of iconContents.images ?? []) {
+  if (!image.filename || typeof image.size !== "string") continue;
+  const sizeMatch = image.size.match(/^([\d.]+)x([\d.]+)$/);
+  if (!sizeMatch) continue;
+
+  const scale = Number.parseFloat(String(image.scale ?? "1x").replace("x", "")) || 1;
+  const pixelWidth = Math.round(Number(sizeMatch[1]) * scale);
+  const pixelHeight = Math.round(Number(sizeMatch[2]) * scale);
+  const destination = path.join(iconSet, image.filename);
+  const iconResult = spawnSync(
+    "sips",
+    [
+      "-s", "format", "png",
+      "-z", String(pixelHeight), String(pixelWidth),
+      iconSource,
+      "--out", destination,
+    ],
+    { encoding: "utf8" },
+  );
+  if (iconResult.status !== 0) {
+    console.error("iOS release stopped: could not generate icon " + image.filename);
+    process.exit(1);
+  }
+  generatedIconFiles.add(image.filename);
+}
+if (!generatedIconFiles.size) {
+  console.error("iOS release stopped: generated AppIcon.appiconset contains no supported icon entries.");
+  process.exit(1);
+}
+console.log("Generated " + generatedIconFiles.size + " iOS app icon sizes from public/logo.jpg.");
+
 const privacySource = path.join(root, "config", "ios", "PrivacyInfo.xcprivacy");
-const privacyDestination = path.join(root, "ios", "App", "PrivacyInfo.xcprivacy");
-if (existsSync(privacySource) && existsSync(path.dirname(privacyDestination))) {
+const privacyDestination = path.join(root, "ios", "App", "App", "PrivacyInfo.xcprivacy");
+const privacySourceDir = path.join(root, "ios", "App", "App");
+if (existsSync(privacySource) && existsSync(privacySourceDir)) {
   copyFileSync(privacySource, privacyDestination);
+
+  // Capacitor 6 templates do not consistently register privacy manifests in the
+  // Xcode project. Add an explicit file reference + Copy Bundle Resources entry.
+  const projectPath = path.join(root, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  if (existsSync(projectPath)) {
+    let project = readFileSync(projectPath, "utf8");
+    if (!project.includes("PrivacyInfo.xcprivacy")) {
+      const buildFileId = "A0A100000000000000000001";
+      const fileRefId = "A0A100000000000000000002";
+      const buildFileMarker = "/* Begin PBXBuildFile section */";
+      const fileRefMarker = "/* Begin PBXFileReference section */";
+      const resourcesMarker = "/* Begin PBXResourcesBuildPhase section */";
+      if (!project.includes(buildFileMarker) || !project.includes(fileRefMarker) || !project.includes(resourcesMarker)) {
+        console.error("iOS release stopped: could not safely register PrivacyInfo.xcprivacy in the Xcode project.");
+        process.exit(1);
+      }
+
+      project = project.replace(
+        buildFileMarker,
+        buildFileMarker + "\n\t\t" + buildFileId + " /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = " + fileRefId + " /* PrivacyInfo.xcprivacy */; };",
+      );
+      project = project.replace(
+        fileRefMarker,
+        fileRefMarker + "\n\t\t" + fileRefId + " /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = \"<group>\"; };",
+      );
+
+      // Add it to the top-level App group so the relative file path resolves
+      // to ios/App/App/PrivacyInfo.xcprivacy.
+      const appGroupMarker = "name = App;";
+      const appGroupIndex = project.indexOf(appGroupMarker);
+      if (appGroupIndex < 0) {
+        console.error("iOS release stopped: could not locate the App group in the Xcode project.");
+        process.exit(1);
+      }
+      const appGroupEnd = project.indexOf(");", appGroupIndex);
+      if (appGroupEnd < 0) {
+        console.error("iOS release stopped: could not locate the end of the App group.");
+        process.exit(1);
+      }
+      project = project.slice(0, appGroupEnd) +
+        "\n\t\t\t\t" + fileRefId + " /* PrivacyInfo.xcprivacy */," +
+        project.slice(appGroupEnd);
+
+      const resourcesStart = project.indexOf(resourcesMarker);
+      const resourcesEnd = project.indexOf("/* End PBXResourcesBuildPhase section */", resourcesStart);
+      const resourcePhase = project.slice(resourcesStart, resourcesEnd);
+      const filesLine = resourcePhase.match(/files = \(\s*([\s\S]*?)\s*\);/);
+      if (!filesLine) {
+        console.error("iOS release stopped: could not locate the Copy Bundle Resources list.");
+        process.exit(1);
+      }
+      const updatedResources = resourcePhase.replace(
+        filesLine[0],
+        filesLine[0].replace(");", "\n\t\t\t\t" + buildFileId + " /* PrivacyInfo.xcprivacy in Resources */,\n\t\t\t);"),
+      );
+      project = project.slice(0, resourcesStart) + updatedResources + project.slice(resourcesEnd);
+      writeFileSync(projectPath, project, "utf8");
+    }
+  }
 }
 
 if (existsSync(xcodeProject)) {
