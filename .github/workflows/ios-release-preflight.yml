@@ -1,6 +1,9 @@
 name: iOS Release Preflight
 
 on:
+  push:
+    branches:
+      - release/ios-app-store-prep
   workflow_dispatch:
     inputs:
       server_url:
@@ -35,7 +38,7 @@ jobs:
       - name: Generate/sync Capacitor iOS project
         env:
           CAPACITOR_BUILD_TARGET: release
-          CAPACITOR_SERVER_URL: ${{ inputs.server_url }}
+          CAPACITOR_SERVER_URL: ${{ inputs.server_url || vars.CAPACITOR_SERVER_URL || 'https://new2-m5cvaxqrb-sss22.vercel.app' }}
         run: npm run ios:prepare
 
       - name: Validate native iOS build
