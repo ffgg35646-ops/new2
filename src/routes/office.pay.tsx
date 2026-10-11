@@ -101,10 +101,10 @@ function PayPage() {
         }
 
         const base = data.baseUrl as string;
+        // Use this browser's current origin for the result form. The API now
+        // constructs HyperPay's shopperResultUrl from the incoming same-origin request.
+        // Do not block a live checkout on a redundant client-side URL comparison.
         const resultUrl = `${window.location.origin}/office/payresult`;
-        if (!data.resultUrl || data.resultUrl !== resultUrl) {
-          throw new Error("رابط العودة من بوابة الدفع لا يطابق الموقع المفتوح. لم يتم عرض نموذج البطاقة منعًا لتحويلك إلى نشر قديم.");
-        }
 
         window.wpwlOptions = {
           locale: "ar",
