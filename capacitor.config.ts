@@ -4,6 +4,10 @@ import { loadEnv } from "vite";
 const isReleaseBuild = process.env["CAPACITOR_BUILD_TARGET"] === "release";
 const env = loadEnv(isReleaseBuild ? "production" : "development", process.cwd(), "");
 
+const iosAppUrl = String(
+  process.env["IOS_APP_URL"] ?? env["IOS_APP_URL"] ?? "",
+).trim();
+
 const explicitServerUrl = String(
   process.env["CAPACITOR_SERVER_URL"] ?? env["CAPACITOR_SERVER_URL"] ?? "",
 ).trim();
@@ -16,16 +20,16 @@ const publicAppUrl = String(
     "",
 ).trim();
 
-// Keep local live-reload behavior for development, but never ship the LAN IP
-// into an App Store build. Release builds must explicitly resolve to HTTPS.
+// The iOS app has its own hosted UI endpoint. Never silently bind a release
+// IPA to the web product's general public URL.
 const serverUrl = isReleaseBuild
-  ? explicitServerUrl || publicAppUrl
-  : explicitServerUrl || "http://192.168.100.10:8080";
+  ? iosAppUrl
+  : explicitServerUrl || publicAppUrl || "http://192.168.100.10:8080";
 
 if (isReleaseBuild) {
-  if (!serverUrl) {
+  if (!iosAppUrl) {
     throw new Error(
-      "iOS release build stopped: set CAPACITOR_SERVER_URL (or VITE_PUBLIC_APP_URL) to the deployed HTTPS app URL.",
+      "iOS release build stopped: set IOS_APP_URL to the dedicated HTTPS endpoint for the iOS app. The general web URL is not a fallback.",
     );
   }
 
