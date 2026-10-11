@@ -89,7 +89,7 @@ try {
       code: "pro",
       name: "الباقة الاحترافية",
       description: "الباقة الاحترافية للمكاتب العقارية",
-      price: 199,
+      price: 200,
       duration_days: 30,
       property_limit: null,
       chat_enabled: true,
