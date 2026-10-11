@@ -160,22 +160,38 @@ if (existsSync(privacySource) && existsSync(privacySourceDir)) {
         fileRefMarker + "\n\t\t" + fileRefId + " /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = \"<group>\"; };",
       );
 
-      // Add it to the top-level App group so the relative file path resolves
-      // to ios/App/App/PrivacyInfo.xcprivacy.
-      const appGroupMarker = "name = App;";
-      const appGroupIndex = project.indexOf(appGroupMarker);
+      // Add the file reference specifically to the App PBXGroup, not the
+      // PBXNativeTarget (which also contains "name = App;").
+      const groupsStart = project.indexOf("/* Begin PBXGroup section */");
+      const groupsEnd = project.indexOf("/* End PBXGroup section */", groupsStart);
+      if (groupsStart < 0 || groupsEnd < 0) {
+        console.error("iOS release stopped: could not locate Xcode PBXGroup section.");
+        process.exit(1);
+      }
+      const groupsSection = project.slice(groupsStart, groupsEnd);
+      const appGroupComment = "/* App */ = {";
+      const appGroupIndex = groupsSection.indexOf(appGroupComment);
       if (appGroupIndex < 0) {
         console.error("iOS release stopped: could not locate the App group in the Xcode project.");
         process.exit(1);
       }
-      const appGroupEnd = project.indexOf(");", appGroupIndex);
-      if (appGroupEnd < 0) {
-        console.error("iOS release stopped: could not locate the end of the App group.");
+      const appGroupEnd = groupsSection.indexOf("\\n\\t\\t};", appGroupIndex);
+      const appGroupText = appGroupEnd >= 0 ? groupsSection.slice(appGroupIndex, appGroupEnd) : "";
+      const appChildrenStart = appGroupText.indexOf("children = (");
+      const appChildrenEnd = appGroupText.indexOf(");", appChildrenStart);
+      if (
+        appChildrenStart < 0 ||
+        appChildrenEnd < 0 ||
+        !appGroupText.includes("isa = PBXGroup;") ||
+        !appGroupText.includes("path = App;")
+      ) {
+        console.error("iOS release stopped: could not safely locate the App group's children list.");
         process.exit(1);
       }
-      project = project.slice(0, appGroupEnd) +
-        "\n\t\t\t\t" + fileRefId + " /* PrivacyInfo.xcprivacy */," +
-        project.slice(appGroupEnd);
+      const globalChildrenEnd = groupsStart + appGroupIndex + appChildrenEnd;
+      project = project.slice(0, globalChildrenEnd) +
+        "\\n\\t\\t\\t\\t" + fileRefId + " /* PrivacyInfo.xcprivacy */," +
+        project.slice(globalChildrenEnd);
 
       const resourcesStart = project.indexOf(resourcesMarker);
       const resourcesEnd = project.indexOf("/* End PBXResourcesBuildPhase section */", resourcesStart);
