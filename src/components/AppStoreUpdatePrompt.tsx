@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { App } from "@capacitor/app";
 import { AppLauncher } from "@capacitor/app-launcher";
 import { Capacitor } from "@capacitor/core";
-import { ArrowUpRight, Check, Loader2, X } from "lucide-react";
+import { ArrowUpRight, Loader2, X } from "lucide-react";
 
 type StoreVersion = {
   published: true;
