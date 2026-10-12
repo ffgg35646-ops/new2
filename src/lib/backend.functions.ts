@@ -3870,24 +3870,8 @@ export const rpcRequest = createServerFn({ method: "POST" })
           throw new Error("not_conversation_member");
         }
 
-        const expiresAt = office.plan_expires_at
-          ? new Date(String(office.plan_expires_at))
-          : null;
-        const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
-        const packageRow = office.package_id
-          ? await packages.findOne({ id: String(office.package_id) })
-          : await packages.findOne({ code: office.plan === "pro" ? "pro" : "free" });
-        const packageIsPro = packageRow
-          ? String(packageRow.code ?? "") === "pro" ||
-            Number(packageRow.price ?? 0) > 0
-          : office.plan === "pro";
-        const hasActiveExpiry = !!expiresAt &&
-          Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() > Date.now();
-        const chatEnabled = packageRow
-          ? Boolean(packageRow.chat_enabled) && packageIsPro && hasActiveExpiry
-          : packageIsPro && hasActiveExpiry;
-
-        if (!chatEnabled) throw new Error("chat_not_available");
+        // This is an existing conversation, so keep it usable after the office's Pro
+        // subscription expires. Creating new conversations remains Pro-gated in runDb.
 
         const blocks = await getMongoCollection<Record<string, unknown>>(
           "conversation_blocks",
