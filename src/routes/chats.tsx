@@ -108,6 +108,18 @@ function ChatsPage() {
     mutationFn: async (officeId: string) => {
       if (!userId) throw new Error("سجّل الدخول لبدء المحادثة");
 
+      // Reopen an existing conversation before checking the office's current plan.
+      // Pro expiry should block new conversations, not access to an existing chat.
+      const { data: existing, error: existingError } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("office_id", officeId)
+        .limit(1)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (existing?.id) return String(existing.id);
+
       const { data: planData, error: planError } = await supabase.rpc(
         "office_effective_plan",
         { _office_id: officeId },
@@ -122,16 +134,6 @@ function ChatsPage() {
       if (plan?.plan !== "pro" || plan.chat_enabled !== true) {
         throw new Error("الدردشة متاحة للمكاتب المشتركة في الباقة الاحترافية السارية فقط.");
       }
-
-      const { data: existing, error: existingError } = await supabase
-        .from("conversations")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("office_id", officeId)
-        .limit(1)
-        .maybeSingle();
-      if (existingError) throw existingError;
-      if (existing?.id) return String(existing.id);
 
       const { data: created, error } = await supabase
         .from("conversations")
