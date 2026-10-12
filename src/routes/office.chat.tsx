@@ -205,7 +205,7 @@ function OfficeChatPage() {
           <>
             {!chatEnabled && (
               <div className="rounded-2xl bg-sand px-3.5 py-3 text-xs leading-6 text-muted-foreground">
-                انتهت صلاحية الباقة الاحترافية. يمكنك متابعة محادثاتك السابقة، لكن بدء محادثات جديدة يتطلب تجديد الباقة.
+                يمكنك متابعة محادثاتك السابقة. لبدء محادثات جديدة، يلزم وجود باقة احترافية سارية.
                 {" "}
                 <Link to="/office/subscription" className="font-bold text-forest underline underline-offset-4">
                   تجديد الباقة
@@ -213,53 +213,53 @@ function OfficeChatPage() {
               </div>
             )}
 
-          <ul className="space-y-2">
-            {conversations.data.map((c, index) => (
-              <li key={c.id}>
-                <button
-                  onClick={() => {
-                    setActiveId(c.id);
-                    void navigate({ search: { c: c.id } });
-                  }}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-surface p-3.5 text-right ring-1 ring-line"
-                >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-sand text-xs font-extrabold text-forest">
-                    {index + 1}
-                  </span>
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-soft font-display font-extrabold text-forest">
-                    {(c.client?.full_name || "؟").charAt(0)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold">
-                      {c.client?.full_name || "عميل"}
+            <ul className="space-y-2">
+              {conversations.data.map((c, index) => (
+                <li key={c.id}>
+                  <button
+                    onClick={() => {
+                      setActiveId(c.id);
+                      void navigate({ search: { c: c.id } });
+                    }}
+                    className="flex w-full items-center gap-3 rounded-2xl bg-surface p-3.5 text-right ring-1 ring-line"
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-sand text-xs font-extrabold text-forest">
+                      {index + 1}
                     </span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
-                      {c.lastMessage?.body ||
-                        (c.lastMessage?.image_url ? "📷 صورة" : null) ||
-                        c.properties?.title ||
-                        "محادثة عامة"}
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-soft font-display font-extrabold text-forest">
+                      {(c.client?.full_name || "؟").charAt(0)}
                     </span>
-                  </span>
-
-                  <span className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="text-[10px] text-muted-foreground">
-                      {formatDate(
-                        c.lastMessage?.created_at ?? c.updated_at
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold">
+                        {c.client?.full_name || "عميل"}
+                      </span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {c.lastMessage?.body ||
+                          (c.lastMessage?.image_url ? "📷 صورة" : null) ||
+                          c.properties?.title ||
+                          "محادثة عامة"}
+                      </span>
+                    </span>
+  
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span className="text-[10px] text-muted-foreground">
+                        {formatDate(
+                          c.lastMessage?.created_at ?? c.updated_at
+                        )}
+                      </span>
+  
+                      {!!c.unreadCount && (
+                        <span className="grid min-w-5 place-items-center rounded-full bg-forest px-1.5 py-0.5 text-[9px] font-bold text-background">
+                          {c.unreadCount > 99 ? "99+" : c.unreadCount}
+                        </span>
                       )}
                     </span>
-
-                    {!!c.unreadCount && (
-                      <span className="grid min-w-5 place-items-center rounded-full bg-forest px-1.5 py-0.5 text-[9px] font-bold text-background">
-                        {c.unreadCount > 99 ? "99+" : c.unreadCount}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          </>
+                  </button>
+                </li>
+              ))}
+            </ul>
+  
+            </>
         ) : (
           <EmptyState
             icon={MessageSquare}
