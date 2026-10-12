@@ -570,18 +570,6 @@ function OfficeProfile() {
           </div>
         )}
 
-        {isOwner && (
-          <Link
-            to="/office/subscription"
-            className="flex items-center justify-between rounded-2xl bg-surface p-4 ring-1 ring-line"
-          >
-            <span className="flex items-center gap-2 text-sm font-semibold">
-              <Crown className="size-4 text-terracotta" /> الباقة والاشتراك
-            </span>
-            <span className="text-xs text-terracotta">إدارة</span>
-          </Link>
-        )}
-
         <section className="space-y-2 rounded-2xl bg-surface p-4 ring-1 ring-line">
           <h2 className="font-display text-sm font-extrabold">إعدادات</h2>
           {office && (
