@@ -270,7 +270,7 @@ function OfficeProfile() {
                     title="رفع أو تغيير صورة المكتب"
                     onClick={() => logoInputRef.current?.click()}
                     disabled={logoBusy}
-                    className="relative grid size-20 place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest ring-1 ring-line disabled:opacity-60"
+                    className="relative grid size-[84px] place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest ring-1 ring-line disabled:opacity-60"
                   >
                     {logoUrl ? (
                       <img src={logoUrl} alt="صورة المكتب" className="size-full object-cover" />
@@ -298,7 +298,7 @@ function OfficeProfile() {
                   />
                 </>
               ) : (
-                <span className="grid size-20 place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest ring-1 ring-line">
+                <span className="grid size-[84px] place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest ring-1 ring-line">
                   {logoUrl ? (
                     <img src={logoUrl} alt="صورة المكتب" className="size-full object-cover" />
                   ) : (
