@@ -9,9 +9,16 @@ import {
   Flag,
   ImagePlus,
   Loader2,
+  MoreHorizontal,
   Send,
   ShieldOff,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 type RealtimeChannel = { unsubscribe: () => void; track: (payload: Record<string, unknown>) => Promise<"ok"> };
 import { supabase } from "@/integrations/supabase/client";
@@ -478,56 +485,69 @@ export function ChatThread({
   }
 
   return (
-    <section className="rounded-3xl bg-surface p-3 ring-1 ring-line">
-      <div className="flex items-center justify-between gap-2">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl bg-surface p-3 ring-1 ring-line sm:p-4">
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line pb-3">
         <div className="min-w-0 flex-1">
           <button
             onClick={onBack}
-            className="text-xs font-semibold text-forest"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-forest"
           >
             {readOnly ? "← لوحة الإدارة" : "← كل المحادثات"}
           </button>
           {title && (
-            <div className="mt-1 truncate text-sm font-extrabold">{title}</div>
+            <div className="mt-1.5 truncate text-sm font-extrabold">{title}</div>
           )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {!readOnly && (
-            <span className="text-[10px] text-muted-foreground">
-              {otherOnline ? "متصل الآن" : "غير متصل"}
+          {!readOnly && otherOnline && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-semibold text-forest">
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-forest" />
+              متصل الآن
             </span>
           )}
 
-          {!readOnly && <button
-            type="button"
-            disabled={toggleBlock.isPending}
-            onClick={() =>
-              toggleBlock.mutate()
-            }
-            className={
-              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold " +
-              (myBlock
-                ? "bg-sand text-forest"
-                : otherBlock
-                  ? "bg-sand text-muted-foreground"
-                  : "bg-terracotta-soft text-terracotta")
-            }
-          >
-            {myBlock ? (
-              <ShieldOff className="size-3.5" />
-            ) : (
-              <Ban className="size-3.5" />
-            )}
-
-            {myBlock
-              ? "إلغاء الحظر"
-              : otherBlock
-                ? "محظورة"
-                : "حظر"}
-          </button>}
+          {!readOnly && (myBlock || !otherBlock) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="خيارات المحادثة"
+                  title="خيارات المحادثة"
+                  disabled={toggleBlock.isPending}
+                  className="grid size-9 place-items-center rounded-xl bg-background text-muted-foreground ring-1 ring-line transition hover:text-foreground disabled:opacity-50"
+                >
+                  <MoreHorizontal className="size-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {myBlock ? (
+                  <DropdownMenuItem
+                    disabled={toggleBlock.isPending}
+                    onSelect={() => toggleBlock.mutate()}
+                  >
+                    <ShieldOff className="ms-1 size-4" />
+                    إلغاء الحظر
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    disabled={toggleBlock.isPending}
+                    className="text-destructive"
+                    onSelect={() => {
+                      if (window.confirm("هل تريد حظر هذه المحادثة؟ يمكنك إلغاء الحظر لاحقًا من القائمة نفسها.")) {
+                        toggleBlock.mutate();
+                      }
+                    }}
+                  >
+                    <Ban className="ms-1 size-4" />
+                    حظر المحادثة
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-      </div>
+      </header>
 
       {!readOnly && isBlocked && (
         <div className="mt-3 rounded-2xl bg-terracotta-soft px-3 py-2 text-center text-xs font-semibold text-terracotta">
@@ -537,7 +557,7 @@ export function ChatThread({
         </div>
       )}
 
-      <div className="mt-3 max-h-[55vh] space-y-2 overflow-y-auto">
+      <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 py-2">
         {messages.isLoading ? (
           <div className="grid place-items-center py-10">
             <Loader2 className="size-5 animate-spin text-forest" />
@@ -551,10 +571,10 @@ export function ChatThread({
               <div
                 key={message.id}
                 className={
-                  "max-w-[80%] overflow-hidden rounded-2xl text-sm " +
+                  "max-w-[86%] overflow-hidden rounded-2xl text-sm shadow-sm sm:max-w-[78%] " +
                   (mine
-                    ? "ms-auto bg-forest text-background"
-                    : "me-auto bg-sand text-foreground")
+                    ? "ms-auto rounded-br-md bg-forest text-background"
+                    : "me-auto rounded-bl-md bg-terracotta-soft text-foreground ring-1 ring-line")
                 }
               >
                 {message.image_url && (
@@ -573,7 +593,7 @@ export function ChatThread({
                 )}
 
                 {message.body && (
-                  <div className="px-3 py-2">
+                  <div className="whitespace-pre-wrap break-words px-3 py-2.5">
                     {message.body}
                   </div>
                 )}
@@ -614,22 +634,22 @@ export function ChatThread({
             );
           })
         ) : (
-          <p className="py-8 text-center text-xs text-muted-foreground">
+          <div className="flex min-h-32 flex-1 items-center justify-center px-3 text-center text-xs text-muted-foreground">
             {readOnly ? "لا توجد رسائل في هذه المحادثة." : "ابدأ المحادثة برسالتك الأولى 👋"}
-          </p>
+          </div>
         )}
 
         {!readOnly && otherTyping && !isBlocked && (
-          <div className="text-[11px] text-muted-foreground">
+          <div className="me-auto rounded-2xl rounded-bl-md bg-sand px-3 py-2 text-[11px] text-muted-foreground">
             يكتب الآن...
           </div>
         )}
 
-        <div ref={endRef} />
+        <div ref={endRef} className="h-px shrink-0" />
       </div>
 
       {!readOnly && <form
-        className="mt-3 flex items-center gap-2"
+        className="mt-2 flex shrink-0 items-center gap-2 border-t border-line bg-surface pt-3 pb-1"
         onSubmit={(event) => {
           event.preventDefault();
 
@@ -677,7 +697,9 @@ export function ChatThread({
               ? "المحادثة محظورة"
               : "اكتب رسالتك..."
           }
-          className="flex-1 rounded-2xl bg-background px-3 py-2.5 text-sm ring-1 ring-line disabled:opacity-60"
+          aria-label="نص الرسالة"
+          dir="auto"
+          className="min-w-0 flex-1 rounded-2xl bg-background px-4 py-3 text-sm ring-1 ring-line outline-none transition focus:ring-2 focus:ring-forest disabled:opacity-60"
         />
 
         <button
