@@ -45,6 +45,8 @@ function OfficeDashboard() {
   const { data: newRequests = 0 } = useNewInquiriesCount(office?.id);
   const { package: currentPackage, expired, expiresAt, propertyLimit } = useMyPlan();
   const [showFavorites, setShowFavorites] = useState(false);
+  const [showViews, setShowViews] = useState(false);
+  const [showRequests, setShowRequests] = useState(false);
 
   const { data: stats } = useQuery({
     queryKey: ["office-stats", office?.id],
@@ -55,7 +57,7 @@ function OfficeDashboard() {
       const [props, bookings, inquiries] = await Promise.all([
         supabase
           .from("properties")
-          .select("id,views_count,favorites_count,is_published")
+          .select("id,title,views_count,favorites_count,is_published")
           .eq("office_id", office!.id)
           .eq("is_deleted", false),
         supabase
@@ -78,6 +80,7 @@ function OfficeDashboard() {
         published: rows.filter((r) => r.is_published).length,
         views: rows.reduce((a, r) => a + (r.views_count ?? 0), 0),
         favorites: rows.reduce((a, r) => a + (r.favorites_count ?? 0), 0),
+        properties: rows,
         bookings: bookings.data ?? [],
         inquiries: inquiries.data ?? [],
       };
@@ -92,7 +95,7 @@ function OfficeDashboard() {
       if (error) throw error;
       return (Array.isArray(data) ? data : []) as unknown as Array<{
         user_name: string;
-        office_name: string;
+        property_name: string;
       }>;
     },
   });
@@ -144,11 +147,20 @@ function OfficeDashboard() {
           </p>
         </section>
 
-        <section className="grid grid-cols-4 gap-2">
-          <Stat icon={Home} label="نشط" value={stats?.published ?? 0} />
-          <Stat icon={ClipboardList} label="طلبات مستلمة ومقبولة" value={newRequests} />
-          <Stat icon={Eye} label="مشاهدات" value={stats?.views ?? 0} />
-          <Stat icon={Heart} label="حفظ" value={stats?.favorites ?? 0} onClick={() => setShowFavorites(true)} />
+        <section className="grid grid-cols-2 gap-2">
+          <Link
+            to="/office/properties"
+            className="rounded-2xl bg-surface p-3 text-center ring-1 ring-line transition hover:ring-2 hover:ring-forest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+            aria-label="عرض العقارات النشطة وإدارة العقارات"
+          >
+            <Home className="mx-auto size-4 text-terracotta" />
+            <div className="mt-1 font-display text-lg font-extrabold">{stats?.published ?? 0}</div>
+            <div className="text-[10px] text-muted-foreground">العقارات النشطة</div>
+            <div className="mt-1 text-[10px] font-semibold text-forest">عرض عقاراتي</div>
+          </Link>
+          <Stat icon={ClipboardList} label="الطلبات" value={newRequests} onClick={() => setShowRequests(true)} />
+          <Stat icon={Eye} label="المشاهدات" value={stats?.views ?? 0} onClick={() => setShowViews(true)} />
+          <Stat icon={Heart} label="عمليات الحفظ" value={stats?.favorites ?? 0} onClick={() => setShowFavorites(true)} />
         </section>
 
         <Link
@@ -248,6 +260,57 @@ function OfficeDashboard() {
         </section>
       </main>
 
+      {showViews && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="presentation" onClick={() => setShowViews(false)}>
+          <section className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl ring-1 ring-line" role="dialog" aria-modal="true" aria-label="تفاصيل مشاهدات العقارات" dir="rtl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 border-b border-line p-4">
+              <div><h2 className="font-display text-base font-extrabold">مشاهدات كل عقار</h2><p className="mt-1 text-xs text-muted-foreground">مرتبة من الأكثر مشاهدة إلى الأقل</p></div>
+              <button type="button" onClick={() => setShowViews(false)} aria-label="إغلاق" className="grid size-9 place-items-center rounded-full bg-background ring-1 ring-line"><X className="size-4" /></button>
+            </div>
+            <div className="overflow-y-auto p-3">
+              {stats?.properties?.length ? (
+                <ol className="space-y-2">
+                  {[...stats.properties].sort((a, b) => Number(b.views_count ?? 0) - Number(a.views_count ?? 0)).map((property, index) => (
+                    <li key={property.id} className="flex items-center gap-3 rounded-2xl bg-background p-3 ring-1 ring-line">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-forest-soft text-xs font-extrabold text-forest">{index + 1}</span>
+                      <span className="min-w-0 flex-1 text-sm font-bold">{property.title || "عقار بدون اسم"}</span>
+                      <span className="shrink-0 text-xs font-bold text-forest">{Number(property.views_count ?? 0)} مشاهدة</span>
+                    </li>
+                  ))}
+                </ol>
+              ) : <p className="py-6 text-center text-sm text-muted-foreground">لا توجد عقارات لعرض إحصائياتها.</p>}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showRequests && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="presentation" onClick={() => setShowRequests(false)}>
+          <section className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl ring-1 ring-line" role="dialog" aria-modal="true" aria-label="تفاصيل طلبات المكتب" dir="rtl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 border-b border-line p-4">
+              <div><h2 className="font-display text-base font-extrabold">تفاصيل الطلبات</h2><p className="mt-1 text-xs text-muted-foreground">عدد الطلبات المستلمة والمقبولة: {newRequests}</p></div>
+              <button type="button" onClick={() => setShowRequests(false)} aria-label="إغلاق" className="grid size-9 place-items-center rounded-full bg-background ring-1 ring-line"><X className="size-4" /></button>
+            </div>
+            <div className="overflow-y-auto p-3">
+              {stats?.inquiries?.length ? (
+                <ol className="space-y-2">
+                  {stats.inquiries.map((request, index) => (
+                    <li key={request.id} className="flex items-start gap-3 rounded-2xl bg-background p-3 ring-1 ring-line">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-forest-soft text-xs font-extrabold text-forest">{index + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-bold">{(request.properties as { title: string } | null)?.title || "طلب عقاري"}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{request.contact_name || "اسم غير متوفر"} · {inquiryTypeLabel(request.type)}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : <p className="py-6 text-center text-sm text-muted-foreground">لا توجد طلبات ظاهرة هنا حاليًا.</p>}
+              <Link to="/office/requests" search={{ tab: "inbox", request: undefined }} onClick={() => setShowRequests(false)} className="mt-3 block rounded-2xl bg-forest py-3 text-center text-sm font-bold text-background">عرض كل الطلبات</Link>
+            </div>
+          </section>
+        </div>
+      )}
+
       {showFavorites && (
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
@@ -265,7 +328,7 @@ function OfficeDashboard() {
             <div className="flex items-center justify-between gap-3 border-b border-line p-4">
               <div className="min-w-0">
                 <h2 className="font-display text-base font-extrabold">{office?.name}</h2>
-                <p className="mt-1 text-xs text-muted-foreground">الأشخاص الذين حفظوا عروض المكتب</p>
+                <p className="mt-1 text-xs text-muted-foreground">اسم العقار واسم الشخص الذي حفظه</p>
               </div>
               <button
                 type="button"
@@ -292,8 +355,8 @@ function OfficeDashboard() {
                       key={person.user_name + "-" + index}
                       className="flex items-center gap-3 rounded-2xl bg-background p-3 ring-1 ring-line"
                     >
-                      <span className="min-w-0 flex-1 text-sm font-bold">{person.user_name}</span>
-                      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{person.office_name}</span>
+                      <span className="min-w-0 flex-1 text-sm font-bold">{person.property_name}</span>
+                      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{person.user_name}</span>
                       <Heart className="size-4 shrink-0 fill-terracotta text-terracotta" aria-label="حفظ" />
                     </li>
                   ))}
@@ -320,14 +383,15 @@ function Stat({
   value: number;
   onClick?: () => void;
 }) {
-  const classes = "rounded-2xl bg-surface p-3 text-center ring-1 ring-line" +
-    (onClick ? " cursor-pointer transition hover:ring-2 hover:ring-forest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest" : "");
+  const classes = "rounded-2xl bg-surface p-3 text-center ring-1 ring-line transition" +
+    (onClick ? " cursor-pointer hover:ring-2 hover:ring-forest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest" : "");
 
   const content = (
     <>
       <Icon className="mx-auto size-4 text-terracotta" />
       <div className="mt-1 font-display text-lg font-extrabold">{value}</div>
       <div className="text-[10px] text-muted-foreground">{label}</div>
+      {onClick && <div className="mt-1 text-[10px] font-semibold text-forest">عرض التفاصيل</div>}
     </>
   );
 
