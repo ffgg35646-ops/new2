@@ -5,7 +5,7 @@ import { Building2, Crown, Loader2, MessageSquare, Search, Star } from "lucide-r
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
-import { ChatThread } from "@/components/ChatThread";
+import { ConversationRoom } from "@/components/ConversationRoom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatDate, timeAgo, parseDateValue } from "@/lib/format";
@@ -226,7 +226,7 @@ function ChatsPage() {
 
       <main className={activeId ? "flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-2 md:px-4 md:py-3" : "flex-1 space-y-4 px-4 py-4"}>
         {activeId ? (
-          <ChatThread
+          <ConversationRoom
             conversationId={activeId}
             title={
               isAdmin
