@@ -367,8 +367,7 @@ function OfficeDashboard() {
                       </div>
                       <div className="flex min-w-0 items-center gap-2 rounded-xl bg-terracotta-soft/60 px-3 py-2.5">
                         <Heart className="size-4 shrink-0 fill-terracotta text-terracotta" />
-                        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">الشخص</span>
-                        <span className="min-w-0 flex-1 break-words rounded-lg bg-surface px-2.5 py-1.5 text-sm font-extrabold text-foreground ring-1 ring-line">
+                        <span className="min-w-0 flex-1 break-words text-sm font-extrabold text-foreground">
                           {person.user_name}
                         </span>
                       </div>
