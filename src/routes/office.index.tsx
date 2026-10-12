@@ -352,10 +352,26 @@ function OfficeDashboard() {
                   {savedPeople.map((person, index) => (
                     <li
                       key={person.user_name + "-" + index}
-                      className="flex items-center gap-3 rounded-2xl bg-background p-3 ring-1 ring-line"
+                      className="space-y-3 rounded-2xl bg-background p-3 ring-1 ring-line transition hover:ring-forest/30"
                     >
-                      <span className="min-w-0 flex-1 text-sm font-bold">{person.property_name}</span>
-                      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{person.user_name}</span>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-soft text-forest">
+                          <Building2 className="size-5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] font-semibold text-muted-foreground">العقار المحفوظ</div>
+                          <div className="mt-1 break-words text-sm font-extrabold leading-5 text-foreground">
+                            {person.property_name}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex min-w-0 items-center gap-2 rounded-xl bg-terracotta-soft/60 px-3 py-2.5">
+                        <Heart className="size-4 shrink-0 fill-terracotta text-terracotta" />
+                        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">الشخص</span>
+                        <span className="min-w-0 flex-1 break-words rounded-lg bg-surface px-2.5 py-1.5 text-sm font-extrabold text-foreground ring-1 ring-line">
+                          {person.user_name}
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>
