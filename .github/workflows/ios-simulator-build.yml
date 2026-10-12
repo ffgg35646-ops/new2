@@ -4,6 +4,7 @@ permissions:
   contents: write
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -56,6 +57,16 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Validate configured application URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${CAPACITOR_SERVER_URL:-}" =~ ^https:// ]]; then
+            echo "::error::Set the GitHub Actions variable CAPACITOR_SERVER_URL to the accessible HTTPS application URL before testing. The bundled www page is only a placeholder."
+            exit 1
+          fi
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --output /dev/null "$CAPACITOR_SERVER_URL"
+
       - name: Generate native iOS project
         run: npm run cap:ios:add
 
@@ -89,6 +100,7 @@ jobs:
             exit 1
           fi
           echo "Selected simulator: $DEVICE_ID"
+          xcrun simctl list devices available | grep -F "$DEVICE_ID" || true
           echo "Booting simulator..."
           xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
           echo "Waiting for simulator startup..."
