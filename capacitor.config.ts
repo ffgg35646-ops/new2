@@ -3,10 +3,10 @@ import { loadEnv } from "vite";
 
 const projectEnv = loadEnv("production", process.cwd(), "");
 const serverUrl = String(
-  process.env["CAPACITOR_SERVER_URL"] ??
-    projectEnv["CAPACITOR_SERVER_URL"] ??
-    process.env["VITE_PUBLIC_APP_URL"] ??
-    projectEnv["VITE_PUBLIC_APP_URL"] ??
+  process.env["CAPACITOR_SERVER_URL"] ||
+    projectEnv["CAPACITOR_SERVER_URL"] ||
+    process.env["VITE_PUBLIC_APP_URL"] ||
+    projectEnv["VITE_PUBLIC_APP_URL"] ||
     "",
 ).trim();
 
