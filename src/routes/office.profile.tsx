@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
   Building2,
+  ChevronDown,
   ImagePlus,
   Crown,
   FileCheck2,
@@ -79,6 +80,7 @@ function OfficeProfile() {
   const isVerified = office?.verification_badge === true;
   const [showQr, setShowQr] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [openSection, setOpenSection] = useState("basic");
   const [dark, setDark] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
 
@@ -363,84 +365,138 @@ function OfficeProfile() {
               </button>
             </div>
 
-            {TEXT_FIELDS.map(([key, label]) => (
-              <label key={key} className="block space-y-1">
-                <span className="text-xs text-muted-foreground">{label}</span>
-                <input
-                  value={form[key]}
-                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                  className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest"
-                />
-              </label>
-            ))}
-
-            <label className="block space-y-1">
-              <span className="text-xs text-muted-foreground">تاريخ انتهاء الترخيص</span>
-              <input
-                type="date"
-                value={form.license_expiry}
-                onChange={(e) => setForm((f) => ({ ...f, license_expiry: e.target.value }))}
-                className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest"
-              />
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs text-muted-foreground">المحافظة</span>
-              <select
-                value={form.governorate_id}
-                onChange={(e) => setForm((f) => ({ ...f, governorate_id: e.target.value }))}
-                className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest"
-              >
-                <option value="">اختر المحافظة</option>
-                {governorates.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name_ar}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs text-muted-foreground">نبذة المكتب</span>
-              <textarea
-                rows={4}
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest"
-              />
-            </label>
-
-            {userId && (
-              <div className="space-y-3 rounded-xl bg-background p-3 ring-1 ring-line">
-                <div className="flex items-center gap-1.5 text-xs font-semibold">
-                  <FileCheck2 className="size-3.5 text-forest" /> مستندات التوثيق
-                </div>
-                <div>
-                  <span className="mb-1 block text-[11px] text-muted-foreground">
-                    صورة الترخيص العقاري
+            <div className="space-y-3">
+              <section className="overflow-hidden rounded-xl ring-1 ring-line">
+                <button
+                  type="button"
+                  onClick={() => setOpenSection(openSection === "basic" ? "" : "basic")}
+                  aria-expanded={openSection === "basic"}
+                  className="flex w-full items-center justify-between gap-3 bg-background p-3 text-right"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold">بيانات المكتب الأساسية</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">اسم المكتب والمسؤول والنبذة</span>
                   </span>
-                  <MediaUploader
-                    userId={userId}
-                    folder="licenses"
-                    value={licenseDocs}
-                    onChange={setLicenseDocs}
-                    label="ارفع صورة الترخيص العقاري"
-                  />
-                </div>
-                <div>
-                  <span className="mb-1 block text-[11px] text-muted-foreground">
-                    صورة رخصة فال
+                  <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === "basic" && "rotate-180")} />
+                </button>
+                {openSection === "basic" && (
+                  <div className="space-y-3 border-t border-line p-3">
+                    {TEXT_FIELDS.filter(([key]) => ["name", "manager_name"].includes(key)).map(([key, label]) => (
+                      <label key={key} className="block space-y-1">
+                        <span className="text-xs text-muted-foreground">{label}</span>
+                        <input value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest" />
+                      </label>
+                    ))}
+                    <label className="block space-y-1">
+                      <span className="text-xs text-muted-foreground">نبذة المكتب</span>
+                      <textarea rows={4} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest" />
+                    </label>
+                  </div>
+                )}
+              </section>
+
+              <section className="overflow-hidden rounded-xl ring-1 ring-line">
+                <button
+                  type="button"
+                  onClick={() => setOpenSection(openSection === "contact" ? "" : "contact")}
+                  aria-expanded={openSection === "contact"}
+                  className="flex w-full items-center justify-between gap-3 bg-background p-3 text-right"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold">الحساب وبيانات التواصل</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">البريد الإلكتروني والجوال والواتساب والعنوان</span>
                   </span>
-                  <MediaUploader
-                    userId={userId}
-                    folder="licenses"
-                    value={falDocs}
-                    onChange={setFalDocs}
-                    label="ارفع صورة رخصة فال"
-                  />
-                </div>
-              </div>
-            )}
+                  <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === "contact" && "rotate-180")} />
+                </button>
+                {openSection === "contact" && (
+                  <div className="space-y-3 border-t border-line p-3">
+                    {TEXT_FIELDS.filter(([key]) => ["phone", "whatsapp", "email", "address"].includes(key)).map(([key, label]) => (
+                      <label key={key} className="block space-y-1">
+                        <span className="text-xs text-muted-foreground">{label}</span>
+                        <input value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest" />
+                      </label>
+                    ))}
+                    <p className="rounded-lg bg-sand p-2 text-[11px] leading-5 text-muted-foreground">
+                      تغيير كلمة المرور يتم من إجراءات استعادة كلمة المرور في تسجيل الدخول؛ لا نعرض حقلًا لتغييرها هنا حتى لا يتغير بشكل غير آمن.
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              <section className="overflow-hidden rounded-xl ring-1 ring-line">
+                <button
+                  type="button"
+                  onClick={() => setOpenSection(openSection === "location" ? "" : "location")}
+                  aria-expanded={openSection === "location"}
+                  className="flex w-full items-center justify-between gap-3 bg-background p-3 text-right"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold">الموقع وساعات العمل</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">المحافظة ومواعيد استقبال العملاء</span>
+                  </span>
+                  <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === "location" && "rotate-180")} />
+                </button>
+                {openSection === "location" && (
+                  <div className="space-y-3 border-t border-line p-3">
+                    <label className="block space-y-1">
+                      <span className="text-xs text-muted-foreground">المحافظة</span>
+                      <select value={form.governorate_id} onChange={(e) => setForm((f) => ({ ...f, governorate_id: e.target.value }))} className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest">
+                        <option value="">اختر المحافظة</option>
+                        {governorates.map((g) => <option key={g.id} value={g.id}>{g.name_ar}</option>)}
+                      </select>
+                    </label>
+                    {TEXT_FIELDS.filter(([key]) => key === "working_hours").map(([key, label]) => (
+                      <label key={key} className="block space-y-1">
+                        <span className="text-xs text-muted-foreground">{label}</span>
+                        <input value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest" />
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="overflow-hidden rounded-xl ring-1 ring-line">
+                <button
+                  type="button"
+                  onClick={() => setOpenSection(openSection === "licenses" ? "" : "licenses")}
+                  aria-expanded={openSection === "licenses"}
+                  className="flex w-full items-center justify-between gap-3 bg-background p-3 text-right"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold">التراخيص والمستندات</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">بيانات الترخيص والسجل التجاري ورفع المستندات</span>
+                  </span>
+                  <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === "licenses" && "rotate-180")} />
+                </button>
+                {openSection === "licenses" && (
+                  <div className="space-y-3 border-t border-line p-3">
+                    {TEXT_FIELDS.filter(([key]) => ["commercial_register", "license_number", "fal_license_number"].includes(key)).map(([key, label]) => (
+                      <label key={key} className="block space-y-1">
+                        <span className="text-xs text-muted-foreground">{label}</span>
+                        <input value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest" />
+                      </label>
+                    ))}
+                    <label className="block space-y-1">
+                      <span className="text-xs text-muted-foreground">تاريخ انتهاء الترخيص</span>
+                      <input type="date" value={form.license_expiry} onChange={(e) => setForm((f) => ({ ...f, license_expiry: e.target.value }))} className="w-full rounded-xl bg-background px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-forest" />
+                    </label>
+                    {userId && (
+                      <div className="space-y-3 rounded-xl bg-background p-3 ring-1 ring-line">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold"><FileCheck2 className="size-3.5 text-forest" /> مستندات التوثيق</div>
+                        <div>
+                          <span className="mb-1 block text-[11px] text-muted-foreground">صورة الترخيص العقاري</span>
+                          <MediaUploader userId={userId} folder="licenses" value={licenseDocs} onChange={setLicenseDocs} label="ارفع صورة الترخيص العقاري" />
+                        </div>
+                        <div>
+                          <span className="mb-1 block text-[11px] text-muted-foreground">صورة رخصة فال</span>
+                          <MediaUploader userId={userId} folder="licenses" value={falDocs} onChange={setFalDocs} label="ارفع صورة رخصة فال" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            </div>
 
             <button
               onClick={() => save.mutate()}
@@ -452,21 +508,46 @@ function OfficeProfile() {
           </div>
         ) : (
           <div className="space-y-3 rounded-2xl bg-surface p-4 ring-1 ring-line">
-            <h2 className="font-display text-sm font-extrabold">بيانات المكتب</h2>
-            <dl className="divide-y divide-line">
-              {readRows.map(([label, value]) => (
-                <div key={label} className="flex items-start justify-between gap-3 py-2">
-                  <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
-                  <dd className="text-left text-xs font-semibold break-words">{value}</dd>
-                </div>
+            <h2 className="font-display text-sm font-extrabold">ملخص المكتب</h2>
+            <div className="space-y-2">
+              {[
+                { id: "basic", title: "بيانات المكتب", rows: readRows.filter(([label]) => ["اسم المكتب", "اسم المسؤول", "نبذة المكتب"].includes(label)) },
+                { id: "contact", title: "الحساب وبيانات التواصل", rows: readRows.filter(([label]) => ["رقم الجوال", "واتساب", "البريد الإلكتروني", "العنوان"].includes(label)) },
+                { id: "location", title: "الموقع وساعات العمل", rows: readRows.filter(([label]) => ["المنطقة", "المحافظة", "ساعات العمل"].includes(label)) },
+                { id: "licenses", title: "التراخيص والمستندات", rows: readRows.filter(([label]) => ["رقم الترخيص العقاري", "رقم رخصة فال", "انتهاء الترخيص", "السجل التجاري"].includes(label)) },
+              ].map((section) => (
+                <section key={section.id} className="overflow-hidden rounded-xl ring-1 ring-line">
+                  <button
+                    type="button"
+                    onClick={() => setOpenSection(openSection === section.id ? "" : section.id)}
+                    aria-expanded={openSection === section.id}
+                    className="flex w-full items-center justify-between gap-3 bg-background p-3 text-right"
+                  >
+                    <span>
+                      <span className="block text-sm font-bold">{section.title}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">{section.rows.length} بيانات</span>
+                    </span>
+                    <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === section.id && "rotate-180")} />
+                  </button>
+                  {openSection === section.id && (
+                    <dl className="divide-y divide-line border-t border-line px-3">
+                      {section.rows.map(([label, value]) => (
+                        <div key={label} className="flex items-start justify-between gap-3 py-2.5">
+                          <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
+                          <dd className="text-left text-xs font-semibold break-words">{value}</dd>
+                        </div>
+                      ))}
+                      {section.id === "basic" && (
+                        <div className="flex items-center justify-between py-2.5">
+                          <dt className="text-xs text-muted-foreground">شارة الحساب</dt>
+                          <dd className="text-xs font-semibold">{isVerified ? "موثق" : "حساب أساسي"}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
+                </section>
               ))}
-              <div className="flex items-center justify-between py-2">
-                <dt className="text-xs text-muted-foreground">شارة الحساب</dt>
-                <dd className="text-xs font-semibold">
-                  {isVerified ? "موثق" : "حساب أساسي"}
-                </dd>
-              </div>
-            </dl>
+            </div>
 
             {(office?.fal_license_url || office?.real_estate_license_url) && (
               <div className="flex gap-2">
@@ -495,7 +576,7 @@ function OfficeProfile() {
 
             {isOwner ? (
               <button
-                onClick={() => setEditing(true)}
+                onClick={() => { setOpenSection("basic"); setEditing(true); }}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-3 text-sm font-bold text-background"
               >
                 <Pencil className="size-4" /> تعديل بيانات المكتب
