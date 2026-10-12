@@ -111,29 +111,36 @@ function PlansPage() {
                     </p>
                   )}
 
-                  <div className="mt-4 rounded-2xl bg-background/80 p-3 text-[11px] leading-6 text-muted-foreground ring-1 ring-line">
-                    العقارات:{" "}
-                    {displayedPropertyLimit == null
-                      ? "غير محدودة"
-                      : displayedPropertyLimit}
-                    {" · "}
-                    المميزة: {pkg.featured_limit}
-                    {" · "}
-                    الدردشة: {pkg.chat_enabled ? "مفعلة" : "غير متاحة"}
-                    {" · "}
-                    التوثيق: {pkg.verification_included ? "مشمول" : "غير مشمول"}
-                  </div>
-
-                  {pkg.features.length > 0 && (
-                    <ul className="mt-4 flex-1 space-y-2">
-                      {pkg.features.map((f) => (
-                        <li key={f} className="flex items-start gap-2 rounded-xl bg-background/70 px-2.5 py-2 text-xs leading-5">
-                          <Check className="mt-0.5 size-3.5 shrink-0 text-forest" />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <details className="mt-4 group rounded-2xl bg-background/70 ring-1 ring-line">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-forest [&::-webkit-details-marker]:hidden">
+                      <span>عرض التفاصيل</span>
+                      <span className="text-lg leading-none transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
+                    </summary>
+                    <div className="space-y-3 border-t border-line/70 px-3 pb-3 pt-3">
+                      <div className="rounded-xl bg-surface p-3 text-[11px] leading-6 text-muted-foreground">
+                        العقارات:{" "}
+                        {displayedPropertyLimit == null
+                          ? "غير محدودة"
+                          : displayedPropertyLimit}
+                        {" · "}
+                        المميزة: {pkg.featured_limit}
+                        {" · "}
+                        الدردشة: {pkg.chat_enabled ? "مفعلة" : "غير متاحة"}
+                        {" · "}
+                        التوثيق: {pkg.verification_included ? "مشمول" : "غير مشمول"}
+                      </div>
+                      {pkg.features.length > 0 && (
+                        <ul className="space-y-2">
+                          {pkg.features.map((f) => (
+                            <li key={f} className="flex items-start gap-2 rounded-xl bg-surface px-2.5 py-2 text-xs leading-5">
+                              <Check className="mt-0.5 size-3.5 shrink-0 text-forest" />
+                              <span>{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </details>
 
                   {isOffice && !current && (
                     pkg.price > 0 ? (
