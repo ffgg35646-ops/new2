@@ -140,10 +140,8 @@ function AccountPage() {
 
             <section className="space-y-2">
               <NavRow to="/favorites" icon={Heart} label="المفضلة" />
-              <NavRow to="/requests" icon={CalendarDays} label="الطلبات" />
               <NavRow to="/bookings" icon={CalendarDays} label="حجوزات المعاينة" />
               <NavRow to="/offices" icon={Building2} label="المكاتب العقارية" />
-              <NavRow to="/properties" icon={Building2} label="جميع العقارات" />
               <button
                 type="button"
                 onClick={() => setSupportOpen(true)}
