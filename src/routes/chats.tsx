@@ -378,13 +378,31 @@ function ChatsPage() {
                       {conversationSearch.trim() ? "جرّب اسم مكتب أو كلمة من الرسالة." : "لسه مفيش محادثات. استكشف المكاتب الاحترافية وابدأ أول محادثة، وكل رسائلك هتظهر داخل المساحة دي."}
                     </p>
                     {!conversationSearch.trim() && (
-                      <button
-                        type="button"
-                        onClick={() => setListMode("offices")}
-                        className="mt-1 inline-flex items-center gap-2 rounded-xl bg-forest px-4 py-3 text-xs font-bold text-background"
-                      >
-                        <Building2 className="size-4" /> استكشف المكاتب
-                      </button>
+                      <>
+                        <div className="mt-2 w-full max-w-xs space-y-2" aria-hidden="true">
+                          <div className="flex items-center gap-3 rounded-2xl border border-line bg-background p-3 opacity-45">
+                            <span className="size-10 rounded-2xl bg-forest-soft" />
+                            <span className="flex-1 space-y-2">
+                              <span className="block h-2.5 w-2/5 rounded-full bg-line" />
+                              <span className="block h-2 w-4/5 rounded-full bg-line" />
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 rounded-2xl border border-line bg-background p-3 opacity-25">
+                            <span className="size-10 rounded-2xl bg-forest-soft" />
+                            <span className="flex-1 space-y-2">
+                              <span className="block h-2.5 w-1/3 rounded-full bg-line" />
+                              <span className="block h-2 w-3/5 rounded-full bg-line" />
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setListMode("offices")}
+                          className="mt-1 inline-flex items-center gap-2 rounded-xl bg-forest px-4 py-3 text-xs font-bold text-background"
+                        >
+                          <Building2 className="size-4" /> استكشف المكاتب
+                        </button>
+                      </>
                     )}
                   </div>
                 )
