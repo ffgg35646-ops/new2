@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Crown, Loader2, MessageSquare } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
-import { ChatThread } from "@/components/ChatThread";
+import { ConversationRoom } from "@/components/ConversationRoom";
 import { EmptyState } from "@/components/EmptyState";
 import { CHAT_LOCK_MESSAGE } from "@/components/ProLock";
 import { supabase } from "@/integrations/supabase/client";
@@ -162,7 +162,7 @@ function OfficeChatPage() {
         )}
 
         {activeId ? (
-          <ChatThread
+          <ConversationRoom
             conversationId={activeId}
             title={conversations.data?.find((conversation) => conversation.id === activeId)?.client?.full_name ?? "العميل"}
             onBack={() => {
