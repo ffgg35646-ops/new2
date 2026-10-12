@@ -146,7 +146,7 @@ function OfficeChatPage() {
   });
 
   return (
-    <div className={activeId ? "flex h-dvh min-h-0 flex-col overflow-hidden bg-background" : "min-h-screen bg-background pb-24"}>
+    <div style={activeId ? { height: "100dvh", minHeight: 0 } : undefined} className={activeId ? "flex h-dvh min-h-0 flex-col overflow-hidden bg-background" : "min-h-screen bg-background pb-24"}>
       <AppHeader showSearch={false} />
 
       <div className={"mx-auto w-full max-w-2xl " + (activeId ? "flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-2" : "space-y-4 px-4 py-4")}>
