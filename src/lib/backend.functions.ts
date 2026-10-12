@@ -2019,14 +2019,20 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const officeName = String(office.name ?? "مكتب عقاري");
         const properties = await getMongoCollection<Record<string, unknown>>("properties");
         const officeProperties = await properties
-          .find({ office_id: officeId, is_deleted: false })
-          .project({ id: 1 })
+          .find({ office_id: officeId, is_deleted: { $ne: true } })
+          .project({ id: 1, title: 1 })
           .toArray();
         const propertyIds = [...new Set(
           officeProperties
             .map((property) => String(property.id ?? ""))
             .filter(Boolean),
-        )];
+        ))];
+        const propertyTitleById = new Map(
+          officeProperties.map((property) => [
+            String(property.id ?? ""),
+            String(property.title ?? "عقار بدون اسم"),
+          ]),
+        );
 
         if (!propertyIds.length) return { data: [], error: null };
 
@@ -2059,16 +2065,15 @@ export const rpcRequest = createServerFn({ method: "POST" })
         const userById = new Map(
           userRows.map((user) => [String(user._id ?? ""), String(user.full_name ?? "").trim()]),
         );
-        const seenUsers = new Set<string>();
         const savedPeople = [];
 
         for (const favorite of favorites) {
           const savedUserId = String(favorite.user_id ?? "");
-          if (!savedUserId || seenUsers.has(savedUserId)) continue;
-          seenUsers.add(savedUserId);
+          const propertyId = String(favorite.property_id ?? "");
+          if (!savedUserId || !propertyId) continue;
           savedPeople.push({
             user_name: profileById.get(savedUserId) || userById.get(savedUserId) || "مستخدم",
-            office_name: officeName,
+            property_name: propertyTitleById.get(propertyId) || "عقار بدون اسم",
           });
         }
 
