@@ -445,7 +445,7 @@ function ChatsPage() {
             </div>
           </section>
         )}
-      </main>      </main>
+      </main>
       {!isAdmin && !activeId && <BottomNav variant="individual" />}
     </div>
   );
