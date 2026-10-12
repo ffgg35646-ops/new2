@@ -485,7 +485,7 @@ export function ChatThread({
   }
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-surface p-2 ring-1 ring-line sm:p-3">
+    <section className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden rounded-3xl bg-surface p-2 ring-1 ring-line sm:p-3">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line pb-3">
         <div className="min-w-0 flex-1">
           <button
@@ -557,7 +557,7 @@ export function ChatThread({
         </div>
       )}
 
-      <div className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-1 py-2">
+      <div className="mt-2 flex min-h-0 flex-1 flex-col space-y-2 overflow-y-auto overscroll-contain px-1 py-2">
         {messages.isLoading ? (
           <div className="grid place-items-center py-10">
             <Loader2 className="size-5 animate-spin text-forest" />
@@ -649,7 +649,7 @@ export function ChatThread({
       </div>
 
       {!readOnly && <form
-        className="sticky bottom-0 z-10 mt-1 flex shrink-0 items-center gap-2 border-t border-line bg-surface pt-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
+        className="relative z-10 mt-auto flex w-full shrink-0 items-center gap-2 border-t border-line bg-surface pt-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
         onSubmit={(event) => {
           event.preventDefault();
 
