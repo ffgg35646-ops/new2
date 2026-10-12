@@ -150,14 +150,16 @@ function OfficeChatPage() {
       <AppHeader showSearch={false} />
 
       <div className={"mx-auto w-full max-w-2xl " + (activeId ? "flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-2" : "space-y-4 px-4 py-4")}>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="font-display text-xl font-extrabold">الدردشة</h1>
-          {!!conversations.data?.length && (
-            <span className="rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">
-              {conversations.data.length} محادثة
-            </span>
-          )}
-        </div>
+        {!activeId && (
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="font-display text-xl font-extrabold">الدردشة</h1>
+            {!!conversations.data?.length && (
+              <span className="rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">
+                {conversations.data.length} محادثة
+              </span>
+            )}
+          </div>
+        )}
 
         {activeId ? (
           <ChatThread
@@ -215,7 +217,10 @@ function OfficeChatPage() {
             {conversations.data.map((c, index) => (
               <li key={c.id}>
                 <button
-                  onClick={() => setActiveId(c.id)}
+                  onClick={() => {
+                    setActiveId(c.id);
+                    void navigate({ search: { c: c.id } });
+                  }}
                   className="flex w-full items-center gap-3 rounded-2xl bg-surface p-3.5 text-right ring-1 ring-line"
                 >
                   <span className="grid size-9 shrink-0 place-items-center rounded-full bg-sand text-xs font-extrabold text-forest">
@@ -254,7 +259,8 @@ function OfficeChatPage() {
             ))}
           </ul>
 
-          </>        ) : (
+          </>
+        ) : (
           <EmptyState
             icon={MessageSquare}
             title="لا توجد محادثات بعد"
