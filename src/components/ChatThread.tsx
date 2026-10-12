@@ -532,7 +532,7 @@ export function ChatThread({
                 ) : (
                   <DropdownMenuItem
                     disabled={toggleBlock.isPending}
-                    className="text-destructive"
+                    className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:text-red-400 dark:focus:bg-red-950/40 dark:focus:text-red-300"
                     onSelect={() => {
                       if (window.confirm("هل تريد حظر هذه المحادثة؟ يمكنك إلغاء الحظر لاحقًا من القائمة نفسها.")) {
                         toggleBlock.mutate();
