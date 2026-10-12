@@ -6,6 +6,7 @@ import {
   BadgeCheck,
   Building2,
   Check,
+  ChevronDown,
   Clock,
   FileCheck2,
   MapPin,
@@ -55,6 +56,7 @@ export const Route = createFileRoute("/offices/$officeId")({
 function OfficePage() {
   const { officeId } = useParams({ from: "/offices/$officeId" });
   const [listing, setListing] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const { favoriteIds, toggleFavorite } = useFavorites();
   const { userId } = useAuth();
   const [distance, setDistance] = useState<number | null>(null);
@@ -292,47 +294,54 @@ function OfficePage() {
                 </div>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                  <Star className="size-3.5 fill-terracotta text-terracotta" />
-                  <span className="font-bold">{Number(office.rating_avg ?? 0).toFixed(1)}</span>
-                  <span className="text-muted-foreground">({office.reviews_count ?? 0} تقييم)</span>
-                </div>
-                <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                  <Building2 className="size-3.5 text-forest" />
-                  <span className="font-bold">{totalCount ?? 0}</span>
-                  <span className="text-muted-foreground">عقار معروض</span>
-                </div>
-                <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                  <Building2 className="size-3.5 text-forest" />
-                  <span className="font-bold">{office.experience_years ?? 0}</span>
-                  <span className="text-muted-foreground">سنوات خبرة</span>
-                </div>
+              <button
+                type="button"
+                onClick={() => setMoreOpen((open) => !open)}
+                aria-expanded={moreOpen}
+                className="mt-3 flex w-full items-center justify-between rounded-2xl bg-background px-3.5 py-3 text-sm font-bold ring-1 ring-line transition hover:bg-sand"
+              >
+                <span>المزيد</span>
+                <ChevronDown className={cn("size-4 transition-transform", moreOpen && "rotate-180")} />
+              </button>
 
-                <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                  <UserPlus className="size-3.5 text-forest" />
-                  <span className="font-bold">{followersCount ?? 0}</span>
-                  <span className="text-muted-foreground">متابع</span>
-                </div>
-
-                <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                  <Clock className="size-3.5 text-forest" />
-                  <span className="text-muted-foreground">آخر نشاط:</span>
-                  <span className="font-bold">
-                    {lastActivityLabel}
-                  </span>
-                </div>
-
-                {(office.license_number || office.fal_license_number) && (
-                  <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                    <FileCheck2 className="size-3.5 text-forest" />
-                    <span className="text-muted-foreground">رقم الترخيص:</span>
-                    <span className="font-mono font-bold">
-                      {office.fal_license_number || office.license_number}
-                    </span>
+              {moreOpen && (
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                    <Star className="size-3.5 fill-terracotta text-terracotta" />
+                    <span className="font-bold">{Number(office.rating_avg ?? 0).toFixed(1)}</span>
+                    <span className="text-muted-foreground">({office.reviews_count ?? 0} تقييم)</span>
                   </div>
-                )}
-              </div>
+                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                    <Building2 className="size-3.5 text-forest" />
+                    <span className="font-bold">{totalCount ?? 0}</span>
+                    <span className="text-muted-foreground">عقار معروض</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                    <Building2 className="size-3.5 text-forest" />
+                    <span className="font-bold">{office.experience_years ?? 0}</span>
+                    <span className="text-muted-foreground">سنوات خبرة</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                    <UserPlus className="size-3.5 text-forest" />
+                    <span className="font-bold">{followersCount ?? 0}</span>
+                    <span className="text-muted-foreground">متابع</span>
+                  </div>
+                  <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                    <Clock className="size-3.5 text-forest" />
+                    <span className="text-muted-foreground">آخر نشاط:</span>
+                    <span className="font-bold">{lastActivityLabel}</span>
+                  </div>
+                  {(office.license_number || office.fal_license_number) && (
+                    <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                      <FileCheck2 className="size-3.5 text-forest" />
+                      <span className="text-muted-foreground">رقم الترخيص:</span>
+                      <span className="font-mono font-bold">
+                        {office.fal_license_number || office.license_number}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {office.description && (
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
@@ -381,20 +390,28 @@ function OfficePage() {
                 )}
               </div>
 
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="mt-3 grid grid-cols-4 gap-2">
                 {office.phone ? (
                   <a
                     href={`tel:${office.phone}`}
-                    className="flex items-center justify-center gap-1.5 rounded-2xl bg-forest py-3 text-xs font-bold text-background"
+                    title="اتصال بالمكتب"
+                    aria-label="اتصال بالمكتب"
+                    className="grid aspect-square place-items-center rounded-2xl bg-forest text-background transition hover:opacity-90"
                   >
-                    <Phone className="size-4" /> اتصال
+                    <Phone className="size-5" />
                   </a>
                 ) : (
-                  <span className="rounded-2xl bg-sand py-3 text-center text-xs text-muted-foreground">
-                    لا يوجد رقم
-                  </span>
+                  <button
+                    type="button"
+                    title="رقم الهاتف غير متاح"
+                    aria-label="رقم الهاتف غير متاح"
+                    disabled
+                    className="grid aspect-square place-items-center rounded-2xl bg-sand text-muted-foreground opacity-60"
+                  >
+                    <Phone className="size-5" />
+                  </button>
                 )}
-                {(office.whatsapp || office.phone) && (
+                {(office.whatsapp || office.phone) ? (
                   <a
                     href={whatsappHref(
                       (office.whatsapp || office.phone)!,
@@ -402,16 +419,56 @@ function OfficePage() {
                     )}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center justify-center gap-1.5 rounded-2xl bg-forest-soft py-3 text-xs font-bold text-forest"
+                    title="مراسلة واتساب"
+                    aria-label="مراسلة واتساب"
+                    className="grid aspect-square place-items-center rounded-2xl bg-forest-soft text-forest transition hover:opacity-90"
                   >
-                    <MessageCircle className="size-4" /> واتساب
+                    <MessageCircle className="size-5" />
                   </a>
+                ) : (
+                  <button
+                    type="button"
+                    title="واتساب غير متاح"
+                    aria-label="واتساب غير متاح"
+                    disabled
+                    className="grid aspect-square place-items-center rounded-2xl bg-sand text-muted-foreground opacity-60"
+                  >
+                    <MessageCircle className="size-5" />
+                  </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => void onShare()}
-                  className="flex items-center justify-center gap-1.5 rounded-2xl bg-sand py-3 text-xs font-bold"
+                  title="مشاركة ملف المكتب"
+                  aria-label="مشاركة ملف المكتب"
+                  className="grid aspect-square place-items-center rounded-2xl bg-sand text-foreground ring-1 ring-line transition hover:bg-background"
                 >
-                  <Share2 className="size-4" /> مشاركة
+                  <Share2 className="size-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setNotify.mutate(
+                      { officeId, notify: !notifyOn },
+                      {
+                        onSuccess: (on) =>
+                          toast.success(on ? "تم تفعيل إشعارات هذا المكتب" : "تم إيقاف إشعارات هذا المكتب"),
+                        onError: (e) => toast.error((e as Error).message),
+                      },
+                    )
+                  }
+                  disabled={setNotify.isPending}
+                  aria-pressed={notifyOn}
+                  title={notifyOn ? "إشعارات المكتب مفعّلة" : "تفعيل إشعارات المكتب"}
+                  aria-label={notifyOn ? "إشعارات المكتب مفعّلة" : "تفعيل إشعارات المكتب"}
+                  className={cn(
+                    "grid aspect-square place-items-center rounded-2xl transition disabled:opacity-60",
+                    notifyOn
+                      ? "bg-forest-soft text-forest ring-2 ring-forest/30"
+                      : "bg-sand text-foreground ring-1 ring-line hover:bg-background",
+                  )}
+                >
+                  {notifyOn ? <Check className="size-5" /> : <Bell className="size-5" />}
                 </button>
               </div>
 
