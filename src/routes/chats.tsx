@@ -213,13 +213,15 @@ function ChatsPage() {
   return (
     <div
       className={
-        "mx-auto flex min-h-screen w-full flex-col bg-background " +
-        (isAdmin ? "max-w-6xl" : "max-w-md pb-24 md:max-w-5xl")
+        "mx-auto flex w-full flex-col bg-background " +
+        (activeId
+          ? "h-dvh max-w-md overflow-hidden md:max-w-5xl"
+          : "min-h-screen " + (isAdmin ? "max-w-6xl" : "max-w-md pb-24 md:max-w-5xl"))
       }
     >
       <AppHeader showSearch={false} />
 
-      <main className="flex-1 space-y-4 px-4 py-4">
+      <main className={activeId ? "flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-2 md:px-4 md:py-3" : "flex-1 space-y-4 px-4 py-4"}>
         {activeId ? (
           <ChatThread
             conversationId={activeId}
@@ -389,7 +391,7 @@ function ChatsPage() {
           </>
         )}
       </main>
-      {!isAdmin && <BottomNav variant="individual" />}
+      {!isAdmin && !activeId && <BottomNav variant="individual" />}
     </div>
   );
 }
