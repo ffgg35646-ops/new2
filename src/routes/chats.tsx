@@ -70,6 +70,8 @@ function ChatsPage() {
   const navigate = Route.useNavigate();
   const activeId = c ?? null;
   const [officeSearch, setOfficeSearch] = useState("");
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [listMode, setListMode] = useState<"conversations" | "offices">("conversations");
   const startRequestedFor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -211,20 +213,26 @@ function ChatsPage() {
   const matchingOffices = (proOffices.data ?? []).filter((office) =>
     office.name.toLocaleLowerCase("ar").includes(normalizedSearch),
   );
+  const normalizedConversationSearch = conversationSearch.trim().toLocaleLowerCase("ar");
+  const matchingConversations = (conversations.data ?? []).filter((conversation) =>
+    [
+      conversation.offices?.name,
+      conversation.lastMessage?.body,
+      conversation.properties?.title,
+    ].some((value) => String(value ?? "").toLocaleLowerCase("ar").includes(normalizedConversationSearch)),
+  );
 
   return (
     <div
-      style={activeId ? { height: "100dvh", minHeight: 0 } : undefined}
+      style={{ height: "100dvh", minHeight: 0 }}
       className={
-        "mx-auto flex w-full flex-col bg-background " +
-        (activeId
-          ? "h-dvh max-w-md overflow-hidden md:max-w-5xl"
-          : "min-h-screen " + (isAdmin ? "max-w-6xl" : "max-w-md pb-24 md:max-w-5xl"))
+        "mx-auto flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-background " +
+        (isAdmin ? "max-w-6xl" : "max-w-md md:max-w-5xl")
       }
     >
       <AppHeader showSearch={false} />
 
-      <main className={activeId ? "flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-2 md:px-4 md:py-3" : "flex-1 space-y-4 px-4 py-4"}>
+      <main className={activeId ? "flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-2 md:px-4 md:py-3" : "flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3"}>
         {activeId ? (
           <ConversationRoom
             conversationId={activeId}
@@ -260,140 +268,184 @@ function ChatsPage() {
             جارٍ فتح المحادثة...
           </div>
         ) : (
-          <>
-            <header>
-              <h1 className="font-display text-xl font-extrabold">الدردشة</h1>
-              
-            </header>
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-surface ring-1 ring-line">
+            <div className="shrink-0 border-b border-line p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-forest-soft text-forest">
+                    <MessageSquare className="size-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <h1 className="font-display text-lg font-extrabold">الدردشات</h1>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">محادثاتك في مكان واحد</p>
+                  </div>
+                </div>
+                <span className="shrink-0 rounded-full bg-forest-soft px-3 py-1.5 text-xs font-bold text-forest">
+                  {conversations.data?.length ?? 0} محادثة
+                </span>
+              </div>
 
-            <section className="space-y-3 rounded-3xl bg-surface p-3.5 ring-1 ring-line">
-              <div className="relative">
+              <div className="mt-3 grid grid-cols-2 gap-1 rounded-2xl bg-background p-1 ring-1 ring-line">
+                <button
+                  type="button"
+                  onClick={() => setListMode("conversations")}
+                  className={"rounded-xl px-3 py-2.5 text-xs font-bold transition " + (listMode === "conversations" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
+                >
+                  محادثاتي
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListMode("offices")}
+                  className={"rounded-xl px-3 py-2.5 text-xs font-bold transition " + (listMode === "offices" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
+                >
+                  ابدأ محادثة
+                </button>
+              </div>
+
+              <div className="relative mt-3">
                 <Search className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
-                  value={officeSearch}
-                  onChange={(event) => setOfficeSearch(event.target.value)}
-                  placeholder="اكتب اسم المكتب الاحترافي..."
-                  className="w-full rounded-2xl bg-background py-3 pe-10 ps-3 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-forest"
+                  value={listMode === "conversations" ? conversationSearch : officeSearch}
+                  onChange={(event) => listMode === "conversations" ? setConversationSearch(event.target.value) : setOfficeSearch(event.target.value)}
+                  placeholder={listMode === "conversations" ? "ابحث باسم المكتب أو رسالة..." : "ابحث عن مكتب احترافي..."}
+                  aria-label={listMode === "conversations" ? "البحث في المحادثات" : "البحث عن مكتب"}
+                  className="w-full rounded-2xl bg-background py-3 pe-10 ps-3 text-sm ring-1 ring-line outline-none transition focus:ring-2 focus:ring-forest"
                 />
               </div>
+            </div>
 
-              {proOffices.isLoading ? (
-                <div className="grid place-items-center py-6">
-                  <Loader2 className="size-5 animate-spin text-forest" />
-                </div>
-              ) : proOffices.isError ? (
-                <p role="alert" className="rounded-xl bg-terracotta-soft p-3 text-xs text-terracotta">
-                  تعذّر تحميل المكاتب الاحترافية. حدّث الصفحة وحاول مجددًا.
-                </p>
-              ) : matchingOffices.length ? (
-                <ul className="space-y-2">
-                  {matchingOffices.slice(0, 30).map((office) => (
-                    <li key={office.id} className="flex items-center gap-3 rounded-2xl bg-background p-3 ring-1 ring-line">
-                      {office.logo_url ? (
-                        <img src={office.logo_url} alt="" loading="lazy" className="size-10 shrink-0 rounded-xl object-cover" />
-                      ) : (
-                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-soft text-forest">
-                          <Building2 className="size-5" />
-                        </span>
-                      )}
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5 truncate text-sm font-bold">
-                          {office.name}
-                          <Crown className="size-3.5 shrink-0 text-terracotta" />
-                        </span>
-                        <span className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-                          <Star className="size-3 fill-terracotta text-terracotta" />
-                          {Number(office.rating_avg ?? 0).toFixed(1)}
-                          <span>· {office.completed_requests_count ?? 0} طلب مكتمل</span>
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          startRequestedFor.current = null;
-                          void navigate({ search: { c: undefined, office: office.id } });
-                        }}
-                        className="flex shrink-0 items-center gap-1.5 rounded-xl bg-forest px-3 py-2.5 text-xs font-bold text-background"
-                      >
-                        <MessageSquare className="size-3.5" /> شات
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </section>
-
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-base font-extrabold">محادثاتي</h2>
-                {!!conversations.data?.length && (
-                  <span className="rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">
-                    {conversations.data.length} محادثة
-                  </span>
-                )}
-              </div>
-
-              {conversations.isLoading ? (
-                <div className="grid place-items-center py-8">
-                  <Loader2 className="size-5 animate-spin text-forest" />
-                </div>
-              ) : conversations.data?.length ? (
-                <ul className="space-y-2">
-                  {conversations.data.map((conv, index) => (
-                    <li key={conv.id}>
-                      <button
-                        onClick={() => void navigate({ search: { c: conv.id, office: undefined } })}
-                        className="flex w-full items-center gap-3 rounded-2xl bg-surface p-3.5 text-right ring-1 ring-line"
-                      >
-                        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-forest-soft text-xs font-extrabold text-forest">
-                          {index + 1}
-                        </span>
-                        {conv.offices?.logo_url ? (
-                          <img src={conv.offices.logo_url} alt="" className="size-10 shrink-0 rounded-xl object-cover" />
-                        ) : (
-                          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sand text-forest">
-                            <Building2 className="size-5" />
-                          </span>
-                        )}
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-bold">
-                            {conv.offices?.name || "مكتب عقاري"}
-                          </span>
-                          <span className="block truncate text-[11px] text-muted-foreground">
-                            {conv.lastMessage?.body ||
-                              (conv.lastMessage?.image_url ? "📷 صورة" : null) ||
-                              conv.properties?.title ||
-                              "ابدأ المحادثة"}
-                          </span>
-                        </span>
-                        <span className="flex shrink-0 flex-col items-end gap-1">
-                          <span className="text-[10px] text-muted-foreground">
-                            {formatDate(conv.lastMessage?.created_at ?? conv.updated_at)}
-                          </span>
-                          {!!conv.unreadCount && (
-                            <span className="grid min-w-5 place-items-center rounded-full bg-terracotta px-1.5 py-0.5 text-[9px] font-bold text-background">
-                              {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+              {listMode === "conversations" ? (
+                conversations.isLoading ? (
+                  <div className="grid min-h-full place-items-center py-8">
+                    <Loader2 className="size-5 animate-spin text-forest" />
+                  </div>
+                ) : conversations.isError ? (
+                  <div className="grid min-h-full content-center justify-items-center gap-3 p-5 text-center">
+                    <MessageSquare className="size-8 text-terracotta" />
+                    <p className="text-sm font-bold">تعذّر تحميل المحادثات</p>
+                    <p className="text-xs text-muted-foreground">تحقق من الاتصال وحاول مجددًا.</p>
+                  </div>
+                ) : matchingConversations.length ? (
+                  <ul className="space-y-2">
+                    {matchingConversations.map((conv) => (
+                      <li key={conv.id}>
+                        <button
+                          type="button"
+                          onClick={() => void navigate({ search: { c: conv.id, office: undefined } })}
+                          className="flex w-full items-center gap-3 rounded-2xl border border-line bg-background p-3.5 text-right transition hover:border-forest/40 hover:bg-forest/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+                        >
+                          {conv.offices?.logo_url ? (
+                            <img src={conv.offices.logo_url} alt="" loading="lazy" className="size-11 shrink-0 rounded-2xl object-cover" />
+                          ) : (
+                            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-forest-soft text-forest">
+                              <Building2 className="size-5" />
                             </span>
                           )}
-                          {!conv.unreadCount && (
-                            <span className="text-[9px] text-muted-foreground">{timeAgo(conv.lastMessage?.created_at ?? conv.updated_at)}</span>
-                          )}
-                        </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-bold">{conv.offices?.name || "مكتب عقاري"}</span>
+                            <span className="mt-1 block truncate text-xs text-muted-foreground">
+                              {conv.lastMessage?.body || (conv.lastMessage?.image_url ? "📷 صورة" : null) || conv.properties?.title || "ابدأ المحادثة"}
+                            </span>
+                          </span>
+                          <span className="flex shrink-0 flex-col items-end gap-1">
+                            <span className="text-[10px] text-muted-foreground">{formatDate(conv.lastMessage?.created_at ?? conv.updated_at)}</span>
+                            {!!conv.unreadCount && (
+                              <span className="grid min-w-5 place-items-center rounded-full bg-terracotta px-1.5 py-0.5 text-[9px] font-bold text-background">
+                                {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
+                              </span>
+                            )}
+                            {!conv.unreadCount && (
+                              <span className="text-[9px] text-muted-foreground">{timeAgo(conv.lastMessage?.created_at ?? conv.updated_at)}</span>
+                            )}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="grid min-h-full content-center justify-items-center gap-3 px-5 py-8 text-center">
+                    <span className="relative grid size-16 place-items-center rounded-3xl bg-forest-soft text-forest">
+                      <MessageSquare className="size-8" />
+                      <span className="absolute -left-1 -top-1 grid size-6 place-items-center rounded-full bg-terracotta text-background">
+                        <span className="text-xs font-bold">+</span>
+                      </span>
+                    </span>
+                    <h2 className="font-display text-base font-extrabold">
+                      {conversationSearch.trim() ? "لا توجد نتائج مطابقة" : "محادثاتك هتظهر هنا"}
+                    </h2>
+                    <p className="max-w-xs text-xs leading-6 text-muted-foreground">
+                      {conversationSearch.trim() ? "جرّب اسم مكتب أو كلمة من الرسالة." : "لسه مفيش محادثات. استكشف المكاتب الاحترافية وابدأ أول محادثة، وكل رسائلك هتظهر داخل المساحة دي."}
+                    </p>
+                    {!conversationSearch.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setListMode("offices")}
+                        className="mt-1 inline-flex items-center gap-2 rounded-xl bg-forest px-4 py-3 text-xs font-bold text-background"
+                      >
+                        <Building2 className="size-4" /> استكشف المكاتب
                       </button>
-                    </li>
-                  ))}
-                </ul>
+                    )}
+                  </div>
+                )
               ) : (
-                <div className="py-4 text-center">
-                  <Link to="/offices" className="text-sm font-semibold text-forest underline underline-offset-4">
-                    ادخل لصفحه المكاتب العقاريه
-                  </Link>
+                <div className="space-y-2">
+                  {proOffices.isLoading ? (
+                    <div className="grid place-items-center py-8">
+                      <Loader2 className="size-5 animate-spin text-forest" />
+                    </div>
+                  ) : proOffices.isError ? (
+                    <p role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs text-terracotta">
+                      تعذّر تحميل المكاتب الاحترافية. حدّث الصفحة وحاول مجددًا.
+                    </p>
+                  ) : matchingOffices.length ? (
+                    <ul className="space-y-2">
+                      {matchingOffices.slice(0, 30).map((office) => (
+                        <li key={office.id} className="flex items-center gap-3 rounded-2xl border border-line bg-background p-3">
+                          {office.logo_url ? (
+                            <img src={office.logo_url} alt="" loading="lazy" className="size-10 shrink-0 rounded-xl object-cover" />
+                          ) : (
+                            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-soft text-forest">
+                              <Building2 className="size-5" />
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-1.5 truncate text-sm font-bold">
+                              {office.name}
+                              <Crown className="size-3.5 shrink-0 text-terracotta" />
+                            </span>
+                            <span className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+                              <Star className="size-3 fill-terracotta text-terracotta" />
+                              {Number(office.rating_avg ?? 0).toFixed(1)}
+                              <span>· {office.completed_requests_count ?? 0} طلب مكتمل</span>
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              startRequestedFor.current = null;
+                              void navigate({ search: { c: undefined, office: office.id } });
+                            }}
+                            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-forest px-3 py-2.5 text-xs font-bold text-background"
+                          >
+                            <MessageSquare className="size-3.5" /> شات
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="grid min-h-40 place-items-center gap-2 px-4 text-center">
+                      <Building2 className="size-8 text-muted-foreground" />
+                      <p className="text-sm font-bold">مفيش مكاتب مطابقة للبحث</p>
+                      <p className="text-xs text-muted-foreground">غيّر اسم المكتب وجرب تاني.</p>
+                    </div>
+                  )}
                 </div>
               )}
-            </section>
-          </>
+            </div>
+          </section>
         )}
-      </main>
+      </main>      </main>
       {!isAdmin && !activeId && <BottomNav variant="individual" />}
     </div>
   );
