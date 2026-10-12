@@ -1,11 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Crown, Loader2, MessageSquare } from "lucide-react";
+import { Building2, Crown, Loader2, MessageSquare, Search } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { ConversationRoom } from "@/components/ConversationRoom";
-import { EmptyState } from "@/components/EmptyState";
 import { CHAT_LOCK_MESSAGE } from "@/components/ProLock";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -64,6 +63,7 @@ function OfficeChatPage() {
   const officeId = membership?.office?.id ?? null;
   const { chatEnabled, isLoading } = useMyPlan();
   const [activeId, setActiveId] = useState<string | null>(c ?? null);
+  const [conversationSearch, setConversationSearch] = useState("");
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -145,22 +145,20 @@ function OfficeChatPage() {
     refetchInterval: 30_000,
   });
 
+  const normalizedConversationSearch = conversationSearch.trim().toLocaleLowerCase("ar");
+  const matchingConversations = (conversations.data ?? []).filter((conversation) =>
+    [
+      conversation.client?.full_name,
+      conversation.lastMessage?.body,
+      conversation.properties?.title,
+    ].some((value) => String(value ?? "").toLocaleLowerCase("ar").includes(normalizedConversationSearch)),
+  );
+
   return (
-    <div style={activeId ? { height: "100dvh", minHeight: 0 } : undefined} className={activeId ? "flex h-dvh min-h-0 flex-col overflow-hidden bg-background" : "min-h-screen bg-background pb-24"}>
+    <div style={{ height: "100dvh", minHeight: 0 }} className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background">
       <AppHeader showSearch={false} />
 
-      <div className={"mx-auto w-full max-w-2xl " + (activeId ? "flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-2" : "space-y-4 px-4 py-4")}>
-        {!activeId && (
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="font-display text-xl font-extrabold">الدردشة</h1>
-            {!!conversations.data?.length && (
-              <span className="rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">
-                {conversations.data.length} محادثة
-              </span>
-            )}
-          </div>
-        )}
-
+      <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col overflow-hidden px-3 py-3">
         {activeId ? (
           <ConversationRoom
             conversationId={activeId}
@@ -170,102 +168,135 @@ function OfficeChatPage() {
               void navigate({ search: { c: undefined } });
             }}
           />
-        ) : isLoading ? (
-          <div className="grid place-items-center py-16">
-            <Loader2 className="size-5 animate-spin text-forest" />
-          </div>
-        ) : conversations.isLoading ? (
-          <div className="grid place-items-center py-16">
-            <Loader2 className="size-5 animate-spin text-forest" />
-          </div>
-        ) : !chatEnabled && !conversations.data?.length ? (
-          <section className="rounded-3xl bg-surface p-5 text-center ring-1 ring-line">
-            <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-terracotta-soft text-terracotta">
-              <Crown className="size-6" />
-            </span>
-            <h2 className="mt-3 font-display text-base font-extrabold">🔒 الدردشة مقفلة</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              {CHAT_LOCK_MESSAGE}
-            </p>
-            <Link
-              to="/office/subscription"
-              className="mt-5 block rounded-2xl bg-forest py-3.5 font-display font-bold text-background"
-            >
-              ترقية الباقة
-            </Link>
-            <Link
-              to="/office/requests"
-              search={{ tab: "inbox", request: undefined }}
-              className="mt-2 block rounded-2xl bg-sand py-3 text-xs font-semibold text-forest"
-            >
-              عرض طلبات التواصل الواردة
-            </Link>
-          </section>
-        ) : conversations.data?.length ? (
-          <>
-            {!chatEnabled && (
-              <div className="rounded-2xl bg-sand px-3.5 py-3 text-xs leading-6 text-muted-foreground">
-                يمكنك متابعة محادثاتك السابقة. لبدء محادثات جديدة، يلزم وجود باقة احترافية سارية.
-                {" "}
-                <Link to="/office/subscription" className="font-bold text-forest underline underline-offset-4">
-                  تجديد الباقة
-                </Link>
-              </div>
-            )}
-
-            <ul className="space-y-2">
-              {conversations.data.map((c, index) => (
-                <li key={c.id}>
-                  <button
-                    onClick={() => {
-                      setActiveId(c.id);
-                      void navigate({ search: { c: c.id } });
-                    }}
-                    className="flex w-full items-center gap-3 rounded-2xl bg-surface p-3.5 text-right ring-1 ring-line"
-                  >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-sand text-xs font-extrabold text-forest">
-                      {index + 1}
-                    </span>
-                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-soft font-display font-extrabold text-forest">
-                      {(c.client?.full_name || "؟").charAt(0)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold">
-                        {c.client?.full_name || "عميل"}
-                      </span>
-                      <span className="block truncate text-[11px] text-muted-foreground">
-                        {c.lastMessage?.body ||
-                          (c.lastMessage?.image_url ? "📷 صورة" : null) ||
-                          c.properties?.title ||
-                          "محادثة عامة"}
-                      </span>
-                    </span>
-  
-                    <span className="flex shrink-0 flex-col items-end gap-1">
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatDate(
-                          c.lastMessage?.created_at ?? c.updated_at
-                        )}
-                      </span>
-  
-                      {!!c.unreadCount && (
-                        <span className="grid min-w-5 place-items-center rounded-full bg-forest px-1.5 py-0.5 text-[9px] font-bold text-background">
-                          {c.unreadCount > 99 ? "99+" : c.unreadCount}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-  
-            </>
         ) : (
-          <EmptyState
-            icon={MessageSquare}
-            title="لا توجد محادثات بعد"
-            description=""
-          />
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-surface ring-1 ring-line">
+            <div className="shrink-0 border-b border-line p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-forest-soft text-forest">
+                    <MessageSquare className="size-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <h1 className="font-display text-lg font-extrabold">محادثات العملاء</h1>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">كل رسائل العملاء في مكان واحد</p>
+                  </div>
+                </div>
+                <span className="shrink-0 rounded-full bg-forest-soft px-3 py-1.5 text-xs font-bold text-forest">
+                  {conversations.data?.length ?? 0} محادثة
+                </span>
+              </div>
+              <div className="relative mt-3">
+                <Search className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={conversationSearch}
+                  onChange={(event) => setConversationSearch(event.target.value)}
+                  placeholder="ابحث باسم العميل أو محتوى الرسالة..."
+                  aria-label="البحث في محادثات العملاء"
+                  className="w-full rounded-2xl bg-background py-3 pe-10 ps-3 text-sm ring-1 ring-line outline-none transition focus:ring-2 focus:ring-forest"
+                />
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+              {isLoading ? (
+                <div className="grid min-h-full place-items-center py-8">
+                  <Loader2 className="size-5 animate-spin text-forest" />
+                </div>
+              ) : conversations.isLoading ? (
+                <div className="grid min-h-full place-items-center py-8">
+                  <Loader2 className="size-5 animate-spin text-forest" />
+                </div>
+              ) : conversations.isError ? (
+                <div className="grid min-h-full content-center justify-items-center gap-3 p-5 text-center">
+                  <MessageSquare className="size-8 text-terracotta" />
+                  <p className="text-sm font-bold">تعذّر تحميل المحادثات</p>
+                  <p className="text-xs text-muted-foreground">تحقق من الاتصال وحاول مجددًا.</p>
+                </div>
+              ) : !chatEnabled && !conversations.data?.length ? (
+                <div className="grid min-h-full content-center justify-items-center gap-3 p-5 text-center">
+                  <span className="grid size-14 place-items-center rounded-2xl bg-terracotta-soft text-terracotta">
+                    <Crown className="size-7" />
+                  </span>
+                  <h2 className="font-display text-base font-extrabold">الدردشة مقفلة</h2>
+                  <p className="max-w-sm text-xs leading-6 text-muted-foreground">{CHAT_LOCK_MESSAGE}</p>
+                  <Link to="/office/subscription" className="mt-1 block rounded-xl bg-forest px-4 py-3 text-xs font-bold text-background">
+                    ترقية الباقة
+                  </Link>
+                  <Link to="/office/requests" search={{ tab: "inbox", request: undefined }} className="block rounded-xl bg-background px-4 py-3 text-xs font-semibold text-forest ring-1 ring-line">
+                    عرض طلبات التواصل الواردة
+                  </Link>
+                </div>
+              ) : matchingConversations.length ? (
+                <ul className="space-y-2">
+                  {matchingConversations.map((conversation) => (
+                    <li key={conversation.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveId(conversation.id);
+                          void navigate({ search: { c: conversation.id } });
+                        }}
+                        className="flex w-full items-center gap-3 rounded-2xl border border-line bg-background p-3.5 text-right transition hover:border-forest/40 hover:bg-forest/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+                      >
+                        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-forest-soft font-display text-base font-extrabold text-forest">
+                          {(conversation.client?.full_name || "؟").charAt(0)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold">{conversation.client?.full_name || "عميل"}</span>
+                          <span className="mt-1 block truncate text-xs text-muted-foreground">
+                            {conversation.lastMessage?.body || (conversation.lastMessage?.image_url ? "📷 صورة" : null) || conversation.properties?.title || "محادثة عامة"}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 flex-col items-end gap-1">
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatDate(conversation.lastMessage?.created_at ?? conversation.updated_at)}
+                          </span>
+                          {!!conversation.unreadCount && (
+                            <span className="grid min-w-5 place-items-center rounded-full bg-forest px-1.5 py-0.5 text-[9px] font-bold text-background">
+                              {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="grid min-h-full content-center justify-items-center gap-3 px-5 py-8 text-center">
+                  <span className="relative grid size-16 place-items-center rounded-3xl bg-forest-soft text-forest">
+                    <MessageSquare className="size-8" />
+                    <span className="absolute -left-1 -top-1 grid size-6 place-items-center rounded-full bg-terracotta text-background">
+                      <span className="text-xs font-bold">+</span>
+                    </span>
+                  </span>
+                  <h2 className="font-display text-base font-extrabold">
+                    {conversationSearch.trim() ? "لا توجد نتائج مطابقة" : "محادثات العملاء هتظهر هنا"}
+                  </h2>
+                  <p className="max-w-xs text-xs leading-6 text-muted-foreground">
+                    {conversationSearch.trim() ? "جرّب اسم عميل أو كلمة من الرسالة." : "لسه مفيش رسائل واردة. أول ما يبدأ عميل محادثة مع المكتب، هتظهر هنا داخل القائمة."}
+                  </p>
+                  {!conversationSearch.trim() && (
+                    <div className="mt-2 w-full max-w-xs space-y-2" aria-hidden="true">
+                      <div className="flex items-center gap-3 rounded-2xl border border-line bg-background p-3 opacity-45">
+                        <span className="size-10 rounded-2xl bg-forest-soft" />
+                        <span className="flex-1 space-y-2">
+                          <span className="block h-2.5 w-2/5 rounded-full bg-line" />
+                          <span className="block h-2 w-4/5 rounded-full bg-line" />
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 rounded-2xl border border-line bg-background p-3 opacity-25">
+                        <span className="size-10 rounded-2xl bg-forest-soft" />
+                        <span className="flex-1 space-y-2">
+                          <span className="block h-2.5 w-1/3 rounded-full bg-line" />
+                          <span className="block h-2 w-3/5 rounded-full bg-line" />
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
         )}
       </div>
 
