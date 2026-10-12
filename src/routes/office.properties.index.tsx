@@ -195,7 +195,7 @@ function OfficeProperties() {
                         <ChevronDown className="size-3.5" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" sideOffset={6} className="w-52" dir="rtl">
+                    <DropdownMenuContent align="start" sideOffset={6} className="w-52">
                       <DropdownMenuItem
                         onSelect={() => {
                           if (!canFeature && !p.is_featured) {
