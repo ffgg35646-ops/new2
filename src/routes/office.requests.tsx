@@ -384,12 +384,12 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
           return (
             <article
               key={booking.id}
-              className="rounded-2xl bg-surface p-4 ring-1 ring-line"
+              className="rounded-xl bg-surface p-3 ring-1 ring-line"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-extrabold">{contactName}</h2>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       <CalendarDays className="size-4 text-terracotta" />
                       {formatDate(booking.visit_date)}
@@ -407,7 +407,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                     onClick={() => setContactOpenId(booking.id)}
                     aria-label={"عرض اتصال " + contactName}
                     title="بيانات الاتصال"
-                    className="grid size-10 place-items-center rounded-xl bg-background text-forest ring-1 ring-line"
+                    className="grid size-9 place-items-center rounded-full bg-background text-forest ring-1 ring-line"
                   >
                     <Phone className="size-4" />
                   </button>
@@ -418,7 +418,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                       rel="noreferrer"
                       aria-label={"واتساب " + contactName}
                       title="واتساب"
-                      className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"
+                      className="grid size-9 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"
                     >
                       <WhatsAppIcon className="size-5 text-[#25D366]" />
                     </a>
@@ -426,7 +426,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                     <span
                       aria-label="رقم واتساب غير متوفر"
                       title="رقم العميل غير متوفر"
-                      className="grid size-10 place-items-center rounded-xl bg-background text-muted-foreground ring-1 ring-line"
+                      className="grid size-9 place-items-center rounded-full bg-background text-muted-foreground ring-1 ring-line"
                     >
                       <WhatsAppIcon className="size-5" />
                     </span>
@@ -435,7 +435,7 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
               </div>
 
               {booking.status === "pending" ? (
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -829,7 +829,7 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
         const phone = String(request.client_phone ?? "").trim();
         return (
           <article id={"accepted-request-card-" + request.id} key={request.id}
-            className={cn("space-y-3 rounded-2xl bg-surface p-3 ring-1 ring-line", highlightedRequestId === request.id && "ring-2 ring-forest")}>
+            className={cn("space-y-2 rounded-xl bg-surface p-2.5 ring-1 ring-line", highlightedRequestId === request.id && "ring-2 ring-forest")}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="font-display text-sm font-extrabold">{request.client_name || "عميل"}</h3>
@@ -837,14 +837,14 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
               </div>
               <span className="shrink-0 rounded-full bg-forest-soft px-2.5 py-1 text-[10px] font-bold text-forest">تم قبول عرضك</span>
             </div>
-            {request.attachment_url && <img src={request.attachment_url} alt="صورة الطلب" loading="lazy" className="max-h-64 w-full rounded-xl object-cover" />}
+            {request.attachment_url && <img src={request.attachment_url} alt="صورة الطلب" loading="lazy" className="h-24 w-full rounded-lg object-cover" />}
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-background p-2.5 ring-1 ring-line"><div className="text-[10px] text-muted-foreground">المحافظة</div><div className="mt-1 text-xs font-bold">{request.governorate_name || "—"}</div></div>
+              <div className="rounded-lg bg-background p-2 ring-1 ring-line"><div className="text-[10px] text-muted-foreground">المحافظة</div><div className="mt-1 text-xs font-bold">{request.governorate_name || "—"}</div></div>
               <div className="rounded-xl bg-background p-2.5 ring-1 ring-line"><div className="text-[10px] text-muted-foreground">الحي</div><div className="mt-1 text-xs font-bold">{request.neighborhood || "أي حي"}</div></div>
               <div className="rounded-xl bg-background p-2.5 ring-1 ring-line"><div className="text-[10px] text-muted-foreground">الميزانية</div><div className="mt-1 text-xs font-bold">{request.budget_min != null || request.budget_max != null ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س" : "غير محددة"}</div></div>
               <div className="rounded-xl bg-background p-2.5 ring-1 ring-line"><div className="text-[10px] text-muted-foreground">المساحة</div><div className="mt-1 text-xs font-bold">{request.area_min != null ? "من " + formatArea(request.area_min) : "غير محددة"}</div></div>
             </div>
-            <div className="rounded-xl bg-background p-3 ring-1 ring-line"><div className="text-[10px] font-semibold text-muted-foreground">تفاصيل الطلب</div><p className="mt-1 whitespace-pre-wrap text-sm leading-6">{request.description || "لا يوجد وصف إضافي."}</p></div>
+            <div className="rounded-lg bg-background p-2.5 ring-1 ring-line"><div className="text-[10px] font-semibold text-muted-foreground">تفاصيل الطلب</div><p className="mt-1 whitespace-pre-wrap text-xs leading-5">{request.description || "لا يوجد وصف إضافي."}</p></div>
             {request.offer_message && <div className="rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest"><div className="font-bold">رسالة عرض مكتبك</div><p className="mt-1 whitespace-pre-wrap">{request.offer_message}</p>{request.offer_price != null && <div className="mt-1 font-extrabold">السعر المقترح: {formatPrice(request.offer_price)} ر.س</div>}</div>}
             <button
               type="button"
@@ -857,10 +857,10 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
             <div className="rounded-xl bg-background p-3 ring-1 ring-line">
               <div className="text-[10px] font-semibold text-muted-foreground">بيانات اتصال العميل</div>
               <div className="mt-1 text-sm font-extrabold" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
-              {phone && <div className="mt-3 grid grid-cols-3 gap-2">
-                <a href={"tel:" + phone} className="rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"><Phone className="mx-auto mb-1 size-4" /> اتصال</a>
-                <a href={whatsappHref(phone, "مرحبًا " + (request.client_name || "عميل") + "، بخصوص طلب العقار")} target="_blank" rel="noreferrer" className="rounded-xl bg-[#25D366]/10 py-2.5 text-center text-xs font-bold text-[#25D366]"><WhatsAppIcon className="mx-auto mb-1 size-4" /> واتساب</a>
-                <button type="button" onClick={() => void copyContactPhone(phone)} className="rounded-xl bg-background py-2.5 text-center text-xs font-bold ring-1 ring-line"><Copy className="mx-auto mb-1 size-4" /> نسخ الرقم</button>
+              {phone && <div className="mt-2 flex items-center gap-2">
+                <a href={"tel:" + phone} aria-label="اتصال بالعميل" title="اتصال" className="grid size-9 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>
+                <a href={whatsappHref(phone, "مرحبًا " + (request.client_name || "عميل") + "، بخصوص طلب العقار")} target="_blank" rel="noreferrer" aria-label="واتساب العميل" title="واتساب" className="grid size-9 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-4" /></a>
+                <button type="button" onClick={() => void copyContactPhone(phone)} aria-label="نسخ الرقم" title="نسخ الرقم" className="grid size-9 place-items-center rounded-full bg-background ring-1 ring-line"><Copy className="size-4" /></button>
               </div>}
             </div>
           </article>
@@ -900,9 +900,9 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
               <div className="mt-1 text-sm font-extrabold" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
               {phone && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <a href={"tel:" + phone} className="rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background">اتصال</a>
+                  <a href={"tel:" + phone} aria-label="اتصال بالعميل" title="اتصال" className="grid size-9 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>
                   <a href={whatsappHref(phone, "مرحبًا " + (inquiry.contact_name || "عميل") + "، بخصوص " + (property?.title || "طلب التواصل"))}
-                    target="_blank" rel="noreferrer" className="rounded-xl bg-[#25D366]/10 py-2.5 text-center text-xs font-bold text-[#25D366]">واتساب</a>
+                    target="_blank" rel="noreferrer" aria-label="واتساب العميل" title="واتساب" className="grid size-9 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-4" /></a>
                 </div>
               )}
             </div>
@@ -1654,7 +1654,7 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
                   alt="صورة الطلب العقاري"
                   loading="eager"
                   decoding="async"
-                  className="block aspect-[4/3] w-full object-cover"
+                  className="block h-24 w-full object-cover"
                   onError={(event) => {
                     event.currentTarget.style.display = "none";
                     const fallback = event.currentTarget.parentElement?.querySelector("[data-request-image-fallback]") as HTMLElement | null;
@@ -1665,12 +1665,12 @@ function MarketRequests({ officeId }: { officeId: string | null }) {
               <div
                 data-request-image-fallback
                 style={{ display: r.attachment_url ? "none" : "grid" }}
-                className="aspect-[4/3] w-full place-items-center bg-sand px-4 text-center text-sm text-muted-foreground"
+                className="h-24 w-full place-items-center bg-sand px-4 text-center text-xs text-muted-foreground"
               >
                 لا توجد صورة توضيحية لهذا الطلب
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 p-2.5">
+            <div className="grid grid-cols-2 gap-1.5 p-2">
               <button
                 type="button"
                 onClick={() => {
