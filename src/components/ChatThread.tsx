@@ -402,12 +402,6 @@ export function ChatThread({
           );
         }
 
-        if (error.message.includes("chat_not_available")) {
-          throw new Error(
-            "الدردشة غير متاحة لهذا المكتب حاليًا",
-          );
-        }
-
         throw new Error(
           error.message || "تعذّر إرسال الرسالة",
         );
