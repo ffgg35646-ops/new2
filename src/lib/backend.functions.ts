@@ -2016,7 +2016,6 @@ export const rpcRequest = createServerFn({ method: "POST" })
         if (!office) throw new Error("office_not_found");
 
         const officeId = String(office.id ?? "");
-        const officeName = String(office.name ?? "مكتب عقاري");
         const properties = await getMongoCollection<Record<string, unknown>>("properties");
         const officeProperties = await properties
           .find({ office_id: officeId, is_deleted: { $ne: true } })
@@ -2026,7 +2025,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           officeProperties
             .map((property) => String(property.id ?? ""))
             .filter(Boolean),
-        ))];
+        )];
         const propertyTitleById = new Map(
           officeProperties.map((property) => [
             String(property.id ?? ""),
