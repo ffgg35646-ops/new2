@@ -357,11 +357,12 @@ function OfficeDashboard() {
                     >
                       <span className="min-w-0 flex-1 text-sm font-bold">{person.property_name}</span>
                       <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{person.user_name}</span>
-                      <Heart className="size-4 shrink-0 fill-terracotta text-terracotta" aria-label="حفظ" />
                     </li>
                   ))}
                 </ul>
-              ) : null}
+              ) : (
+                <p className="py-6 text-center text-sm text-muted-foreground">لا توجد عمليات حفظ لعقارات المكتب حتى الآن.</p>
+              )}
             </div>
           </section>
         </div>
