@@ -625,7 +625,7 @@ function AcceptedPrioritySection({
         const whatsapp = String(office?.whatsapp ?? office?.phone ?? "").trim();
         return (
           <article key={request.id} id={"accepted-request-card-" + request.id}
-            className="space-y-3 rounded-2xl bg-surface p-3 ring-2 ring-forest/20">
+            className="space-y-2 rounded-xl bg-surface p-3 ring-1 ring-forest/20 shadow-sm">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="font-display text-sm font-extrabold">
@@ -644,44 +644,33 @@ function AcceptedPrioritySection({
                 className="max-h-64 w-full rounded-xl object-cover" />
             )}
 
-            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
-              <div className="text-[10px] font-semibold text-muted-foreground">تفاصيل الطلب</div>
-              <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{request.description || "لا يوجد وصف إضافي."}</p>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg bg-surface p-2">
-                  <div className="text-[10px] text-muted-foreground">الحي</div>
-                  <div className="mt-1 font-bold">{request.neighborhood || "أي حي"}</div>
-                </div>
-                <div className="rounded-lg bg-surface p-2">
-                  <div className="text-[10px] text-muted-foreground">الميزانية</div>
-                  <div className="mt-1 font-bold">{request.budget_min != null || request.budget_max != null ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س" : "غير محددة"}</div>
-                </div>
-                <div className="rounded-lg bg-surface p-2">
-                  <div className="text-[10px] text-muted-foreground">المساحة</div>
-                  <div className="mt-1 font-bold">{request.area_min != null ? "من " + request.area_min + " م²" : "غير محددة"}</div>
-                </div>
+            <details className="rounded-lg bg-background px-3 py-2 ring-1 ring-line">
+              <summary className="cursor-pointer text-xs font-bold text-forest">تفاصيل الطلب والميزانية</summary>
+              <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{request.description || "لا يوجد وصف إضافي."}</p>
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                <span><span className="text-muted-foreground">الحي: </span><strong>{request.neighborhood || "أي حي"}</strong></span>
+                <span><span className="text-muted-foreground">الميزانية: </span><strong>{request.budget_min != null || request.budget_max != null ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س" : "غير محددة"}</strong></span>
+                <span><span className="text-muted-foreground">المساحة: </span><strong>{request.area_min != null ? "من " + request.area_min + " م²" : "غير محددة"}</strong></span>
               </div>
-            </div>
+            </details>
 
             {offer && (offer.message || offer.price != null) && (
-              <div className="rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">
-                <div className="font-extrabold">بيانات العرض</div>
+              <details className="rounded-lg bg-forest-soft px-3 py-2 text-xs leading-5 text-forest">
+                <summary className="cursor-pointer font-extrabold">تفاصيل العرض{offer.price != null ? " · " + formatPrice(offer.price) + " ر.س" : ""}</summary>
                 {offer.message && <p className="mt-1 whitespace-pre-wrap">{offer.message}</p>}
                 {offer.price != null && <p className="mt-1 font-extrabold">السعر المقترح: {formatPrice(offer.price)} ر.س</p>}
-              </div>
+              </details>
             )}
 
-            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
-              <div className="text-[10px] font-semibold text-muted-foreground">بيانات اتصال المكتب</div>
-              <div className="mt-1 text-sm font-extrabold">{office?.name || "مكتب عقاري"}</div>
-              <div className="mt-1 text-sm" dir="ltr">{phone || "رقم المكتب غير متوفر"}</div>
-              {phone && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <a href={"tel:" + phone} className="rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background">اتصال بالمكتب</a>
-                  <a href={whatsappHref(whatsapp || phone, "مرحبًا " + (office?.name || "المكتب العقاري") + "، بخصوص طلبي العقاري")} target="_blank" rel="noreferrer"
-                    className="rounded-xl bg-[#25D366]/10 py-2.5 text-center text-xs font-bold text-[#25D366]">واتساب المكتب</a>
-                </div>
-              )}
+            <div className="flex items-center gap-2 rounded-lg bg-background px-3 py-2 ring-1 ring-line">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-extrabold">{office?.name || "مكتب عقاري"}</div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">{phone || "رقم المكتب غير متوفر"}</div>
+              </div>
+              {phone && <a href={"tel:" + phone} aria-label="اتصال بالمكتب" title="اتصال بالمكتب"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>}
+              {(whatsapp || phone) && <a href={whatsappHref(whatsapp || phone, "مرحبًا " + (office?.name || "المكتب العقاري") + "، بخصوص طلبي العقاري")} target="_blank" rel="noreferrer" aria-label="واتساب المكتب" title="واتساب المكتب"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-5" /></a>}
             </div>
 
             {isCompleted ? (
@@ -689,11 +678,11 @@ function AcceptedPrioritySection({
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => onEndRequest(request.id)} disabled={pending}
-                  className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50">
+                  className="rounded-lg bg-terracotta-soft py-2 text-[11px] font-bold text-terracotta disabled:opacity-50">
                   إنهاء الطلب
                 </button>
                 <button type="button" onClick={() => onCompleteRequest(request.id)}
-                  className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background">
+                  className="rounded-lg bg-forest py-2 text-[11px] font-bold text-background">
                   تم اكتمال الطلب
                 </button>
               </div>
@@ -708,7 +697,7 @@ function AcceptedPrioritySection({
         const inquiryLabel: Record<string, string> = { viewing: "معاينة", buy: "شراء", rent: "استئجار", question: "استفسار" };
         return (
           <article key={inquiry.id} id={"accepted-inquiry-card-" + inquiry.id}
-            className="space-y-3 rounded-2xl bg-surface p-3 ring-2 ring-forest/20">
+            className="space-y-2 rounded-xl bg-surface p-3 ring-1 ring-forest/20 shadow-sm">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="font-display text-sm font-extrabold">{inquiry.property?.title || "عقار المكتب"}</h3>
@@ -721,16 +710,16 @@ function AcceptedPrioritySection({
                 {inquiry.status === "completed" ? "مكتمل" : "المكتب وافق على طلبك"}
               </span>
             </div>
-            {inquiry.message && <p className="whitespace-pre-wrap rounded-xl bg-background p-3 text-sm leading-5">{inquiry.message}</p>}
-            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
-              <div className="text-[10px] font-semibold text-muted-foreground">بيانات اتصال المكتب</div>
-              <div className="mt-1 text-sm font-extrabold">{inquiry.office?.name || "مكتب عقاري"}</div>
-              <div className="mt-1 text-sm" dir="ltr">{phone || "رقم المكتب غير متوفر"}</div>
-              {phone && <div className="mt-3 grid grid-cols-2 gap-2">
-                <a href={"tel:" + phone} className="rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background">اتصال بالمكتب</a>
-                <a href={whatsappHref(whatsapp || phone, "مرحبًا " + (inquiry.office?.name || "المكتب العقاري") + "، بخصوص طلب التواصل")}
-                  target="_blank" rel="noreferrer" className="rounded-xl bg-[#25D366]/10 py-2.5 text-center text-xs font-bold text-[#25D366]">واتساب المكتب</a>
-              </div>}
+            {inquiry.message && <details className="rounded-lg bg-background px-3 py-2 ring-1 ring-line"><summary className="cursor-pointer text-xs font-bold text-forest">رسالة الطلب</summary><p className="mt-2 whitespace-pre-wrap text-xs leading-5">{inquiry.message}</p></details>}
+            <div className="flex items-center gap-2 rounded-lg bg-background px-3 py-2 ring-1 ring-line">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-extrabold">{inquiry.office?.name || "مكتب عقاري"}</div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">{phone || "رقم المكتب غير متوفر"}</div>
+              </div>
+              {phone && <a href={"tel:" + phone} aria-label="اتصال بالمكتب" title="اتصال بالمكتب"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>}
+              {(whatsapp || phone) && <a href={whatsappHref(whatsapp || phone, "مرحبًا " + (inquiry.office?.name || "المكتب العقاري") + "، بخصوص طلب التواصل")}
+                target="_blank" rel="noreferrer" aria-label="واتساب المكتب" title="واتساب المكتب" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-5" /></a>}
             </div>
             <a href={"/properties/" + encodeURIComponent(inquiry.property_id)}
               className="block rounded-xl bg-background py-2.5 text-center text-xs font-bold text-forest ring-1 ring-line">تفاصيل العقار</a>
@@ -739,9 +728,9 @@ function AcceptedPrioritySection({
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => onEndInquiry(inquiry.id)} disabled={pending}
-                  className="rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50">إنهاء الطلب</button>
+                  className="rounded-lg bg-terracotta-soft py-2 text-[11px] font-bold text-terracotta disabled:opacity-50">إنهاء الطلب</button>
                 <button type="button" onClick={() => onCompleteInquiry(inquiry.id)}
-                  className="rounded-xl bg-forest py-2.5 text-xs font-bold text-background">تم اكتمال الطلب</button>
+                  className="rounded-lg bg-forest py-2 text-[11px] font-bold text-background">تم اكتمال الطلب</button>
               </div>
             )}
           </article>
