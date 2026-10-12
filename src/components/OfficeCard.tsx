@@ -1,9 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { Bell, BellOff, Crown, MessageSquare, ShieldCheck, Star } from "lucide-react";
+import { Bell, BellOff, Check, Crown, MessageSquare, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useFollowState, useSetOfficeNotifications } from "@/lib/follows";
 import { toast } from "sonner";
-import { timeAgo } from "@/lib/format";
 
 export type OfficeCardData = {
   id: string;
@@ -43,7 +42,7 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
           {office.name.trim().charAt(0)}
         </div>
       )}
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className="truncate font-display text-sm font-bold">{office.name}</span>
           {isVerified && (
@@ -56,14 +55,6 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
               <Crown className="size-3" /> احترافي
             </span>
           )}
-        </div>
-        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-          <Star className="size-3 fill-terracotta text-terracotta" />
-          {Number(office.rating_avg ?? office.rating ?? 0).toFixed(1)}
-          <span>({office.reviews_count ?? 0} تقييم)</span>
-          <span>· {office.completed_requests_count ?? 0} طلب مكتمل</span>
-          <span>· {office.properties_count ?? 0} عقارًا</span>
-          <span>· {timeAgo(office.updated_at)}</span>
         </div>
       </div>
       {isPro && !isOffice && !isAdmin && (
@@ -114,7 +105,16 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
           setNotifications.isPending ? "opacity-50" : "",
         ].join(" ")}
       >
-        {notifyOn ? <Bell className="size-4" /> : <BellOff className="size-4" />}
+        {notifyOn ? (
+          <span className="relative grid place-items-center">
+            <Bell className="size-4" />
+            <span className="absolute -right-1.5 -top-1.5 grid size-3.5 place-items-center rounded-full bg-forest text-background ring-2 ring-surface">
+              <Check className="size-2.5" strokeWidth={3} />
+            </span>
+          </span>
+        ) : (
+          <BellOff className="size-4" />
+        )}
       </button>
       <Link
         to="/offices/$officeId"
