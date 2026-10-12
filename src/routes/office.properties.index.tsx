@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Eye, EyeOff, Home, Plus, QrCode, Star, Trash2 } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Home, MoreHorizontal, Pencil, Plus, QrCode, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -15,6 +15,13 @@ import { kindLabel, listingLabel, stateLabel } from "@/lib/constants";
 import { formatArea, formatPrice } from "@/lib/format";
 import { useMyPlan } from "@/lib/plans";
 import { getPublicAppUrl, PUBLIC_APP_URL_HELP } from "@/lib/public-app-url";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/office/properties/")({
   head: () => ({
@@ -40,6 +47,7 @@ function OfficeProperties() {
   const officeId = membership?.office?.id ?? null;
   const canFeature = featuredLimit > 0;
   const [qrFor, setQrFor] = useState<{ id: string; title: string; url: string } | null>(null);
+  const [deleteFor, setDeleteFor] = useState<{ id: string; title: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["office-my-properties", userId, officeId],
@@ -97,6 +105,7 @@ function OfficeProperties() {
       if (error) throw error;
     },
     onSuccess: () => {
+      setDeleteFor(null);
       toast.success("تم حذف العرض");
       qc.invalidateQueries({ queryKey: ["office-my-properties"] });
     },
@@ -154,80 +163,90 @@ function OfficeProperties() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-2.5 flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      if (!canFeature && !p.is_featured) {
-                        toast.error("التمييز ميزة احترافية — رقِّ باقتك لإبراز عقاراتك.");
-                        return;
-                      }
-                      toggleFeatured.mutate({ id: p.id, next: !p.is_featured });
-                    }}
-                    disabled={toggleFeatured.isPending}
-                    aria-label={p.is_featured ? "إلغاء التمييز" : "تمييز"}
-                    className={
-                      "grid size-9 shrink-0 place-items-center rounded-xl " +
-                      (p.is_featured
-                        ? "bg-forest text-background"
-                        : "bg-sand text-muted-foreground")
-                    }
-                  >
-                    <Star className={"size-4 " + (p.is_featured ? "fill-current" : "")} />
-                  </button>
-                  <button
-                    onClick={() => togglePublish.mutate({ id: p.id, next: !p.is_published })}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-sand py-2 text-xs font-semibold"
-                  >
-                    {p.is_published ? (
-                      <EyeOff className="size-3.5" />
-                    ) : (
-                      <Eye className="size-3.5" />
-                    )}
-                    {p.is_published ? "إخفاء" : "نشر"}
-                  </button>
+                <div className="mt-3 grid grid-cols-2 gap-2">
                   <Link
                     to="/office/properties/$propertyId/edit"
                     params={{ propertyId: p.id }}
-                    className="flex-1 rounded-xl bg-forest-soft py-2 text-center text-xs font-semibold text-forest"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-forest py-3 text-sm font-bold text-background shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2"
                   >
+                    <Pencil className="size-4" />
                     تعديل
                   </Link>
                   <Link
                     to="/properties/$propertyId"
                     params={{ propertyId: p.id }}
-                    className="flex-1 rounded-xl bg-sand py-2 text-center text-xs font-semibold"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-sand py-3 text-sm font-bold text-foreground ring-1 ring-forest/20 transition hover:bg-forest-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2"
                   >
+                    <Eye className="size-4 text-forest" />
                     معاينة
                   </Link>
-                  <button
-                    onClick={() => {
-                      if (!canFeature) {
-                        toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
-                        return;
-                      }
-                      if (!p.is_published) {
-                        toast.error("انشر العقار أولًا لإنشاء رمز QR صالح للمشاركة.");
-                        return;
-                      }
-                      const url = getPublicAppUrl(`/properties/${p.id}`);
-                      if (!url) {
-                        toast.error(PUBLIC_APP_URL_HELP);
-                        return;
-                      }
-                      setQrFor({ id: p.id, title: p.title, url });
-                    }}
-                    className="grid size-9 place-items-center rounded-xl bg-sand text-forest"
-                    aria-label="رمز QR"
-                  >
-                    <QrCode className="size-4" />
-                  </button>
-                  <button
-                    onClick={() => remove.mutate(p.id)}
-                    className="grid size-9 place-items-center rounded-xl bg-destructive/10 text-destructive"
-                    aria-label="حذف"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+                </div>
+
+                <div className="mt-2 flex justify-start">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 rounded-xl bg-background px-3 py-2 text-xs font-semibold text-muted-foreground ring-1 ring-line transition hover:text-foreground hover:ring-forest/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+                        aria-label={`خيارات العقار: ${p.title}`}
+                      >
+                        <MoreHorizontal className="size-4" />
+                        خيارات أخرى
+                        <ChevronDown className="size-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" sideOffset={6} className="w-52" dir="rtl">
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          if (!canFeature && !p.is_featured) {
+                            toast.error("التمييز ميزة احترافية — رقِّ باقتك لإبراز عقاراتك.");
+                            return;
+                          }
+                          toggleFeatured.mutate({ id: p.id, next: !p.is_featured });
+                        }}
+                        disabled={toggleFeatured.isPending}
+                      >
+                        <Star className={`size-4 ${p.is_featured ? "fill-current text-forest" : ""}`} />
+                        {p.is_featured ? "إلغاء التمييز" : "تمييز العرض"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => togglePublish.mutate({ id: p.id, next: !p.is_published })}
+                        disabled={togglePublish.isPending}
+                      >
+                        {p.is_published ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                        {p.is_published ? "إخفاء العقار" : "إعادة نشر العقار"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          if (!canFeature) {
+                            toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
+                            return;
+                          }
+                          if (!p.is_published) {
+                            toast.error("انشر العقار أولًا لإنشاء رمز QR صالح للمشاركة.");
+                            return;
+                          }
+                          const url = getPublicAppUrl(`/properties/${p.id}`);
+                          if (!url) {
+                            toast.error(PUBLIC_APP_URL_HELP);
+                            return;
+                          }
+                          setQrFor({ id: p.id, title: p.title, url });
+                        }}
+                      >
+                        <QrCode className="size-4" />
+                        رمز QR
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={() => setDeleteFor({ id: p.id, title: p.title })}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="size-4" />
+                        حذف العقار
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             ))}
@@ -240,6 +259,52 @@ function OfficeProperties() {
           />
         )}
       </main>
+
+      {deleteFor && (
+        <div
+          className="fixed inset-0 z-[60] grid place-items-center bg-black/55 p-4"
+          role="presentation"
+          onClick={() => !remove.isPending && setDeleteFor(null)}
+        >
+          <section
+            className="w-full max-w-sm rounded-3xl bg-surface p-5 shadow-2xl ring-1 ring-line"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-property-title"
+            aria-describedby="delete-property-description"
+            dir="rtl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-destructive/10 text-destructive">
+              <Trash2 className="size-6" />
+            </div>
+            <h2 id="delete-property-title" className="mt-3 text-center font-display text-lg font-extrabold">
+              تأكيد حذف العقار
+            </h2>
+            <p id="delete-property-description" className="mt-2 text-center text-sm leading-6 text-muted-foreground">
+              هل أنت متأكد أنك تريد حذف «{deleteFor.title}»؟ سيُزال العقار من قائمة عروضك.
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteFor(null)}
+                disabled={remove.isPending}
+                className="rounded-xl bg-sand py-3 text-sm font-bold disabled:opacity-50"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => remove.mutate(deleteFor.id)}
+                disabled={remove.isPending}
+                className="rounded-xl bg-destructive py-3 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {remove.isPending ? "جارٍ الحذف..." : "نعم، احذف العقار"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {qrFor && (
         <QrDialog
