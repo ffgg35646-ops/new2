@@ -511,12 +511,6 @@ function RequestsPage() {
           />
         )}
 
-        <a
-          href="/request"
-          className="block w-full rounded-2xl bg-terracotta py-3.5 text-center text-sm font-display font-bold text-background"
-        >
-          نشر طلب عقاري جديد
-        </a>
       </main>
 
       <CompleteViewingReasonModal
