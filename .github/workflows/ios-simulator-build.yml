@@ -75,19 +75,30 @@ jobs:
             build
 
       - name: Launch the app in an iPhone simulator
+        timeout-minutes: 8
         shell: bash
         run: |
-          set -euo pipefail
+          set -euxo pipefail
+          echo "Available iPhone simulators:"
+          xcrun simctl list devices available | grep "iPhone" || true
           DEVICE_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
           if [ -z "$DEVICE_ID" ]; then
             echo "No available iPhone simulator was found."
             exit 1
           fi
+          echo "Selected simulator: $DEVICE_ID"
+          echo "Booting simulator..."
           xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
+          echo "Waiting for simulator startup..."
           xcrun simctl bootstatus "$DEVICE_ID" -b
-          xcrun simctl install "$DEVICE_ID" "$RUNNER_TEMP/ios-build/Build/Products/Debug-iphonesimulator/App.app"
+          echo "Installing app..."
+          APP_PATH="$RUNNER_TEMP/ios-build/Build/Products/Debug-iphonesimulator/App.app"
+          test -d "$APP_PATH"
+          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+          echo "Launching app..."
           xcrun simctl launch "$DEVICE_ID" cloud.baytialkhass.app
           sleep 5
+          echo "Capturing simulator screenshot..."
           xcrun simctl io "$DEVICE_ID" screenshot "$RUNNER_TEMP/aqar-iphone-simulator.png"
 
       - name: Upload simulator screenshot
