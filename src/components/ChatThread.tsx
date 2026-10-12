@@ -572,9 +572,9 @@ export function ChatThread({
                 key={message.id}
                 className={
                   "max-w-[86%] overflow-hidden rounded-2xl text-sm shadow-sm sm:max-w-[78%] " +
-                  (isOffice ? !mine : mine)
+                  ((isOffice ? !mine : mine)
                     ? "ms-auto rounded-br-md bg-forest text-white"
-                    : "me-auto rounded-bl-md bg-white text-slate-900 ring-1 ring-slate-200 dark:bg-slate-100 dark:text-slate-900 dark:ring-slate-300")
+                    : "me-auto rounded-bl-md bg-white text-slate-900 ring-1 ring-slate-200 dark:bg-slate-100 dark:text-slate-900 dark:ring-slate-300"))
                 }
               >
                 {message.image_url && (
