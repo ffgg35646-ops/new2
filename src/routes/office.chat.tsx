@@ -60,6 +60,7 @@ type ConversationRow = {
 function OfficeChatPage() {
   const { data: membership } = useMyOffice();
   const { c } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const officeId = membership?.office?.id ?? null;
   const { chatEnabled, isLoading } = useMyPlan();
   const [activeId, setActiveId] = useState<string | null>(c ?? null);
@@ -91,7 +92,7 @@ function OfficeChatPage() {
 
   const conversations = useQuery({
     queryKey: ["office-conversations", officeId],
-    enabled: !!officeId && chatEnabled,
+    enabled: !!officeId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("conversations")
@@ -145,10 +146,10 @@ function OfficeChatPage() {
   });
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className={activeId ? "flex h-dvh min-h-0 flex-col overflow-hidden bg-background" : "min-h-screen bg-background pb-24"}>
       <AppHeader showSearch={false} />
 
-      <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-4">
+      <div className={"mx-auto w-full max-w-2xl " + (activeId ? "flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-2" : "space-y-4 px-4 py-4")}>
         <div className="flex items-center justify-between gap-3">
           <h1 className="font-display text-xl font-extrabold">الدردشة</h1>
           {!!conversations.data?.length && (
@@ -158,11 +159,24 @@ function OfficeChatPage() {
           )}
         </div>
 
-        {isLoading ? (
+        {activeId ? (
+          <ChatThread
+            conversationId={activeId}
+            title={conversations.data?.find((conversation) => conversation.id === activeId)?.client?.full_name ?? "العميل"}
+            onBack={() => {
+              setActiveId(null);
+              void navigate({ search: { c: undefined } });
+            }}
+          />
+        ) : isLoading ? (
           <div className="grid place-items-center py-16">
             <Loader2 className="size-5 animate-spin text-forest" />
           </div>
-        ) : !chatEnabled ? (
+        ) : conversations.isLoading ? (
+          <div className="grid place-items-center py-16">
+            <Loader2 className="size-5 animate-spin text-forest" />
+          </div>
+        ) : !chatEnabled && !conversations.data?.length ? (
           <section className="rounded-3xl bg-surface p-5 text-center ring-1 ring-line">
             <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-terracotta-soft text-terracotta">
               <Crown className="size-6" />
@@ -185,17 +199,18 @@ function OfficeChatPage() {
               عرض طلبات التواصل الواردة
             </Link>
           </section>
-        ) : activeId ? (
-          <ChatThread
-            conversationId={activeId}
-            title={conversations.data?.find((conversation) => conversation.id === activeId)?.client?.full_name ?? "العميل"}
-            onBack={() => setActiveId(null)}
-          />
-        ) : conversations.isLoading ? (
-          <div className="grid place-items-center py-16">
-            <Loader2 className="size-5 animate-spin text-forest" />
-          </div>
         ) : conversations.data?.length ? (
+          <>
+            {!chatEnabled && (
+              <div className="rounded-2xl bg-sand px-3.5 py-3 text-xs leading-6 text-muted-foreground">
+                انتهت صلاحية الباقة الاحترافية. يمكنك متابعة محادثاتك السابقة، لكن بدء محادثات جديدة يتطلب تجديد الباقة.
+                {" "}
+                <Link to="/office/subscription" className="font-bold text-forest underline underline-offset-4">
+                  تجديد الباقة
+                </Link>
+              </div>
+            )}
+
           <ul className="space-y-2">
             {conversations.data.map((c, index) => (
               <li key={c.id}>
@@ -238,7 +253,8 @@ function OfficeChatPage() {
               </li>
             ))}
           </ul>
-        ) : (
+
+          </>        ) : (
           <EmptyState
             icon={MessageSquare}
             title="لا توجد محادثات بعد"
@@ -247,7 +263,7 @@ function OfficeChatPage() {
         )}
       </div>
 
-      <BottomNav variant="office" />
+      {!activeId && <BottomNav variant="office" />}
     </div>
   );
 }
