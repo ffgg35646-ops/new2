@@ -854,14 +854,21 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
             >
               <X className="size-4" /> إلغاء العرض
             </button>
-            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
-              <div className="text-[10px] font-semibold text-muted-foreground">بيانات اتصال العميل</div>
-              <div className="mt-1 text-sm font-extrabold" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
-              {phone && <div className="mt-2 flex items-center gap-2">
-                <a href={"tel:" + phone} aria-label="اتصال بالعميل" title="اتصال" className="grid size-9 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>
-                <a href={whatsappHref(phone, "مرحبًا " + (request.client_name || "عميل") + "، بخصوص طلب العقار")} target="_blank" rel="noreferrer" aria-label="واتساب العميل" title="واتساب" className="grid size-9 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-4" /></a>
-                <button type="button" onClick={() => void copyContactPhone(phone)} aria-label="نسخ الرقم" title="نسخ الرقم" className="grid size-9 place-items-center rounded-full bg-background ring-1 ring-line"><Copy className="size-4" /></button>
-              </div>}
+            <div className="mt-2 flex items-center gap-2 border-t border-line/70 pt-2">
+              <div className="flex shrink-0 items-center gap-1.5">
+                {phone ? (
+                  <>
+                    <a href={whatsappHref(phone, "مرحبًا " + (request.client_name || "عميل") + "، بخصوص طلب العقار")} target="_blank" rel="noreferrer" aria-label="واتساب العميل" title="واتساب" className="grid size-8 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-4" /></a>
+                    <a href={"tel:" + phone} aria-label="اتصال بالعميل" title="اتصال" className="grid size-8 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>
+                  </>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">لا يوجد رقم</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 text-right">
+                <div className="truncate text-[10px] font-semibold text-muted-foreground">بيانات اتصال العميل</div>
+                <div className="truncate text-[11px] font-bold text-foreground" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
+              </div>
             </div>
           </article>
         );
@@ -890,21 +897,26 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
                 تم قبول طلب التواصل
               </span>
             </div>
-            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
-              <div className="text-[10px] font-semibold text-muted-foreground">اسم العميل وتفاصيل طلبه</div>
-              <div className="mt-1 text-sm font-extrabold">{inquiry.contact_name || "عميل"}</div>
-              {inquiry.message && <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{inquiry.message}</p>}
+            <div className="mt-2">
+              <div className="text-xs font-extrabold">{inquiry.contact_name || "عميل"}</div>
+              {inquiry.message && <p className="mt-1 whitespace-pre-wrap text-[11px] leading-5 text-muted-foreground">{inquiry.message}</p>}
             </div>
-            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
-              <div className="text-[10px] font-semibold text-muted-foreground">بيانات اتصال العميل</div>
-              <div className="mt-1 text-sm font-extrabold" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
-              {phone && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <a href={"tel:" + phone} aria-label="اتصال بالعميل" title="اتصال" className="grid size-9 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>
-                  <a href={whatsappHref(phone, "مرحبًا " + (inquiry.contact_name || "عميل") + "، بخصوص " + (property?.title || "طلب التواصل"))}
-                    target="_blank" rel="noreferrer" aria-label="واتساب العميل" title="واتساب" className="grid size-9 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-4" /></a>
-                </div>
-              )}
+            <div className="mt-2 flex items-center gap-2 border-t border-line/70 pt-2">
+              <div className="flex shrink-0 items-center gap-1.5">
+                {phone ? (
+                  <>
+                    <a href={whatsappHref(phone, "مرحبًا " + (inquiry.contact_name || "عميل") + "، بخصوص " + (property?.title || "طلب التواصل"))}
+                      target="_blank" rel="noreferrer" aria-label="واتساب العميل" title="واتساب" className="grid size-8 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-4" /></a>
+                    <a href={"tel:" + phone} aria-label="اتصال بالعميل" title="اتصال" className="grid size-8 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>
+                  </>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">لا يوجد رقم</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 text-right">
+                <div className="truncate text-[10px] font-semibold text-muted-foreground">بيانات اتصال العميل</div>
+                <div className="truncate text-[11px] font-bold text-foreground" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
+              </div>
             </div>
           </article>
         );
