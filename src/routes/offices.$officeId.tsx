@@ -10,7 +10,6 @@ import {
   Clock,
   FileCheck2,
   MapPin,
-  MessageCircle,
   Phone,
   Bell,
   BellOff,
@@ -423,7 +422,7 @@ function OfficePage() {
                     aria-label="مراسلة واتساب"
                     className="grid aspect-square place-items-center rounded-2xl bg-forest-soft text-forest transition hover:opacity-90"
                   >
-                    <MessageCircle className="size-5" />
+                    <WhatsAppIcon className="size-5" />
                   </a>
                 ) : (
                   <button
@@ -433,7 +432,7 @@ function OfficePage() {
                     disabled
                     className="grid aspect-square place-items-center rounded-2xl bg-sand text-muted-foreground opacity-60"
                   >
-                    <MessageCircle className="size-5" />
+                    <WhatsAppIcon className="size-5" />
                   </button>
                 )}
                 <button
@@ -598,6 +597,32 @@ function OfficePage() {
         )}
       </main>
     </div>
+  );
+}
+
+function WhatsAppIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      role="img"
+      aria-label="WhatsApp"
+      className={className}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        fill="#25D366"
+        d="M16.02 2.5a13.3 13.3 0 0 0-11.4 20.17L2.8 29.2l6.7-1.75A13.3 13.3 0 1 0 16.02 2.5Z"
+      />
+      <path
+        fill="#FFFFFF"
+        d="M23.57 19.46c-.32-.16-1.9-.94-2.2-1.05-.3-.11-.51-.16-.73.16-.21.32-.83 1.05-1.02 1.26-.19.22-.38.24-.7.08-.32-.16-1.35-.5-2.57-1.59-.95-.85-1.6-1.9-1.79-2.22-.19-.32-.02-.49.14-.65.14-.14.32-.38.49-.57.16-.19.21-.32.32-.54.11-.21.05-.4-.03-.57-.08-.16-.73-1.76-1-2.41-.26-.63-.53-.54-.73-.55h-.62c-.22 0-.57.08-.86.4-.3.32-1.13 1.1-1.13 2.68s1.16 3.11 1.32 3.32c.16.22 2.28 3.48 5.52 4.88.77.33 1.37.53 1.84.68.77.24 1.47.21 2.02.13.62-.09 1.9-.78 2.17-1.54.27-.76.27-1.41.19-1.54-.08-.13-.3-.21-.62-.37Z"
+      />
+      <path
+        fill="#FFFFFF"
+        d="M16.03 5.05a10.7 10.7 0 0 0-9.15 16.25l.26.42-1.08 3.95 4.05-1.06.4.24a10.7 10.7 0 1 0 5.52-19.8Zm0 19.4c-1.7 0-3.37-.45-4.82-1.3l-.35-.2-2.4.63.64-2.34-.23-.38a8.08 8.08 0 1 1 7.16 3.59Z"
+      />
+    </svg>
   );
 }
 
