@@ -214,6 +214,7 @@ function ChatsPage() {
 
   return (
     <div
+      style={activeId ? { height: "100dvh", minHeight: 0 } : undefined}
       className={
         "mx-auto flex w-full flex-col bg-background " +
         (activeId
