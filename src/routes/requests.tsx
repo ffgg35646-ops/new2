@@ -625,7 +625,7 @@ function AcceptedPrioritySection({
         const whatsapp = String(office?.whatsapp ?? office?.phone ?? "").trim();
         return (
           <article key={request.id} id={"accepted-request-card-" + request.id}
-            className="space-y-2 rounded-xl bg-surface p-3 ring-1 ring-forest/20 shadow-sm">
+            className="space-y-1.5 rounded-xl bg-surface p-2.5 ring-1 ring-forest/20 shadow-sm">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="font-display text-sm font-extrabold">
@@ -641,7 +641,7 @@ function AcceptedPrioritySection({
 
             {request.attachment_url && (
               <img src={request.attachment_url} alt="صورة الطلب" loading="lazy"
-                className="max-h-64 w-full rounded-xl object-cover" />
+                className="h-20 w-full rounded-lg object-cover" />
             )}
 
             <details className="rounded-lg bg-background px-3 py-2 ring-1 ring-line">
@@ -662,7 +662,7 @@ function AcceptedPrioritySection({
               </details>
             )}
 
-            <div className="flex items-center gap-2 rounded-lg bg-background px-3 py-2 ring-1 ring-line">
+            <div className="flex items-center gap-2 rounded-lg bg-background px-2.5 py-1.5 ring-1 ring-line">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs font-extrabold">{office?.name || "مكتب عقاري"}</div>
                 <div className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">{phone || "رقم المكتب غير متوفر"}</div>
