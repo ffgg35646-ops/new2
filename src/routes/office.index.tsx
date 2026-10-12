@@ -182,13 +182,6 @@ function OfficeDashboard() {
           </Link>
         </div>
 
-        <Link
-          to="/plans"
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
-        >
-          الباقات
-        </Link>
-
         {!isOwner && (
           <Link
             to="/office/profile"
