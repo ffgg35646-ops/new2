@@ -45,7 +45,7 @@ export function ChatThread({
   title?: string;
   readOnly?: boolean;
 }) {
-  const { userId } = useAuth();
+  const { userId, isOffice } = useAuth();
   const qc = useQueryClient();
 
   const [text, setText] = useState("");
@@ -479,7 +479,7 @@ export function ChatThread({
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl bg-surface p-3 ring-1 ring-line sm:p-4">
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-surface p-2 ring-1 ring-line sm:p-3">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line pb-3">
         <div className="min-w-0 flex-1">
           <button
@@ -551,7 +551,7 @@ export function ChatThread({
         </div>
       )}
 
-      <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 py-2">
+      <div className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-1 py-2">
         {messages.isLoading ? (
           <div className="grid place-items-center py-10">
             <Loader2 className="size-5 animate-spin text-forest" />
@@ -566,9 +566,9 @@ export function ChatThread({
                 key={message.id}
                 className={
                   "max-w-[86%] overflow-hidden rounded-2xl text-sm shadow-sm sm:max-w-[78%] " +
-                  (mine
-                    ? "ms-auto rounded-br-md bg-forest text-background"
-                    : "me-auto rounded-bl-md bg-terracotta-soft text-foreground ring-1 ring-line")
+                  (isOffice ? !mine : mine)
+                    ? "ms-auto rounded-br-md bg-forest text-white"
+                    : "me-auto rounded-bl-md bg-white text-slate-900 ring-1 ring-slate-200 dark:bg-slate-100 dark:text-slate-900 dark:ring-slate-300")
                 }
               >
                 {message.image_url && (
@@ -643,7 +643,7 @@ export function ChatThread({
       </div>
 
       {!readOnly && <form
-        className="mt-2 flex shrink-0 items-center gap-2 border-t border-line bg-surface pt-3 pb-1"
+        className="sticky bottom-0 z-10 mt-1 flex shrink-0 items-center gap-2 border-t border-line bg-surface pt-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
         onSubmit={(event) => {
           event.preventDefault();
 
