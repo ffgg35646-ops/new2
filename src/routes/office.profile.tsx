@@ -270,12 +270,12 @@ function OfficeProfile() {
                     title="رفع أو تغيير صورة المكتب"
                     onClick={() => logoInputRef.current?.click()}
                     disabled={logoBusy}
-                    className="relative grid size-14 place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest ring-1 ring-line disabled:opacity-60"
+                    className="relative grid size-20 place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest ring-1 ring-line disabled:opacity-60"
                   >
                     {logoUrl ? (
                       <img src={logoUrl} alt="صورة المكتب" className="size-full object-cover" />
                     ) : (
-                      <Building2 className="size-7" />
+                      <Building2 className="size-10" />
                     )}
                     <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/70 px-0.5 py-1 text-center text-[9px] font-bold text-white">
                       {logoBusy ? (
@@ -298,11 +298,11 @@ function OfficeProfile() {
                   />
                 </>
               ) : (
-                <span className="grid size-14 place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest ring-1 ring-line">
+                <span className="grid size-20 place-items-center overflow-hidden rounded-2xl bg-forest/10 text-forest ring-1 ring-line">
                   {logoUrl ? (
                     <img src={logoUrl} alt="صورة المكتب" className="size-full object-cover" />
                   ) : (
-                    <Building2 className="size-7" />
+                    <Building2 className="size-10" />
                   )}
                 </span>
               )}
@@ -330,24 +330,6 @@ function OfficeProfile() {
             </p>
           )}
           
-          {office && (
-            <button
-              onClick={() => {
-                if (!isPro) {
-                  toast.error("رمز QR ميزة احترافية — رقِّ باقتك لإنشاء رمز مكتبك.");
-                  return;
-                }
-                if (!officeQrUrl) {
-                  toast.error(PUBLIC_APP_URL_HELP);
-                  return;
-                }
-                setShowQr(true);
-              }}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-sand py-2.5 text-xs font-bold text-forest"
-            >
-              <QrCode className="size-4" /> رمز QR للمكتب {!isPro && "🔒"}
-            </button>
-          )}
         </div>
 
         {isLoading ? (
@@ -508,7 +490,7 @@ function OfficeProfile() {
           </div>
         ) : (
           <div className="space-y-3 rounded-2xl bg-surface p-4 ring-1 ring-line">
-            <h2 className="font-display text-sm font-extrabold">ملخص المكتب</h2>
+            <h2 className="font-display text-sm font-extrabold">إعدادات عامة</h2>
             <div className="space-y-2">
               {[
                 { id: "basic", title: "بيانات المكتب", rows: readRows.filter(([label]) => ["اسم المكتب", "اسم المسؤول", "نبذة المكتب"].includes(label)) },
@@ -525,7 +507,6 @@ function OfficeProfile() {
                   >
                     <span>
                       <span className="block text-sm font-bold">{section.title}</span>
-                      <span className="mt-1 block text-xs text-muted-foreground">{section.rows.length} بيانات</span>
                     </span>
                     <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === section.id && "rotate-180")} />
                   </button>
@@ -601,23 +582,50 @@ function OfficeProfile() {
           </Link>
         )}
 
-        <button
-          type="button"
-          onClick={() => setSupportOpen(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-surface p-4 text-sm font-semibold ring-1 ring-line"
-        >
-          تواصل مع الدعم
-        </button>
-
-        <button
-          onClick={toggleTheme}
-          className="flex w-full items-center justify-between rounded-2xl bg-surface p-4 ring-1 ring-line"
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold">
-            <Moon className="size-4 text-terracotta" /> الوضع الليلي
-          </span>
-          <span className="text-xs text-muted-foreground">{dark ? "مفعّل" : "معطّل"}</span>
-        </button>
+        <section className="space-y-2 rounded-2xl bg-surface p-4 ring-1 ring-line">
+          <h2 className="font-display text-sm font-extrabold">إعدادات</h2>
+          {office && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!isPro) {
+                  toast.error("رمز QR ميزة احترافية — رقِّ باقتك لإنشاء رمز مكتبك.");
+                  return;
+                }
+                if (!officeQrUrl) {
+                  toast.error(PUBLIC_APP_URL_HELP);
+                  return;
+                }
+                setShowQr(true);
+              }}
+              className="flex w-full items-center justify-between gap-3 rounded-xl bg-background p-3 text-sm font-semibold ring-1 ring-line transition hover:ring-forest/30"
+            >
+              <span className="flex items-center gap-2">
+                <QrCode className="size-4 text-forest" /> رمز QR للمكتب
+              </span>
+              {!isPro && <span className="text-xs text-muted-foreground">ترقية 🔒</span>}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setSupportOpen(true)}
+            className="flex w-full items-center justify-between gap-3 rounded-xl bg-background p-3 text-sm font-semibold ring-1 ring-line transition hover:ring-forest/30"
+          >
+            <span className="flex items-center gap-2">
+              <ShieldCheck className="size-4 text-terracotta" /> تواصل مع الدعم
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="flex w-full items-center justify-between gap-3 rounded-xl bg-background p-3 ring-1 ring-line transition hover:ring-forest/30"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <Moon className="size-4 text-terracotta" /> الوضع الليلي
+            </span>
+            <span className="text-xs text-muted-foreground">{dark ? "مفعّل" : "معطّل"}</span>
+          </button>
+        </section>
 
         <button
           onClick={async () => {
