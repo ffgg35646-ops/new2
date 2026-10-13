@@ -107,7 +107,7 @@ jobs:
           xcrun simctl boot "$IOS_SIMULATOR_UDID" || true
           xcrun simctl bootstatus "$IOS_SIMULATOR_UDID" -b
           xcodebuild \
-            -project ios/App/App.xcodeproj \
+            -workspace ios/App/App.xcworkspace \
             -scheme App \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
