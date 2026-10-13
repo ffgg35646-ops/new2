@@ -66,6 +66,94 @@ SET status = 'accepted',
     updated_at = now()
 WHERE status = 'new';
 
+-- Automatically accept the first office offer received for an active market request.
+-- The request schema holds one accepted_offer_id, so later offers cannot also be accepted.
+WITH ranked_offers AS (
+  SELECT
+    oo.id,
+    oo.request_id,
+    row_number() OVER (
+      PARTITION BY oo.request_id
+      ORDER BY oo.created_at ASC, oo.id ASC
+    ) AS offer_rank
+  FROM public.office_offers oo
+  JOIN public.property_requests r ON r.id = oo.request_id
+  WHERE oo.status = 'sent'
+    AND r.status = 'active'
+    AND r.accepted_offer_id IS NULL
+),
+accepted_offers AS (
+  UPDATE public.office_offers oo
+  SET status = 'accepted',
+      end_reason = NULL
+  FROM ranked_offers ranked
+  WHERE ranked.offer_rank = 1
+    AND oo.id = ranked.id
+  RETURNING oo.id, oo.request_id
+)
+UPDATE public.property_requests r
+SET accepted_offer_id = accepted.id,
+    updated_at = now()
+FROM accepted_offers accepted
+WHERE r.id = accepted.request_id
+  AND r.status = 'active'
+  AND r.accepted_offer_id IS NULL;
+
+-- Close other already-sent offers once a request has been automatically accepted,
+-- or when the request is no longer active.
+UPDATE public.office_offers oo
+SET status = 'ended',
+    end_reason = COALESCE(
+      NULLIF(oo.end_reason, ''),
+      'تم قبول عرض آخر تلقائيًا أو لم يعد الطلب متاحًا'
+    )
+FROM public.property_requests r
+WHERE r.id = oo.request_id
+  AND oo.status = 'sent'
+  AND (r.accepted_offer_id IS NOT NULL OR r.status <> 'active');
+
+CREATE OR REPLACE FUNCTION public.auto_accept_first_market_offer()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $
+BEGIN
+  IF COALESCE(NEW.status, 'sent') <> 'sent' THEN
+    RETURN NEW;
+  END IF;
+
+  UPDATE public.property_requests
+  SET accepted_offer_id = NEW.id,
+      updated_at = now()
+  WHERE id = NEW.request_id
+    AND status = 'active'
+    AND accepted_offer_id IS NULL;
+
+  IF FOUND THEN
+    UPDATE public.office_offers
+    SET status = 'accepted',
+        end_reason = NULL
+    WHERE id = NEW.id;
+  ELSE
+    UPDATE public.office_offers
+    SET status = 'ended',
+        end_reason = 'تم قبول عرض آخر تلقائيًا أو لم يعد الطلب متاحًا'
+    WHERE id = NEW.id;
+  END IF;
+
+  RETURN NEW;
+END;
+$;
+
+DROP TRIGGER IF EXISTS trg_auto_accept_first_market_offer
+ON public.office_offers;
+
+CREATE TRIGGER trg_auto_accept_first_market_offer
+AFTER INSERT ON public.office_offers
+FOR EACH ROW
+EXECUTE FUNCTION public.auto_accept_first_market_offer();
+
 -- Let an office start a conversation only with a client connected to that office
 -- through an inquiry, viewing booking, or accepted/completed market offer.
 DROP POLICY IF EXISTS conversations_insert_participant ON public.conversations;
