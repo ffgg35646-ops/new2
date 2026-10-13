@@ -59,7 +59,7 @@ function OfficePage() {
   const { userId } = useAuth();
   const [distance, setDistance] = useState<number | null>(null);
   const [distanceLoading, setDistanceLoading] = useState(false);
-  const { data: followState } = useFollowState(officeId);
+  const { data: followState, isLoading: followLoading } = useFollowState(officeId);
   const isFollowing = followState?.following ?? false;
   const notifyOn = followState?.notify ?? false;
   const setNotify = useSetOfficeNotifications();
@@ -465,20 +465,20 @@ function OfficePage() {
                 <button
                   type="button"
                   onClick={onToggleFollow}
-                  disabled={toggleFollow.isPending || setNotify.isPending}
+                  disabled={followLoading || toggleFollow.isPending || setNotify.isPending}
                   aria-pressed={!!isFollowing}
                   className={cn(
                     "flex h-10 w-full min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold transition disabled:opacity-60",
                     isFollowing
-                      ? "bg-forest-soft text-forest ring-1 ring-forest/30"
-                      : "bg-terracotta text-background",
+                      ? "bg-forest text-background ring-2 ring-forest/30"
+                      : "bg-forest text-background hover:opacity-90",
                   )}
                 >
                   {isFollowing ? (
                     <>
                       <Check className="size-4 shrink-0" />
                       <span>متابَع</span>
-                      {notifyOn && <Bell className="size-4 shrink-0" />}
+                      <Bell className="size-4 shrink-0" />
                     </>
                   ) : (
                     <>
