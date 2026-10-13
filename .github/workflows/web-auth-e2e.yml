@@ -1,0 +1,290 @@
+name: Live Web Auth E2E
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/web-auth-e2e.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  auth-e2e:
+    name: Register, verify email, and sign in on production web
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SITE_URL: https://new2-five-roan.vercel.app
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright and Chromium
+        run: |
+          mkdir -p /tmp/aqar-web-e2e
+          cd /tmp/aqar-web-e2e
+          npm init -y
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+
+      - name: Test individual and office signup plus fresh-session login
+        run: |
+          cd /tmp/aqar-web-e2e
+          node --input-type=module <<'NODE'
+          import { chromium } from "playwright";
+          import { mkdir, writeFile } from "node:fs/promises";
+          import { resolve } from "node:path";
+
+          const base = (process.env.SITE_URL || "").replace(/\/+$/, "");
+          const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+          const outDir = resolve(workspace, "web-auth-test-results");
+          await mkdir(outDir, { recursive: true });
+          if (!/^https:\/\/.+/.test(base)) throw new Error("SITE_URL must be HTTPS");
+
+          const report = {
+            site: base,
+            startedAt: new Date().toISOString(),
+            tests: [],
+            browserErrors: [],
+            http5xx: [],
+          };
+          let currentRole = "setup";
+
+          async function mailRequest(path, options = {}) {
+            const response = await fetch("https://api.mail.tm" + path, {
+              ...options,
+              headers: {
+                accept: "application/json",
+                ...(options.body ? { "content-type": "application/json" } : {}),
+                ...(options.token ? { authorization: "Bearer " + options.token } : {}),
+                ...(options.headers || {}),
+              },
+              signal: AbortSignal.timeout(15000),
+            });
+            const text = await response.text();
+            let body;
+            try { body = text ? JSON.parse(text) : {}; } catch { body = { raw: text }; }
+            if (!response.ok) {
+              throw new Error("Temporary inbox API " + response.status + " at " + path + ": " + JSON.stringify(body).slice(0, 250));
+            }
+            return body;
+          }
+
+          async function makeMailbox() {
+            const domains = await mailRequest("/domains?page=1");
+            const domainList = domains["hydra:member"] || [];
+            const domain = domainList.find((d) => d.isActive && !d.isPrivate)?.domain
+              || domainList.find((d) => d.isActive)?.domain;
+            if (!domain) throw new Error("No active temporary email domain is available");
+
+            const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+            const address = "aqarqa" + suffix + "@" + domain;
+            const password = "Tmp-" + Math.random().toString(36).slice(2) + "-" + Date.now().toString(36);
+            const account = await mailRequest("/accounts", {
+              method: "POST", body: JSON.stringify({ address, password }),
+            });
+            const tokenResult = await mailRequest("/token", {
+              method: "POST", body: JSON.stringify({ address, password }),
+            });
+            return {
+              address,
+              id: account.id,
+              token: tokenResult.token,
+              password,
+            };
+          }
+
+          async function waitForCode(mailbox, timeoutMs = 120000) {
+            const end = Date.now() + timeoutMs;
+            while (Date.now() < end) {
+              const inbox = await mailRequest("/messages?page=1", { token: mailbox.token });
+              const messages = inbox["hydra:member"] || [];
+              for (const message of messages) {
+                const detail = await mailRequest("/messages/" + encodeURIComponent(message.id), {
+                  token: mailbox.token,
+                });
+                const content = JSON.stringify({
+                  subject: detail.subject,
+                  intro: detail.intro,
+                  text: detail.text,
+                  html: detail.html,
+                });
+                const nearLabel = content.match(/(?:رمز.{0,30}|verification.{0,30}|confirm.{0,30}|code.{0,30})(\d{6})/i);
+                const allCodes = content.match(/(?<!\d)\d{6}(?!\d)/g) || [];
+                const code = nearLabel?.[1] || allCodes[0];
+                if (code) return code;
+              }
+              await new Promise((r) => setTimeout(r, 2500));
+            }
+            throw new Error("No verification code reached the temporary inbox within " + (timeoutMs / 1000) + " seconds");
+          }
+
+          async function screenshot(page, name) {
+            try {
+              if (page && !page.isClosed()) {
+                await page.screenshot({ path: resolve(outDir, name + ".png"), fullPage: true, timeout: 10000 });
+              }
+            } catch {}
+          }
+
+          async function testRole(browser, role, tag) {
+            currentRole = role;
+            const result = { role, testTag: tag, signup: "NOT_RUN", emailVerification: "NOT_RUN", freshSessionLogin: "NOT_RUN" };
+            report.tests.push(result);
+            let mailbox;
+            let signupContext;
+            let signupPage;
+            let loginContext;
+            let loginPage;
+
+            try {
+              mailbox = await makeMailbox();
+              result.testEmail = mailbox.address;
+              signupContext = await browser.newContext();
+              signupPage = await signupContext.newPage();
+              signupPage.on("pageerror", (error) => report.browserErrors.push({ role, message: String(error).slice(0, 500) }));
+              signupPage.on("response", (response) => {
+                if (response.status() >= 500) {
+                  report.http5xx.push({ role, status: response.status(), path: new URL(response.url()).pathname });
+                }
+              });
+
+              const authPath = role === "office" ? "/auth/office" : "/auth/individual";
+              await signupPage.goto(base + authPath, { waitUntil: "domcontentloaded", timeout: 45000 });
+              await signupPage.getByLabel("البريد الإلكتروني").waitFor({ state: "visible", timeout: 20000 });
+
+              if (role === "individual") {
+                await signupPage.getByRole("button", { name: "ليس لدي حساب — تسجيل جديد" }).click();
+                await signupPage.getByLabel("الاسم الكامل").fill("اختبار آلي فرد " + tag);
+              } else {
+                await signupPage.getByLabel("اسم المسؤول").fill("اختبار آلي مكتب " + tag);
+                await signupPage.getByLabel("اسم المكتب").fill("E2E عقار البطين " + tag);
+                await signupPage.getByLabel("رقم الترخيص (فال) *").fill("900000000" + String(Date.now()).slice(-1));
+                await signupPage.getByLabel("السجل التجاري *").fill("100000000" + String(Date.now()).slice(-1));
+              }
+
+              const governorate = signupPage.locator("select").first();
+              await governorate.waitFor({ state: "visible", timeout: 15000 });
+              await signupPage.waitForFunction(() => {
+                const select = document.querySelector("select");
+                return !!select && !select.disabled && Array.from(select.options).some((o) => !!o.value);
+              }, null, { timeout: 20000 });
+              const firstValidOption = await governorate.locator("option").evaluateAll((options) =>
+                options.findIndex((option) => !!option.value.trim())
+              );
+              if (firstValidOption < 0) throw new Error("Governorate selector loaded with no valid options");
+              await governorate.selectOption({ index: firstValidOption });
+
+              await signupPage.getByLabel("البريد الإلكتروني").fill(mailbox.address);
+              await signupPage.getByLabel("كلمة المرور").fill(mailbox.password);
+              await signupPage.getByRole("checkbox").check({ force: true });
+              await signupPage.getByRole("button", { name: "إنشاء الحساب", exact: true }).click();
+
+              await signupPage.waitForURL((url) => url.pathname === "/auth/verify-email", { timeout: 25000 });
+              await signupPage.getByLabel("رمز التأكيد").waitFor({ state: "visible", timeout: 15000 });
+              result.signup = "PASS";
+              result.signupPath = new URL(signupPage.url()).pathname;
+              console.log("PASS " + role + ": signup reached email-verification screen");
+
+              const code = await waitForCode(mailbox);
+              await signupPage.getByLabel("رمز التأكيد").fill(code);
+              await signupPage.getByRole("button", { name: "تأكيد البريد الإلكتروني", exact: true }).click();
+
+              const allowedPostVerify = role === "office"
+                ? ["/office/status", "/office"]
+                : ["/home"];
+              await signupPage.waitForURL((url) => allowedPostVerify.includes(url.pathname), { timeout: 30000 });
+              result.emailVerification = "PASS";
+              result.postVerificationPath = new URL(signupPage.url()).pathname;
+              await screenshot(signupPage, role + "-after-verification");
+              console.log("PASS " + role + ": verification code accepted and signup completion navigated to " + result.postVerificationPath);
+
+              await signupContext.close();
+              signupContext = null;
+
+              // A clean browser context proves that password login works without relying on the registration session/cookies.
+              loginContext = await browser.newContext();
+              loginPage = await loginContext.newPage();
+              loginPage.on("pageerror", (error) => report.browserErrors.push({ role, message: String(error).slice(0, 500) }));
+              loginPage.on("response", (response) => {
+                if (response.status() >= 500) {
+                  report.http5xx.push({ role, status: response.status(), path: new URL(response.url()).pathname });
+                }
+              });
+              await loginPage.goto(base + authPath, { waitUntil: "domcontentloaded", timeout: 45000 });
+              await loginPage.getByLabel("البريد الإلكتروني").waitFor({ state: "visible", timeout: 20000 });
+              if (role === "office") {
+                await loginPage.getByRole("button", { name: "لدي حساب بالفعل", exact: true }).click();
+              }
+              await loginPage.getByLabel("البريد الإلكتروني").fill(mailbox.address);
+              await loginPage.getByLabel("كلمة المرور").fill(mailbox.password);
+              await loginPage.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
+
+              const allowedPostLogin = role === "office" ? ["/office", "/office/status"] : ["/home"];
+              await loginPage.waitForURL((url) => allowedPostLogin.includes(url.pathname), { timeout: 30000 });
+              result.freshSessionLogin = "PASS";
+              result.postLoginPath = new URL(loginPage.url()).pathname;
+              await screenshot(loginPage, role + "-after-fresh-login");
+              console.log("PASS " + role + ": fresh-session password login navigated to " + result.postLoginPath);
+            } catch (error) {
+              result.failure = String(error?.message || error).slice(0, 1200);
+              result.failedAt = result.signup === "NOT_RUN" ? "signup" : result.emailVerification === "NOT_RUN" ? "email-verification" : "fresh-session-login";
+              if (result.signup === "NOT_RUN") await screenshot(signupPage, role + "-signup-failure");
+              else if (result.emailVerification === "NOT_RUN") await screenshot(signupPage, role + "-verification-failure");
+              else await screenshot(loginPage, role + "-login-failure");
+              console.error("FAIL " + role + " at " + result.failedAt + ": " + result.failure);
+            } finally {
+              try { if (signupContext) await signupContext.close(); } catch {}
+              try { if (loginContext) await loginContext.close(); } catch {}
+              if (mailbox?.id && mailbox?.token) {
+                try {
+                  await mailRequest("/accounts/" + encodeURIComponent(mailbox.id), {
+                    method: "DELETE", token: mailbox.token,
+                  });
+                } catch {}
+              }
+            }
+          }
+
+          const browser = await chromium.launch({ headless: true });
+          const tag = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14) + "-" + Math.random().toString(36).slice(2, 5);
+          try {
+            await testRole(browser, "individual", tag);
+            await testRole(browser, "office", tag);
+          } finally {
+            await browser.close();
+          }
+
+          report.finishedAt = new Date().toISOString();
+          report.outcome = report.tests.every((t) =>
+            t.signup === "PASS" && t.emailVerification === "PASS" && t.freshSessionLogin === "PASS"
+          ) && report.browserErrors.length === 0 && report.http5xx.length === 0 ? "PASS" : "FAIL";
+          await writeFile(resolve(outDir, "report.json"), JSON.stringify(report, null, 2));
+          console.log("E2E_RESULT=" + JSON.stringify({
+            outcome: report.outcome,
+            tests: report.tests.map((t) => ({
+              role: t.role, testEmail: t.testEmail, signup: t.signup,
+              emailVerification: t.emailVerification, freshSessionLogin: t.freshSessionLogin,
+              failedAt: t.failedAt, failure: t.failure, postVerificationPath: t.postVerificationPath,
+              postLoginPath: t.postLoginPath,
+            })),
+            browserErrors: report.browserErrors,
+            http5xx: report.http5xx,
+          }));
+          if (report.outcome !== "PASS") process.exitCode = 1;
+          NODE
+
+      - name: Upload browser screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-web-auth-e2e-results
+          path: web-auth-test-results/
+          if-no-files-found: warn
+          retention-days: 7
