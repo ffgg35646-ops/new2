@@ -9,6 +9,7 @@ import {
   Copy,
   Clock3,
   Loader2,
+  MessageSquare,
   Pencil,
   Phone,
   Send,
@@ -42,15 +43,47 @@ function Info({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+async function ensureOfficeConversation(
+  officeId: string | null,
+  userId: string,
+  propertyId?: string | null,
+) {
+  if (!officeId || !userId) throw new Error("تعذّر تحديد طرفي المحادثة");
+  const existing = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("office_id", officeId)
+    .maybeSingle();
+  if (existing.error) throw existing.error;
+  if (existing.data?.id) return String(existing.data.id);
+
+  const created = await supabase
+    .from("conversations")
+    .insert({ user_id: userId, office_id: officeId, property_id: propertyId ?? null })
+    .select("id")
+    .single();
+  if (created.error) {
+    // If a duplicate was created concurrently, reopen it instead of failing.
+    const retry = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("office_id", officeId)
+      .maybeSingle();
+    if (!retry.error && retry.data?.id) return String(retry.data.id);
+    throw created.error;
+  }
+  return String(created.data.id);
+}
+
 export const Route = createFileRoute("/office/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
     tab:
-      search["tab"] === "inbox" ||
       search["tab"] === "bookings" ||
       search["tab"] === "market" ||
-      search["tab"] === "accepted" ||
-      search["tab"] === "sent"
-        ? (search["tab"] as "inbox" | "bookings" | "market" | "accepted" | "sent")
+      search["tab"] === "accepted"
+        ? (search["tab"] as "bookings" | "market" | "accepted")
         : undefined,
     request: typeof search.request === "string" ? search.request : undefined,
   }),
@@ -74,9 +107,7 @@ export const Route = createFileRoute("/office/requests")({
 
 function OfficeRequests() {
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"inbox" | "bookings" | "market" | "accepted" | "sent">(
-    search.tab ?? "inbox",
-  );
+  const [tab, setTab] = useState<"bookings" | "market" | "accepted">(search.tab ?? "accepted");
 
   useEffect(() => {
     if (search.tab) setTab(search.tab);
@@ -141,29 +172,13 @@ function OfficeRequests() {
     },
   });
 
-  const { data: inquiriesCount = 0 } = useQuery({
-    queryKey: ["office-inquiries-tab-count", officeId],
-    enabled: !!officeId,
-    refetchInterval: 5000,
-    refetchIntervalInBackground: true,
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("property_inquiries")
-        .select("id", { count: "exact", head: true })
-        .eq("office_id", officeId!)
-        .eq("status", "new");
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
-
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
       <AppHeader showSearch={false} />
       <main className="flex-1 space-y-4 px-4 py-4">
         <h1 className="font-display text-xl font-extrabold">الطلبات</h1>
 
-        <div className="grid grid-cols-5 gap-1">
+        <div className="grid grid-cols-3 gap-1">
           <TabButton
             active={tab === "bookings"}
             onClick={() => setTab("bookings")}
@@ -177,34 +192,19 @@ function OfficeRequests() {
             count={marketRequests.length}
           />
           <TabButton
-            active={tab === "inbox"}
-            onClick={() => setTab("inbox")}
-            label="طلبات التواصل"
-            count={inquiriesCount}
-          />
-          <TabButton
             active={tab === "accepted"}
             onClick={() => setTab("accepted")}
             label="المقبولة"
             count={acceptedCount}
           />
-          <TabButton
-            active={tab === "sent"}
-            onClick={() => setTab("sent")}
-            label="تاريخ الطلبات"
-          />
         </div>
 
-        {tab === "inbox" ? (
-          <InquiriesInbox officeId={officeId} />
-        ) : tab === "bookings" ? (
+        {tab === "bookings" ? (
           <BookingsInbox officeId={officeId} />
         ) : tab === "market" ? (
           <MarketRequests officeId={officeId} />
-        ) : tab === "accepted" ? (
-          <AcceptedRequestsInbox officeId={officeId} highlightedRequestId={search.request} />
         ) : (
-          <SentOffers officeId={officeId} />
+          <AcceptedRequestsInbox officeId={officeId} highlightedRequestId={search.request} />
         )}
       </main>
       <BottomNav />
@@ -229,7 +229,6 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
   const [acceptNote, setAcceptNote] = useState("");
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [finishId, setFinishId] = useState<string | null>(null);
-  const [contactOpenId, setContactOpenId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   useEffect(() => setPage(1), [officeId]);
@@ -302,7 +301,17 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
   const currentPage = Math.min(page, pageCount);
   const visibleBookings = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const acceptBooking = data.find((booking) => booking.id === acceptId) ?? null;
-  const contactBooking = data.find((booking) => booking.id === contactOpenId) ?? null;
+
+  const navigate = Route.useNavigate();
+  const openChat = useMutation({
+    mutationFn: (vars: { userId: string }) =>
+      ensureOfficeConversation(officeId, vars.userId),
+    onSuccess: (conversationId) => {
+      void navigate({ to: "/office/chat", search: { c: conversationId } });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "تعذّر فتح الدردشة"),
+  });
 
   const setStatus = useMutation({
     mutationFn: async (vars: {
@@ -401,37 +410,14 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
                   </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setContactOpenId(booking.id)}
-                    aria-label={"عرض اتصال " + contactName}
-                    title="بيانات الاتصال"
-                    className="grid size-9 place-items-center rounded-full bg-background text-forest ring-1 ring-line"
-                  >
-                    <Phone className="size-4" />
-                  </button>
-                  {contactPhone ? (
-                    <a
-                      href={whatsappHref(contactPhone, "مرحبًا " + contactName + "، بخصوص موعد المعاينة")}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={"واتساب " + contactName}
-                      title="واتساب"
-                      className="grid size-9 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"
-                    >
-                      <WhatsAppIcon className="size-5 text-[#25D366]" />
-                    </a>
-                  ) : (
-                    <span
-                      aria-label="رقم واتساب غير متوفر"
-                      title="رقم العميل غير متوفر"
-                      className="grid size-9 place-items-center rounded-full bg-background text-muted-foreground ring-1 ring-line"
-                    >
-                      <WhatsAppIcon className="size-5" />
-                    </span>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => openChat.mutate({ userId: booking.user_id })}
+                  disabled={openChat.isPending}
+                  className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-forest px-3 py-2 text-[11px] font-bold text-background disabled:opacity-50"
+                >
+                  <MessageSquare className="size-4" /> الدردشة
+                </button>
               </div>
 
               {booking.status === "pending" ? (
@@ -569,87 +555,6 @@ function BookingsInbox({ officeId }: { officeId: string | null }) {
         </div>
       )}
 
-      {contactBooking && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center"
-          role="dialog"
-          aria-modal="true"
-          aria-label="كارت اتصال العميل"
-          onClick={() => setContactOpenId(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-[28px] bg-surface p-5 shadow-2xl ring-1 ring-line"
-            dir="rtl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[10px] font-semibold text-muted-foreground">كارت الاتصال</div>
-                <h2 className="mt-1 font-display text-lg font-extrabold">
-                  {String(contactBooking.contact_name ?? "").trim() || "عميل"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setContactOpenId(null)}
-                aria-label="إغلاق"
-                className="grid size-9 shrink-0 place-items-center rounded-full bg-background ring-1 ring-line"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-            <div className="mt-3 rounded-2xl bg-background p-3 ring-1 ring-line">
-              <div className="text-[10px] text-muted-foreground">موعد المعاينة</div>
-              <div className="mt-1 text-sm font-bold">
-                {formatDate(contactBooking.visit_date)} · {formatBookingTime(contactBooking.visit_time)}
-              </div>
-              <div className="mt-3 text-[10px] text-muted-foreground">رقم الهاتف</div>
-              <div className="mt-1 text-sm font-extrabold" dir="ltr">
-                {String(contactBooking.contact_phone ?? "").trim() || "رقم الهاتف غير مسجل"}
-              </div>
-            </div>
-            {String(contactBooking.contact_phone ?? "").trim() && (
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <a
-                  href={"tel:" + String(contactBooking.contact_phone).trim()}
-                  className="rounded-xl bg-forest py-3 text-center text-xs font-bold text-background"
-                >
-                  <Phone className="mx-auto mb-1 size-4" />
-                  اتصال
-                </a>
-                <a
-                  href={whatsappHref(
-                    String(contactBooking.contact_phone).trim(),
-                    "مرحبًا " + (String(contactBooking.contact_name ?? "").trim() || "عميل") + "، بخصوص موعد المعاينة",
-                  )}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-xl bg-[#25D366]/10 py-3 text-center text-xs font-bold text-[#25D366]"
-                >
-                  <WhatsAppIcon className="mx-auto mb-1 size-4" />
-                  واتساب
-                </a>
-                <button
-                  type="button"
-                  onClick={() => void copyContactPhone(String(contactBooking.contact_phone).trim())}
-                  className="rounded-xl bg-background py-3 text-center text-xs font-bold ring-1 ring-line"
-                >
-                  <Copy className="mx-auto mb-1 size-4" />
-                  نسخ الرقم
-                </button>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setContactOpenId(null)}
-              className="mt-3 w-full rounded-xl bg-background py-3 text-sm font-bold ring-1 ring-line"
-            >
-              إغلاق
-            </button>
-          </div>
-        </div>
-      )}
-
       <CompleteViewingReasonModal
         open={!!rejectId}
         pending={setStatus.isPending}
@@ -730,6 +635,7 @@ function TabButton({
 
 type AcceptedPropertyInquiry = {
   id: string;
+  user_id: string;
   property_id: string;
   type: string;
   status: string;
@@ -751,6 +657,17 @@ type AcceptedContactRequest = {
 function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: string | null; highlightedRequestId?: string | undefined }) {
   const qc = useQueryClient();
   const [cancelRequestId, setCancelRequestId] = useState<string | null>(null);
+  const navigate = Route.useNavigate();
+  const openChat = useMutation({
+    mutationFn: (vars: { userId: string; propertyId?: string | null }) =>
+      ensureOfficeConversation(officeId, vars.userId, vars.propertyId),
+    onSuccess: (conversationId) => {
+      void navigate({ to: "/office/chat", search: { c: conversationId } });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "تعذّر فتح الدردشة"),
+  });
+
   const { data = [], isLoading, error } = useQuery<AcceptedContactRequest[]>({
     queryKey: ["office-accepted-property-requests", officeId],
     enabled: !!officeId,
@@ -773,7 +690,7 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
     queryFn: async () => {
       const { data, error } = await supabase
         .from("property_inquiries")
-        .select("id,property_id,type,status,created_at,message,contact_name,contact_phone,properties(title,property_number)")
+        .select("id,user_id,property_id,type,status,created_at,message,contact_name,contact_phone,properties(title,property_number)")
         .eq("office_id", officeId!)
         .eq("status", "accepted")
         .order("updated_at", { ascending: false })
@@ -826,7 +743,6 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
         )}
       </div>
       {data.length ? data.map((request) => {
-        const phone = String(request.client_phone ?? "").trim();
         return (
           <article id={"accepted-request-card-" + request.id} key={request.id}
             className={cn("space-y-2 rounded-xl bg-surface p-2.5 ring-1 ring-line", highlightedRequestId === request.id && "ring-2 ring-forest")}>
@@ -854,28 +770,19 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
             >
               <X className="size-4" /> إلغاء العرض
             </button>
-            <div className="mt-2 flex items-center gap-2 border-t border-line/70 pt-2">
-              <div className="flex shrink-0 items-center gap-1.5">
-                {phone ? (
-                  <>
-                    <a href={whatsappHref(phone, "مرحبًا " + (request.client_name || "عميل") + "، بخصوص طلب العقار")} target="_blank" rel="noreferrer" aria-label="واتساب العميل" title="واتساب" className="grid size-8 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-4" /></a>
-                    <a href={"tel:" + phone} aria-label="اتصال بالعميل" title="اتصال" className="grid size-8 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>
-                  </>
-                ) : (
-                  <span className="text-[10px] text-muted-foreground">لا يوجد رقم</span>
-                )}
-              </div>
-              <div className="min-w-0 flex-1 text-right">
-                <div className="truncate text-[10px] font-semibold text-muted-foreground">بيانات اتصال العميل</div>
-                <div className="truncate text-[11px] font-bold text-foreground" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => openChat.mutate({ userId: request.user_id })}
+              disabled={openChat.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+            >
+              <MessageSquare className="size-4" /> الدردشة مع العميل
+            </button>
           </article>
         );
       }) : null}
       {acceptedInquiries.map((inquiry) => {
         const property = inquiry.properties;
-        const phone = String(inquiry.contact_phone ?? "").trim();
         const inquiryType: Record<string, string> = {
           viewing: "معاينة",
           buy: "شراء",
@@ -901,23 +808,14 @@ function AcceptedRequestsInbox({ officeId, highlightedRequestId }: { officeId: s
               <div className="text-xs font-extrabold">{inquiry.contact_name || "عميل"}</div>
               {inquiry.message && <p className="mt-1 whitespace-pre-wrap text-[11px] leading-5 text-muted-foreground">{inquiry.message}</p>}
             </div>
-            <div className="mt-2 flex items-center gap-2 border-t border-line/70 pt-2">
-              <div className="flex shrink-0 items-center gap-1.5">
-                {phone ? (
-                  <>
-                    <a href={whatsappHref(phone, "مرحبًا " + (inquiry.contact_name || "عميل") + "، بخصوص " + (property?.title || "طلب التواصل"))}
-                      target="_blank" rel="noreferrer" aria-label="واتساب العميل" title="واتساب" className="grid size-8 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-4" /></a>
-                    <a href={"tel:" + phone} aria-label="اتصال بالعميل" title="اتصال" className="grid size-8 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>
-                  </>
-                ) : (
-                  <span className="text-[10px] text-muted-foreground">لا يوجد رقم</span>
-                )}
-              </div>
-              <div className="min-w-0 flex-1 text-right">
-                <div className="truncate text-[10px] font-semibold text-muted-foreground">بيانات اتصال العميل</div>
-                <div className="truncate text-[11px] font-bold text-foreground" dir="ltr">{phone || "رقم الهاتف غير مسجل"}</div>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => openChat.mutate({ userId: inquiry.user_id, propertyId: inquiry.property_id })}
+              disabled={openChat.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+            >
+              <MessageSquare className="size-4" /> الدردشة مع العميل
+            </button>
           </article>
         );
       })}
