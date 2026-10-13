@@ -207,15 +207,14 @@ function ChatsPage() {
 
   return (
     <div
-      style={{ height: "100dvh", minHeight: 0 }}
       className={
-        "mx-auto flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-background " +
-        (isAdmin ? "max-w-6xl" : "max-w-md md:max-w-5xl")
+        "mx-auto flex min-h-screen w-full flex-col overflow-hidden bg-background " +
+        (isAdmin ? "max-w-6xl" : "max-w-md")
       }
     >
       <AppHeader showSearch={false} />
 
-      <main className={activeId ? "flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-2 md:px-4 md:py-3" : "flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3"}>
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4">
         {activeId ? (
           <ConversationRoom
             conversationId={activeId}
