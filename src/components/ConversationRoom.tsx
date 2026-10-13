@@ -581,17 +581,18 @@ export function ConversationRoom({
           </div>
         ) : messages.data?.length ? (
           messages.data.map((message) => {
-            const mine =
-              message.sender_id === userId;
+            const mine = message.sender_id === userId;
+            // Match bubble and metadata colors to the actual bubble background on both account types.
+            const primaryBubble = isOffice ? !mine : mine;
 
             return (
               <div
                 key={message.id}
                 className={
-                  "max-w-[86%] overflow-hidden rounded-2xl text-sm shadow-sm sm:max-w-[78%] " +
-                  ((isOffice ? !mine : mine)
-                    ? "ms-auto rounded-br-md bg-forest text-white"
-                    : "me-auto rounded-bl-md bg-white text-slate-900 ring-1 ring-slate-200 dark:bg-slate-100 dark:text-slate-900 dark:ring-slate-300")
+                  "max-w-[86%] overflow-hidden rounded-2xl text-[14px] leading-6 shadow-md sm:max-w-[78%] " +
+                  (primaryBubble
+                    ? "ms-auto rounded-br-md bg-forest text-white ring-1 ring-forest/10"
+                    : "me-auto rounded-bl-md bg-slate-50 text-slate-800 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700")
                 }
               >
                 {message.image_url && (
@@ -610,18 +611,18 @@ export function ConversationRoom({
                 )}
 
                 {message.body && (
-                  <div className="whitespace-pre-wrap break-words px-3 py-2.5">
+                  <div className="whitespace-pre-wrap break-words px-3.5 py-2.5 leading-6">
                     {message.body}
                   </div>
                 )}
 
-                <div className="flex items-center justify-between gap-2 px-3 pb-1">
+                <div className="flex min-h-6 items-center justify-between gap-2 px-3 pb-1.5">
                   <span
                     className={
-                      "text-[9px] " +
-                      (mine
-                        ? "text-background/70"
-                        : "text-muted-foreground")
+                      "text-[10px] font-medium leading-none " +
+                      (primaryBubble
+                        ? "text-white/85"
+                        : "text-slate-500 dark:text-slate-400")
                     }
                   >
                     {mine
@@ -630,13 +631,17 @@ export function ConversationRoom({
                         : "✓ تم الإرسال"
                       : ""}
                   </span>
+
                   <span
                     className={
-                      "whitespace-nowrap text-[9px] " +
-                      (mine ? "text-background/70" : "text-muted-foreground")
+                      "inline-flex shrink-0 items-center rounded-full px-1.5 py-1 text-[10px] font-semibold leading-none tabular-nums whitespace-nowrap " +
+                      (primaryBubble
+                        ? "bg-white/15 text-white"
+                        : "bg-slate-200/80 text-slate-700 dark:bg-slate-700 dark:text-slate-100")
                     }
                     dir="rtl"
                     title="بتوقيت السعودية"
+                    aria-label={`وقت الرسالة بتوقيت السعودية: ${formatSaudiMessageTime(message.created_at)}`}
                   >
                     {formatSaudiMessageTime(message.created_at)}
                   </span>
@@ -644,13 +649,12 @@ export function ConversationRoom({
                   {!mine && !readOnly && (
                     <button
                       type="button"
-                      onClick={() =>
-                        reportMessage.mutate(message)
+                      onClick={() => reportMessage.mutate(message)}
+                      disabled={reportMessage.isPending}
+                      className={
+                        "inline-flex shrink-0 items-center gap-1 text-[10px] font-medium " +
+                        (primaryBubble ? "text-white/80" : "text-terracotta")
                       }
-                      disabled={
-                        reportMessage.isPending
-                      }
-                      className="inline-flex items-center gap-1 text-[9px] text-terracotta"
                     >
                       <Flag className="size-3" />
                       بلاغ
