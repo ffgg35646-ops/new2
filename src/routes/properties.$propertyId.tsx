@@ -325,7 +325,7 @@ function PropertyDetail() {
       }
     },
     onSuccess: () => {
-      toast.success("تم إرسال طلبك للمكتب");
+      toast.success("تم قبول طلبك تلقائيًا، ويمكنك التواصل مع المكتب عبر الدردشة");
       setInquiryMessage("");
       setInquiryPhone("");
       qc.invalidateQueries({ queryKey: ["office-inquiries"] });
