@@ -1009,6 +1009,83 @@ async function runDb(input: DbInput) {
     queryParts.length > 1 ? { $and: queryParts } : queryParts[0] ?? {};
 
   if (input.operation === "select") {
+    if (input.collection === "property_inquiries") {
+      const inquiries = await getMongoCollection<Record<string, unknown>>("property_inquiries");
+      const legacyFilter: Record<string, unknown> = { status: "new" };
+      if (role === "individual" && userId) legacyFilter.user_id = userId;
+      if (role === "office" && userId) {
+        const ownOffice = await (await getMongoCollection<Record<string, unknown>>("offices"))
+          .findOne({ owner_id: userId, is_deleted: { $ne: true } });
+        if (ownOffice) legacyFilter.office_id = String(ownOffice.id ?? "");
+        else legacyFilter.office_id = "__no_matching_office__";
+      }
+      await inquiries.updateMany(
+        legacyFilter,
+        { $set: { status: "accepted", updated_at: new Date() } },
+      );
+    }
+
+    if (input.collection === "property_requests" && role === "individual" && userId) {
+      const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
+      const offers = await getMongoCollection<Record<string, unknown>>("office_offers");
+      const legacyRequests = await requests.find({
+        user_id: userId,
+        status: "active",
+        accepted_offer_id: { $in: [null, ""] },
+        accepted_office_id: { $in: [null, ""] },
+      }).limit(100).toArray();
+
+      for (const request of legacyRequests) {
+        const requestId = String(request.id ?? "");
+        if (!requestId) continue;
+        const legacyOffer = await offers.find({
+          request_id: requestId,
+          status: "sent",
+        }).sort({ created_at: 1 }).limit(1).next();
+        if (!legacyOffer?.id) continue;
+
+        const now = new Date();
+        const claimed = await requests.updateOne(
+          {
+            id: requestId,
+            user_id: userId,
+            status: "active",
+            accepted_offer_id: { $in: [null, ""] },
+            accepted_office_id: { $in: [null, ""] },
+          },
+          {
+            $set: {
+              accepted_offer_id: String(legacyOffer.id),
+              accepted_office_id: String(legacyOffer.office_id ?? ""),
+              offer_accepted_at: now,
+              updated_at: now,
+            },
+          },
+        );
+        if (!claimed.modifiedCount) continue;
+
+        await offers.updateOne(
+          { id: String(legacyOffer.id), status: "sent" },
+          { $set: { status: "accepted", updated_at: now } },
+        );
+        await offers.updateMany(
+          {
+            request_id: requestId,
+            id: { $ne: String(legacyOffer.id) },
+            status: { $in: ["sent", "accepted", "awaiting_confirmation"] },
+          },
+          {
+            $set: {
+              status: "ended",
+              end_reason: "تم قبول عرض آخر تلقائيًا",
+              ended_at: now,
+              updated_at: now,
+            },
+          },
+        );
+      }
+    }
+
     const prioritizePropertyListings =
       input.collection === "properties" &&
       role !== "office" &&
@@ -1220,41 +1297,62 @@ async function runDb(input: DbInput) {
     });
 
     if (input.collection === "conversations") {
-      if (!userId || role !== "individual") {
-        throw new Error("الدردشة متاحة لحساب الفردي فقط.");
+      if (!userId || !["individual", "office"].includes(String(role))) {
+        throw new Error("يجب تسجيل الدخول بحساب فردي أو مكتب لبدء الدردشة.");
       }
 
       const offices = await getMongoCollection<Record<string, unknown>>("offices");
-      const packages = await getMongoCollection<Record<string, unknown>>("package_catalog");
       for (const doc of docs) {
-        const officeId = String(doc.office_id ?? "");
-        if (!officeId) throw new Error("office_not_found");
-
-        const office = await offices.findOne({
-          id: officeId,
-          is_deleted: { $ne: true },
-        });
-        if (!office) throw new Error("office_not_found");
-
-        const packageRow = office.package_id
-          ? await packages.findOne({ id: String(office.package_id) })
-          : await packages.findOne({ code: office.plan === "pro" ? "pro" : "free" });
-        const packageIsPro = packageRow
-          ? String(packageRow.code ?? "") === "pro" ||
-            Number(packageRow.price ?? 0) > 0
-          : office.plan === "pro";
-        const expiryTime = office.plan_expires_at
-          ? new Date(String(office.plan_expires_at)).getTime()
-          : Number.NaN;
-        const expired = !Number.isFinite(expiryTime) || expiryTime <= Date.now();
-        const chatEnabled = packageRow
-          ? Boolean(packageRow.chat_enabled) && packageIsPro && !expired
-          : packageIsPro && !expired;
-        if (!chatEnabled) {
-          throw new Error("الدردشة متاحة للمكاتب المشتركة في باقة احترافية سارية فقط.");
+        const requestedOfficeId = String(doc.office_id ?? "");
+        const clientId = role === "individual" ? userId : String(doc.user_id ?? "");
+        if (!requestedOfficeId || !clientId) {
+          throw new Error("تعذّر تحديد طرفي المحادثة.");
         }
 
-        doc.user_id = userId;
+        if (role === "individual") {
+          const targetOffice = await offices.findOne({
+            id: requestedOfficeId,
+            is_deleted: { $ne: true },
+          });
+          if (!targetOffice) throw new Error("office_not_found");
+          doc.user_id = userId;
+        } else {
+          const ownOffice = await offices.findOne({
+            owner_id: userId,
+            is_deleted: { $ne: true },
+          });
+          if (!ownOffice) throw new Error("not_office_member");
+          const ownOfficeId = String(ownOffice.id ?? "");
+          if (requestedOfficeId !== ownOfficeId) {
+            throw new Error("لا يمكنك إنشاء محادثة باسم مكتب آخر.");
+          }
+          doc.office_id = ownOfficeId;
+
+          const [inquiry, booking, request] = await Promise.all([
+            getMongoCollection<Record<string, unknown>>("property_inquiries").then((items) =>
+              items.findOne({
+                user_id: clientId,
+                office_id: ownOfficeId,
+                status: { $in: ["accepted", "completed", "ended"] },
+              }),
+            ),
+            getMongoCollection<Record<string, unknown>>("viewing_bookings").then((items) =>
+              items.findOne({ user_id: clientId, office_id: ownOfficeId }),
+            ),
+            getMongoCollection<Record<string, unknown>>("property_requests").then((items) =>
+              items.findOne({
+                user_id: clientId,
+                accepted_office_id: ownOfficeId,
+                accepted_offer_id: { $nin: [null, ""] },
+                status: { $in: ["active", "fulfilled"] },
+              }),
+            ),
+          ]);
+          if (!inquiry && !booking && !request) {
+            throw new Error("يمكن للمكتب بدء الدردشة مع العملاء المرتبطين بطلب أو معاينة لديه.");
+          }
+          doc.user_id = clientId;
+        }
       }
     }
 
@@ -1342,7 +1440,7 @@ async function runDb(input: DbInput) {
             throw new Error("inquiry_invalid");
           }
 
-          doc.status ??= "new";
+          // Contact requests are accepted immediately; customers and offices continue in chat.\n          doc.status = "accepted";
 
           const existing = await collection.findOne({
             user_id: userId,
@@ -1491,6 +1589,71 @@ async function runDb(input: DbInput) {
     }
 
     await collection.insertMany(docs);
+
+    if (input.collection === "office_offers") {
+      const requests = await getMongoCollection<Record<string, unknown>>("property_requests");
+      for (const offer of docs) {
+        const requestId = String(offer.request_id ?? "");
+        const offerId = String(offer.id ?? "");
+        const officeId = String(offer.office_id ?? "");
+        if (!requestId || !offerId || !officeId) continue;
+
+        const now = new Date();
+        const claimed = await requests.updateOne(
+          {
+            id: requestId,
+            status: "active",
+            accepted_offer_id: { $in: [null, ""] },
+            accepted_office_id: { $in: [null, ""] },
+          },
+          {
+            $set: {
+              accepted_offer_id: offerId,
+              accepted_office_id: officeId,
+              offer_accepted_at: now,
+              updated_at: now,
+            },
+          },
+        );
+
+        if (claimed.modifiedCount) {
+          offer.status = "accepted";
+          await collection.updateOne(
+            { id: offerId },
+            { $set: { status: "accepted", updated_at: now } },
+          );
+          await collection.updateMany(
+            {
+              request_id: requestId,
+              id: { $ne: offerId },
+              status: { $in: ["sent", "accepted", "awaiting_confirmation"] },
+            },
+            {
+              $set: {
+                status: "ended",
+                end_reason: "تم قبول عرض آخر تلقائيًا",
+                ended_at: now,
+                updated_at: now,
+              },
+            },
+          );
+        } else {
+          offer.status = "ended";
+          offer.end_reason = "تم قبول عرض آخر تلقائيًا أو لم يعد الطلب متاحًا";
+          await collection.updateOne(
+            { id: offerId },
+            {
+              $set: {
+                status: "ended",
+                end_reason: offer.end_reason,
+                ended_at: now,
+                updated_at: now,
+              },
+            },
+          );
+        }
+      }
+    }
 
     if (input.collection === "properties") {
       try {
@@ -3764,7 +3927,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
                   (propertyTitle ? " بخصوص " + propertyTitle : " بخصوص العقار"),
                 type: "property_inquiry_response",
                 link: requestedStatus === "accepted"
-                  ? "/requests?tab=received"
+                  ? "/requests?tab=accepted"
                   : "/properties/" + encodeURIComponent(String(inquiry.property_id ?? "")),
                 is_read: false,
                 created_at: now,
@@ -3820,18 +3983,19 @@ export const rpcRequest = createServerFn({ method: "POST" })
           id: randomUUID(),
           _id: randomUUID(),
           user_id: office.owner_id,
-          title: "شخص يريد التواصل معك",
+          title: "طلب تواصل مقبول تلقائيًا",
           body:
             String(inquiry.contact_name ?? "عميل") +
             " يريد التواصل معك بخصوص " +
             String(typeLabel[String(inquiry.type ?? "")] ?? "تواصل") +
             " على " +
             String(property?.title ?? "عقار") +
+            " · الطلب مقبول تلقائيًا، افتح الدردشة للتواصل معه." +
             (inquiry.message
               ? " · " + String(inquiry.message).slice(0, 140)
               : ""),
           type: "property_inquiry",
-          link: "/office/requests?tab=inbox",
+          link: "/office/requests?tab=accepted",
           is_read: false,
           created_at: new Date(),
         });
@@ -3874,8 +4038,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           throw new Error("not_conversation_member");
         }
 
-        // This is an existing conversation, so keep it usable after the office's Pro
-        // subscription expires. Creating new conversations remains Pro-gated in runDb.
+        // Chat is free for both sides; membership and blocking are still enforced above.
 
         const blocks = await getMongoCollection<Record<string, unknown>>(
           "conversation_blocks",
@@ -4720,9 +4883,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
           : Number.NaN;
         const expired = !Number.isFinite(planExpiry) || planExpiry <= Date.now();
         const effectivePro = packageIsPro && !expired;
-        const chatEnabled = packageRow
-          ? Boolean(packageRow.chat_enabled) && effectivePro
-          : effectivePro;
+        const chatEnabled = true;
 
         return {
           data: {
