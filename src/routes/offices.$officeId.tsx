@@ -215,19 +215,34 @@ function OfficePage() {
     if (res === "failed") toast.error("تعذّر مشاركة الرابط، انسخه من شريط العنوان");
   }
 
-  function onToggleFollow() {
+  async function onToggleFollow() {
     if (!userId) {
       toast.error("سجّل الدخول لمتابعة المكتب");
       return;
     }
-    toggleFollow.mutate(
-      { officeId, following: !!isFollowing },
-      {
-        onSuccess: (nowFollowing) =>
-          toast.success(nowFollowing ? "تمت متابعة المكتب" : "تم إلغاء المتابعة"),
-        onError: (e) => toast.error((e as Error).message),
-      },
-    );
+
+    try {
+      const nowFollowing = await toggleFollow.mutateAsync({
+        officeId,
+        following: !!isFollowing,
+      });
+
+      if (nowFollowing) {
+        // Following an office also enables its notifications, represented by the bell on this button.
+        if (!notifyOn) {
+          await setNotify.mutateAsync({ officeId, notify: true });
+        }
+        toast.success(
+          notifyOn
+            ? "تمت متابعة المكتب"
+            : "تمت متابعة المكتب وتفعيل إشعاراته",
+        );
+      } else {
+        toast.success("تم إلغاء المتابعة");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذرت متابعة المكتب");
+    }
   }
 
   const isPro = office?.is_pro_current === true;
@@ -389,13 +404,13 @@ function OfficePage() {
                 )}
               </div>
 
-              <div className="mt-3 grid grid-cols-4 gap-2">
+              <div className="mt-3 flex items-center gap-2">
                 {office.phone ? (
                   <a
                     href={`tel:${office.phone}`}
                     title="اتصال بالمكتب"
                     aria-label="اتصال بالمكتب"
-                    className="grid aspect-square place-items-center rounded-2xl bg-forest text-background transition hover:opacity-90"
+                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest text-background transition hover:opacity-90"
                   >
                     <Phone className="size-5" />
                   </a>
@@ -405,7 +420,7 @@ function OfficePage() {
                     title="رقم الهاتف غير متاح"
                     aria-label="رقم الهاتف غير متاح"
                     disabled
-                    className="grid aspect-square place-items-center rounded-2xl bg-sand text-muted-foreground opacity-60"
+                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-sand text-muted-foreground opacity-60"
                   >
                     <Phone className="size-5" />
                   </button>
@@ -420,7 +435,7 @@ function OfficePage() {
                     rel="noreferrer"
                     title="مراسلة واتساب"
                     aria-label="مراسلة واتساب"
-                    className="grid aspect-square place-items-center rounded-2xl bg-forest-soft text-forest transition hover:opacity-90"
+                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-soft text-forest transition hover:opacity-90"
                   >
                     <WhatsAppIcon className="size-5" />
                   </a>
@@ -440,10 +455,39 @@ function OfficePage() {
                   onClick={() => void onShare()}
                   title="مشاركة ملف المكتب"
                   aria-label="مشاركة ملف المكتب"
-                  className="grid aspect-square place-items-center rounded-2xl bg-sand text-foreground ring-1 ring-line transition hover:bg-background"
+                  className="grid size-10 shrink-0 place-items-center rounded-xl bg-sand text-foreground ring-1 ring-line transition hover:bg-background"
                 >
                   <Share2 className="size-5" />
                 </button>
+              </div>
+
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={onToggleFollow}
+                  disabled={toggleFollow.isPending || setNotify.isPending}
+                  aria-pressed={!!isFollowing}
+                  className={cn(
+                    "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-[11px] font-bold transition disabled:opacity-60",
+                    isFollowing
+                      ? "bg-forest-soft text-forest ring-1 ring-forest/30"
+                      : "bg-terracotta text-background",
+                  )}
+                >
+                  {isFollowing ? (
+                    <>
+                      <Check className="size-4 shrink-0" />
+                      <span>متابَع</span>
+                      {notifyOn && <Bell className="size-4 shrink-0" />}
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="size-4 shrink-0" />
+                      <span>متابعة</span>
+                    </>
+                  )}
+                </button>
+
                 <button
                   type="button"
                   onClick={() =>
@@ -451,73 +495,27 @@ function OfficePage() {
                       { officeId, notify: !notifyOn },
                       {
                         onSuccess: (on) =>
-                          toast.success(on ? "تم تفعيل إشعارات هذا المكتب" : "تم إيقاف إشعارات هذا المكتب"),
+                          toast.success(
+                            on ? "تم تفعيل إشعارات هذا المكتب" : "تم إيقاف إشعارات هذا المكتب",
+                          ),
                         onError: (e) => toast.error((e as Error).message),
                       },
                     )
                   }
                   disabled={setNotify.isPending}
                   aria-pressed={notifyOn}
-                  title={notifyOn ? "إشعارات المكتب مفعّلة" : "تفعيل إشعارات المكتب"}
-                  aria-label={notifyOn ? "إشعارات المكتب مفعّلة" : "تفعيل إشعارات المكتب"}
                   className={cn(
-                    "grid aspect-square place-items-center rounded-2xl transition disabled:opacity-60",
+                    "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-[11px] font-bold transition disabled:opacity-60",
                     notifyOn
-                      ? "bg-forest-soft text-forest ring-2 ring-forest/30"
-                      : "bg-sand text-foreground ring-1 ring-line hover:bg-background",
+                      ? "bg-forest-soft text-forest ring-1 ring-forest/30"
+                      : "bg-sand text-foreground ring-1 ring-line",
                   )}
+                  title={notifyOn ? "إشعارات المكتب مفعّلة" : "تفعيل إشعارات المكتب"}
                 >
-                  {notifyOn ? <Check className="size-5" /> : <Bell className="size-5" />}
+                  {notifyOn ? <Bell className="size-4 shrink-0" /> : <BellOff className="size-4 shrink-0" />}
+                  <span className="truncate">{notifyOn ? "الإشعارات مفعّلة" : "تفعيل الإشعارات"}</span>
                 </button>
               </div>
-
-              <button
-                onClick={onToggleFollow}
-                disabled={toggleFollow.isPending}
-                aria-pressed={!!isFollowing}
-                className={cn(
-                  "mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl py-3 text-xs font-bold transition disabled:opacity-60",
-                  isFollowing
-                    ? "bg-forest-soft text-forest ring-1 ring-forest/30"
-                    : "bg-terracotta text-background",
-                )}
-              >
-                {isFollowing ? (
-                  <>
-                    <Check className="size-4" /> متابَع
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="size-4" /> متابعة
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() =>
-                  setNotify.mutate(
-                    { officeId, notify: !notifyOn },
-                    {
-                      onSuccess: (on) =>
-                        toast.success(
-                          on ? "تم تفعيل إشعارات هذا المكتب" : "تم إيقاف إشعارات هذا المكتب",
-                        ),
-                      onError: (e) => toast.error((e as Error).message),
-                    },
-                  )
-                }
-                disabled={setNotify.isPending}
-                aria-pressed={notifyOn}
-                className={cn(
-                  "mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl py-3 text-xs font-bold transition disabled:opacity-60",
-                  notifyOn
-                    ? "bg-forest-soft text-forest ring-1 ring-forest/30"
-                    : "bg-sand text-foreground ring-1 ring-line",
-                )}
-              >
-                {notifyOn ? <Bell className="size-4" /> : <BellOff className="size-4" />}
-                {notifyOn ? "إشعارات هذا المكتب مفعّلة" : "تفعيل إشعارات هذا المكتب"}
-              </button>
 
               
             </section>
