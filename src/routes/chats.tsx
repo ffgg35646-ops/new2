@@ -24,7 +24,7 @@ export const Route = createFileRoute("/chats")({
         content: "ابحث عن مكتب عقاري وراسل المكتب، مع سجل المحادثات والرسائل.",
       },
       { property: "og:title", content: "الدردشة | عقار البطين" },
-      { property: "og:description", content: "محادثاتك مع المكاتب العقارية الاحترافية داخل عقار البطين." },
+      { property: "og:description", content: "محادثاتك مع المكاتب العقارية داخل عقار البطين." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -90,7 +90,7 @@ function ChatsPage() {
   }, [userId, qc, isAdmin]);
 
   const proOffices = useQuery({
-    queryKey: ["chat-pro-offices", userId],
+    queryKey: ["chat-offices", userId],
     enabled: !!userId && !isAdmin,
     refetchInterval: 30_000,
     queryFn: async () => {
@@ -101,8 +101,7 @@ function ChatsPage() {
         .order("updated_at", { ascending: false })
         .limit(500);
       if (error) throw error;
-      return ((data ?? []) as unknown as ProOfficeRow[])
-        .filter((row) => row.is_pro_current === true);
+      return (data ?? []) as unknown as ProOfficeRow[];
     },
   });
 
@@ -121,21 +120,6 @@ function ChatsPage() {
         .maybeSingle();
       if (existingError) throw existingError;
       if (existing?.id) return String(existing.id);
-
-      const { data: planData, error: planError } = await supabase.rpc(
-        "office_effective_plan",
-        { _office_id: officeId },
-      );
-      if (planError) throw planError;
-      const plan = planData as {
-        plan?: string;
-        expires_at?: string | null;
-        chat_enabled?: boolean;
-      } | null;
-      // office_effective_plan runs on the server and is the authority for expiry.
-      if (plan?.plan !== "pro" || plan.chat_enabled !== true) {
-        throw new Error("الدردشة متاحة للمكاتب المشتركة في الباقة الاحترافية السارية فقط.");
-      }
 
       const { data: created, error } = await supabase
         .from("conversations")
@@ -375,7 +359,7 @@ function ChatsPage() {
                       {conversationSearch.trim() ? "لا توجد نتائج مطابقة" : "محادثاتك هتظهر هنا"}
                     </h2>
                     <p className="max-w-xs text-xs leading-6 text-muted-foreground">
-                      {conversationSearch.trim() ? "جرّب اسم مكتب أو كلمة من الرسالة." : "لسه مفيش محادثات. استكشف المكاتب الاحترافية وابدأ أول محادثة، وكل رسائلك هتظهر داخل المساحة دي."}
+                      {conversationSearch.trim() ? "جرّب اسم مكتب أو كلمة من الرسالة." : "لسه مفيش محادثات. استكشف المكاتب العقارية وابدأ أول محادثة، وكل رسائلك هتظهر داخل المساحة دي."}
                     </p>
                     {!conversationSearch.trim() && (
                       <>
@@ -414,7 +398,7 @@ function ChatsPage() {
                     </div>
                   ) : proOffices.isError ? (
                     <p role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs text-terracotta">
-                      تعذّر تحميل المكاتب الاحترافية. حدّث الصفحة وحاول مجددًا.
+                      تعذّر تحميل المكاتب العقارية. حدّث الصفحة وحاول مجددًا.
                     </p>
                   ) : matchingOffices.length ? (
                     <ul className="space-y-2">
