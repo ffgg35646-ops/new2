@@ -47,6 +47,7 @@ jobs:
       - name: Install an isolated MongoDB and Mailpit
         run: |
           brew tap mongodb/brew
+          brew trust mongodb/brew
           brew install mongodb-community@8.0 mailpit
           brew services start mongodb-community@8.0
           export MP_SMTP_AUTH="testuser:testpass"
