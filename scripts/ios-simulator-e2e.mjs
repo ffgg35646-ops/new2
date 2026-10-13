@@ -338,6 +338,8 @@ try {
   log("Capacitor app opened on iPhone simulator");
 
   const individual = await registerAndVerify("individual", individualEmail, individualName);
+  // OTP confirmation creates an authenticated session; log out before proving password login.
+  await signOutFromUi("individual");
   await signIn("individual", individualEmail);
   const offerRequest = await createRequest(firstRequestText);
   const requestToEnd = await createRequest(secondRequestText);
