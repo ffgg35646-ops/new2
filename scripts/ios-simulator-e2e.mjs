@@ -175,16 +175,13 @@ async function signIn(role, email) {
 }
 async function signOutFromUi(role) {
   const path = role === "office" ? "/office/profile" : "/account";
-  await driver.url(baseUrl + path);
-  await sleep(700);
-  const before = await bodyText();
-  if (!before.includes("تسجيل الخروج")) {
-    throw new Error("The " + role + " account session did not expose its logout button");
-  }
+  await goto(path);
+  await waitForText("تسجيل الخروج", 15000);
   await clickText("button", "تسجيل الخروج", true);
   await driver.waitUntil(async () => {
     const currentUrl = String(await driver.getUrl());
-    return !currentUrl.includes(path) && !(await bodyText()).includes("تسجيل الخروج");
+    const pathname = new URL(currentUrl).pathname;
+    return pathname !== path && !(await bodyText()).includes("تسجيل الخروج");
   }, { timeout: 15000, interval: 300, timeoutMsg: "UI logout did not complete for " + role });
   log("UI logout passed: " + role);
 }
