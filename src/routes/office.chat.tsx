@@ -152,10 +152,10 @@ function OfficeChatPage() {
   );
 
   return (
-    <div style={{ height: "100dvh", minHeight: 0 }} className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col overflow-hidden bg-background">
       <AppHeader showSearch={false} />
 
-      <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col overflow-hidden px-3 py-3">
+      <div className="mx-auto flex min-h-0 w-full flex-1 flex-col overflow-hidden px-4 py-4">
         {activeId ? (
           <ConversationRoom
             conversationId={activeId}
