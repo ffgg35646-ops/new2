@@ -285,12 +285,13 @@ try {
   await endRequest(requestToEnd);
 
   const office = await registerAndVerify("office", officeEmail, "مدير " + runId, true);
-  await signIn("office", officeEmail);
+  // Simulate admin approval only in this isolated test database before the first office dashboard visit.
   await offices.updateOne(
     { owner_id: office._id, is_deleted: { $ne: true } },
     { $set: { verification_status: "verified", updated_at: new Date() } },
   );
   const officeDoc = await offices.findOne({ owner_id: office._id, is_deleted: { $ne: true } });
+  await signIn("office", officeEmail);
   if (!officeDoc) throw new Error("Office profile missing after signup");
   if (officeDoc.governorate_id !== "ios-e2e-governorate") throw new Error("Office governorate did not persist");
 
