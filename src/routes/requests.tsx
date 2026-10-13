@@ -71,7 +71,7 @@ type OfferRow = {
 
 export const Route = createFileRoute("/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: search["tab"] === "sent" ? ("sent" as const) : search["tab"] === "accepted" ? ("accepted" as const) : ("received" as const),
+    tab: search["tab"] === "sent" ? ("sent" as const) : ("accepted" as const),
     request: typeof search["request"] === "string" ? search["request"] : undefined,
     offer: typeof search["offer"] === "string" ? search["offer"] : undefined,
   }),
@@ -92,9 +92,8 @@ function RequestsPage() {
   const { userId } = useAuth();
   const qc = useQueryClient();
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"sent" | "received" | "accepted">(search["tab"]);
+  const [tab, setTab] = useState<"sent" | "accepted">(search["tab"]);
   const [activeRequestsPage, setActiveRequestsPage] = useState(1);
-  const [receivedOffersPage, setReceivedOffersPage] = useState(1);
   const [endRequestId, setEndRequestId] = useState<string | null>(null);
   const [endInquiryId, setEndInquiryId] = useState<string | null>(null);
   const [completeInquiryId, setCompleteInquiryId] = useState<string | null>(null);
@@ -108,7 +107,6 @@ function RequestsPage() {
 
   useEffect(() => {
     setActiveRequestsPage(1);
-    setReceivedOffersPage(1);
   }, [tab, userId]);
 
   const { data: myRequests = [], isLoading } = useQuery({
@@ -203,22 +201,18 @@ function RequestsPage() {
     [personalInquiries],
   );
   const acceptedCount = acceptedMarketRequests.length + acceptedPersonalInquiries.length;
-  const acceptedMarketRequestIds = useMemo(
-    () => new Set(myRequests
-      .filter((request) =>
-        !!request.accepted_offer_id && ["active", "fulfilled"].includes(request.status),
-      )
-      .map((request) => request.id)),
-    [myRequests],
-  );
-  const displayedReceivedOffers = useMemo(
-    () => receivedOffers.filter((offer) => !acceptedMarketRequestIds.has(offer.requestId)),
-    [receivedOffers, acceptedMarketRequestIds],
-  );
+
 
   useEffect(() => {
     if (!myRequests.length) return;
-    const targetId = search["offer"] ? "offer-card-" + search["offer"] : search["request"] ? "request-card-" + search["request"] : null;
+    const offerRequestId = search["offer"]
+      ? myRequests.find((request) => (request.office_offers ?? []).some((offer) => offer.id === search["offer"]))?.id
+      : undefined;
+    const targetId = search["request"]
+      ? "request-card-" + search["request"]
+      : search["offer"] && offerRequestId
+        ? "accepted-request-card-" + offerRequestId
+        : null;
     if (!targetId) return;
     window.setTimeout(() => {
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -274,22 +268,7 @@ function RequestsPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث طلب التواصل"),
   });
 
-  const setOfferStatus = useMutation({
-    mutationFn: async (vars: { id: string; status: "accepted" | "rejected" }) => {
-      const { error } = await supabase.rpc(
-        "respond_to_property_offer" as never,
-        { _offer_id: vars.id, _status: vars.status } as never,
-      );
-      if (error) throw error;
-    },
-    onSuccess: (_, vars) => {
-      toast.success(vars.status === "accepted" ? "تم قبول العرض وانتقل الطلب إلى طلبات التواصل الخاصة بالمكتب" : "تم رفض العرض");
-      void qc.invalidateQueries({ queryKey: ["requests-page"] });
-      void qc.invalidateQueries({ queryKey: ["office-sent-offers"] });
-      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث العرض"),
-  });
+
 
   const completeRequest = useMutation({
     mutationFn: async (vars: { requestId: string; offerId: string }) => {
@@ -318,17 +297,9 @@ function RequestsPage() {
   const activeSent = myRequests.filter((request) =>
     request.status === "active" && !request.accepted_offer_id,
   ).length;
-  const receivedCount = displayedReceivedOffers.length;
-  const pageSize = 6;
-  const receivedPageCount = Math.max(1, Math.ceil(displayedReceivedOffers.length / pageSize));
-  const currentReceivedPage = Math.min(receivedOffersPage, receivedPageCount);
-  const visibleReceivedOffers = displayedReceivedOffers.slice(
-    (currentReceivedPage - 1) * pageSize,
-    currentReceivedPage * pageSize,
-  );
   const completionCandidates = receivedOffers.filter((offer) =>
     offer.requestId === completionRequestId && !!offer.offices &&
-    ["sent", "accepted", "awaiting_confirmation", "ended"].includes(offer.status),
+    offer.status === "accepted",
   );
   const filteredCompletionCandidates = completionCandidates.filter((offer) => {
     const query = completionSearch.trim().toLocaleLowerCase("ar");
@@ -346,9 +317,8 @@ function RequestsPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
+        <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
           <Tab active={tab === "sent"} label="المرسلة" count={activeSent} onClick={() => setTab("sent")} />
-          <Tab active={tab === "received"} label="مستلم" count={receivedCount} onClick={() => setTab("received")} />
           <Tab active={tab === "accepted"} label="المقبولة" count={acceptedCount} onClick={() => setTab("accepted")} />
         </div>
 
@@ -370,90 +340,57 @@ function RequestsPage() {
                 <EmptyState
                   icon={ClipboardList}
                   title="لا توجد طلبات مرسلة نشطة"
-                  
                 />
               );
             }
 
             return (
               <div className="space-y-4">
-                {activeRequests.length > 0 && (
-                  <section>
-                    <div className="mb-2 flex items-center justify-between">
-                      <h2 className="font-display text-sm font-extrabold">الطلبات النشطة</h2>
-                      <span className="text-[11px] text-muted-foreground">
-                        {activeRequests.length} طلب
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {visibleActiveRequests.map((request) => (
-                        <RequestCard
-                          key={request.id}
-                          request={request}
-                          highlighted={search["request"] === request.id}
-                          pending={endRequest.isPending}
-                          onEnd={() => setEndRequestId(request.id)}
-                        />
-                      ))}
-                    </div>
-                    <PaginationControls
-                      page={currentActivePage}
-                      total={activeRequests.length}
-                      pageSize={pageSize}
-                      onPageChange={setActiveRequestsPage}
-                    />
-                  </section>
-                )}
-
+                <section>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h2 className="font-display text-sm font-extrabold">الطلبات النشطة</h2>
+                    <span className="text-[11px] text-muted-foreground">
+                      {activeRequests.length} طلب
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {visibleActiveRequests.map((request) => (
+                      <RequestCard
+                        key={request.id}
+                        request={request}
+                        highlighted={search["request"] === request.id}
+                        pending={endRequest.isPending}
+                        onEnd={() => setEndRequestId(request.id)}
+                      />
+                    ))}
+                  </div>
+                  <PaginationControls
+                    page={currentActivePage}
+                    total={activeRequests.length}
+                    pageSize={pageSize}
+                    onPageChange={setActiveRequestsPage}
+                  />
+                </section>
               </div>
             );
           })()
-        ) : tab === "accepted" ? (
-          inquiriesLoading ? (
-            <ListSkeleton />
-          ) : (
-            <AcceptedPrioritySection
-              requests={acceptedMarketRequests}
-              inquiries={acceptedPersonalInquiries}
-              pending={endRequest.isPending || completeRequest.isPending || updateInquiryStatus.isPending}
-              onEndRequest={(id) => setEndRequestId(id)}
-              onCompleteRequest={(id) => { setCompletionRequestId(id); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
-              onEndInquiry={(id) => setEndInquiryId(id)}
-              onCompleteInquiry={(id) => setCompleteInquiryId(id)}
-            />
-          )
-
-          <section className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-display text-sm font-extrabold">طلبات مستلمة</h2>
-              <span className="min-w-6 rounded-full bg-terracotta-soft px-2 py-1 text-center text-[10px] font-extrabold text-terracotta">{displayedReceivedOffers.length}</span>
-            </div>
-            {visibleReceivedOffers.map((offer) => (
-              <OfferCard
-                key={offer.id}
-                offer={offer}
-                pending={setOfferStatus.isPending || completeRequest.isPending}
-                onStatus={(status) => setOfferStatus.mutate({ id: offer.id, status })}
-                highlighted={search["offer"] === offer.id}
-                canMarkComplete={!!offer.requestAcceptedOfferId && offer.requestStatus === "active" && offer.id === offer.requestAcceptedOfferId}
-                onMarkComplete={() => { setCompletionRequestId(offer.requestId); setCompletionSearch(""); setSelectedCompletionOfferId(null); }}
-              />
-            ))}
-            <PaginationControls
-              page={currentReceivedPage}
-              total={displayedReceivedOffers.length}
-              pageSize={pageSize}
-              onPageChange={setReceivedOffersPage}
-            />
-          </section>
+        ) : inquiriesLoading ? (
+          <ListSkeleton />
         ) : (
-          <EmptyState
-            icon={ClipboardList}
-            title="لا توجد عروض مستقبلة"
-            
+          <AcceptedPrioritySection
+            requests={acceptedMarketRequests}
+            inquiries={acceptedPersonalInquiries}
+            pending={endRequest.isPending || completeRequest.isPending || updateInquiryStatus.isPending}
+            onEndRequest={(id) => setEndRequestId(id)}
+            onCompleteRequest={(id) => {
+              setCompletionRequestId(id);
+              setCompletionSearch("");
+              setSelectedCompletionOfferId(null);
+            }}
+            onEndInquiry={(id) => setEndInquiryId(id)}
+            onCompleteInquiry={(id) => setCompleteInquiryId(id)}
           />
         )}
-
       </main>
 
       <CompleteViewingReasonModal
