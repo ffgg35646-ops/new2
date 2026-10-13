@@ -445,7 +445,7 @@ function OfficePage() {
                     title="واتساب غير متاح"
                     aria-label="واتساب غير متاح"
                     disabled
-                    className="grid aspect-square place-items-center rounded-2xl bg-sand text-muted-foreground opacity-60"
+                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-sand text-muted-foreground opacity-60"
                   >
                     <WhatsAppIcon className="size-5" />
                   </button>
