@@ -275,7 +275,11 @@ try {
       "appium:deviceName": process.env.IOS_DEVICE_NAME || "iPhone 16",
       "appium:udid": process.env.IOS_SIMULATOR_UDID,
       "appium:bundleId": "cloud.baytialkhass.app",
-      "appium:additionalWebviewBundleIds": ["process-App"],
+      // The Web Inspector reports this page under a process-* bundle identifier.
+      "appium:additionalWebviewBundleIds": ["*"],
+      // WDA is prebuilt in the workflow to avoid a stalled xcodebuild launch.
+      "appium:usePreinstalledWDA": true,
+      "appium:prebuiltWDAPath": process.env.WDA_APP_PATH || "/tmp/aqar-wda-derived/Build/Products/Debug-iphonesimulator/WebDriverAgentRunner-Runner.app",
       "appium:noReset": false,
       "appium:newCommandTimeout": 300,
       "appium:autoAcceptAlerts": true,
