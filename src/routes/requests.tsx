@@ -297,6 +297,7 @@ function RequestsPage() {
   const activeSent = myRequests.filter((request) =>
     request.status === "active" && !request.accepted_offer_id,
   ).length;
+  const pageSize = 6;
   const completionCandidates = receivedOffers.filter((offer) =>
     offer.requestId === completionRequestId && !!offer.offices &&
     offer.status === "accepted",
@@ -460,6 +461,138 @@ function RequestsPage() {
       )}
 
       <BottomNav />
+    </div>
+  );
+}
+
+function Tab({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold",
+        active ? "bg-forest text-background" : "text-muted-foreground",
+      )}
+    >
+      <span>{label}</span>
+      {count > 0 && (
+        <span
+          className={cn(
+            "min-w-5 rounded-full px-1.5 py-0.5 text-[10px] leading-none",
+            active ? "bg-background text-forest" : "bg-terracotta text-background",
+          )}
+        >
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function RequestCard({
+  request,
+  highlighted,
+  pending,
+  onEnd,
+}: {
+  request: RequestRow;
+  highlighted: boolean;
+  pending: boolean;
+  onEnd: () => void;
+}) {
+  const status = request.status;
+  const isActive = status === "active";
+  const offerCount = request.office_offers?.length ?? 0;
+  const completedOffer = (request.office_offers ?? []).find(
+    (offer) => String(offer.id) === String(request.completed_offer_id ?? ""),
+  );
+  const completedOfficeName =
+    completedOffer?.offices?.name ||
+    (request.office_offers ?? []).find(
+      (offer) => String(offer.offices?.id ?? "") === String(request.completed_office_id ?? ""),
+    )?.offices?.name ||
+    null;
+
+  return (
+    <div
+      id={"request-card-" + request.id}
+      className={cn(
+        "rounded-2xl bg-surface p-3 ring-1 ring-line",
+        highlighted && "ring-2 ring-forest",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-display text-sm font-extrabold">
+            {PROPERTY_KINDS.find((kind) => kind.value === request.kind)?.label ?? "عقار"} ·{" "}
+            {LISTING_TYPES.find((listing) => listing.value === request.listing)?.label ?? "طلب"}
+          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            {formatDate(request.created_at)}
+            {request.expires_at ? " · ينتهي " + formatDate(request.expires_at) : ""}
+          </div>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
+            status === "fulfilled"
+              ? "bg-forest-soft text-forest"
+              : status === "cancelled" || status === "ended"
+                ? "bg-terracotta-soft text-terracotta"
+                : status === "expired"
+                  ? "bg-sand text-muted-foreground"
+                  : "bg-forest-soft text-forest",
+          )}
+        >
+          {REQUEST_STATUS[status] ?? status}
+        </span>
+      </div>
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-5 text-muted-foreground">
+        {request.description}
+      </p>
+      {status === "fulfilled" && (
+        <div className="mt-2 rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">
+          تم اكتمال الطلب مع المكتب: <strong>{completedOfficeName || "اسم المكتب غير متاح"}</strong>
+        </div>
+      )}
+      <div className="mt-2.5 grid grid-cols-2 gap-2">
+        <Info label="الميزانية">
+          {request.budget_min != null || request.budget_max != null
+            ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س"
+            : "غير محددة"}
+        </Info>
+        <Info label="المساحة">
+          {request.area_min != null ? "من " + request.area_min + " م²" : "غير محددة"}
+        </Info>
+        <Info label="الحي">{request.neighborhood || "أي حي"}</Info>
+        <Info label="العروض">{offerCount}</Info>
+      </div>
+      {isActive && (
+        <button
+          type="button"
+          onClick={onEnd}
+          disabled={pending}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+        >
+          <XCircle className="size-4" /> إنهاء الطلب
+        </button>
+      )}
+      {status === "ended" && request.end_reason && (
+        <div className="mt-2 rounded-xl bg-sand p-2.5 text-xs leading-5 text-muted-foreground">
+          سبب الإنهاء: {request.end_reason}
+        </div>
+      )}
     </div>
   );
 }
