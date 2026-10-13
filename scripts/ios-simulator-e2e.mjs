@@ -268,7 +268,7 @@ async function registerAndVerify(role, email, name, isOffice = false) {
   const govSelect = await driver.$("select");
   await govSelect.waitForDisplayed({ timeout: 20000 });
   await driver.waitUntil(async () => {
-    const options = await govSelect.$("option");
+    const options = await govSelect.$$("option");
     for (const option of options) {
       if ((await option.getAttribute("value")) === "ios-e2e-governorate") return true;
     }
