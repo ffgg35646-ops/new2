@@ -1,7 +1,7 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Home as HomeIcon, ChevronLeft, Building2, House, KeyRound } from "lucide-react";
+import { Home as HomeIcon, ChevronLeft, Building2, House, KeyRound, ShieldCheck, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -126,6 +126,21 @@ function HomePage() {
 
       <main className="flex-1 space-y-6 px-4 py-4">
         <GovernorateBanner governorate={governorate} />
+
+        <section className="space-y-2.5" aria-label="مزايا عقار البطين">
+          <div className="flex items-center gap-3 rounded-2xl bg-surface px-3.5 py-3 ring-1 ring-line">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-forest-soft text-forest">
+              <ShieldCheck className="size-[18px]" />
+            </span>
+            <p className="text-sm font-semibold leading-6">تعامل بثقة مع مكاتب عقارية موثقة</p>
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl bg-surface px-3.5 py-3 ring-1 ring-line">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-terracotta/10 text-terracotta">
+              <Sparkles className="size-[18px]" />
+            </span>
+            <p className="text-sm font-semibold leading-6">اطلب عقارك واستقبل عروض المكاتب بكل سهولة</p>
+          </div>
+        </section>
 
         <section className="grid grid-cols-3 gap-2.5">
           <StatCard
