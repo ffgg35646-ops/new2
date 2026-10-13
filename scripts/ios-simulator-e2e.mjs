@@ -214,7 +214,7 @@ async function acceptOffer(offer) {
   await goto("/requests?tab=sent");
   const card = await driver.$("#offer-card-" + offer.id);
   await card.waitForDisplayed({ timeout: 25000 });
-  await card.$('button*=قبول العرض').click();
+  await card.$('.//button[contains(normalize-space(.), "قبول العرض")]').click();
   await driver.waitUntil(async () => {
     const updated = await offers.findOne({ id: offer.id });
     return updated && ["accepted", "completed", "awaiting_confirmation"].includes(String(updated.status));
@@ -243,7 +243,9 @@ async function createAndDeleteProperty() {
   const menu = await driver.$('button[aria-label="خيارات العقار: ' + propertyTitle + '"]');
   await menu.waitForDisplayed({ timeout: 20000 });
   await menu.click();
-  await clickText("[role=menuitem]", "حذف العقار");
+  const deleteItem = await driver.$('//div[@role="menuitem"][contains(normalize-space(.), "حذف العقار")]');
+  await deleteItem.waitForDisplayed({ timeout: 10000 });
+  await deleteItem.click();
   await waitForText("تأكيد حذف العقار");
   await clickText("button", "نعم، احذف العقار", true);
   await driver.waitUntil(async () => {
