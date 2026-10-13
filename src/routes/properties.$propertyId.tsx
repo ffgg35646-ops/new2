@@ -194,7 +194,9 @@ function PropertyDetail() {
       const candidates = (rows ?? []) as unknown as PropertyCardData[];
       for (let i = candidates.length - 1; i > 0; i -= 1) {
         const j = Math.floor(Math.random() * (i + 1));
-        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+        const current = candidates[i]!;
+        candidates[i] = candidates[j]!;
+        candidates[j] = current;
       }
       return candidates.slice(0, 4);
     },
