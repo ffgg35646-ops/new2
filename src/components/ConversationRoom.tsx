@@ -34,6 +34,18 @@ type MessageRow = {
   read_at: string | null;
 };
 
+function formatSaudiMessageTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("ar-SA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Riyadh",
+  }).format(date);
+}
+
 export function ConversationRoom({
   conversationId,
   onBack,
@@ -617,6 +629,16 @@ export function ConversationRoom({
                         ? "✓✓ مقروءة"
                         : "✓ تم الإرسال"
                       : ""}
+                  </span>
+                  <span
+                    className={
+                      "whitespace-nowrap text-[9px] " +
+                      (mine ? "text-background/70" : "text-muted-foreground")
+                    }
+                    dir="rtl"
+                    title="بتوقيت السعودية"
+                  >
+                    {formatSaudiMessageTime(message.created_at)}
                   </span>
 
                   {!mine && !readOnly && (
