@@ -59,8 +59,8 @@ function PlansPage() {
                 ? pkg.property_limit ?? null
                 : FREE_PROPERTY_LIMIT;
               const displayedFeatures = [
-                ...(pkg.features ?? []).filter((feature) => !/دردشة|الدردشة|المحادثة/.test(feature)),
-                ...(!packageIsPaid ? ["دردشة مجانية مع العملاء", "إرسال الصور داخل المحادثة"] : []),
+                ...(pkg.features ?? []).filter((feature) => !/دردشة|الدردشة/.test(feature)),
+                ...(!packageIsPaid ? ["دردشة مجانية مع العملاء"] : []),
               ].filter((feature, index, all) => all.indexOf(feature) === index);
 
               return (
