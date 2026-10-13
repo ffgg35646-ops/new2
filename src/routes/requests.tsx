@@ -1,8 +1,8 @@
 import { RoleGuard } from "@/lib/role-guard";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ClipboardList, Copy, Phone, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardList, MessageSquare, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -13,7 +13,6 @@ import { useAuth } from "@/lib/auth";
 import { CompleteViewingReasonModal } from "@/components/CompleteViewingReasonModal";
 import { LISTING_TYPES, PROPERTY_KINDS, REQUEST_STATUS } from "@/lib/constants";
 import { formatDate, formatPrice } from "@/lib/format";
-import { whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
 
 type RequestRow = {
@@ -72,7 +71,7 @@ type OfferRow = {
 
 export const Route = createFileRoute("/requests")({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: search["tab"] === "sent" ? ("sent" as const) : search["tab"] === "history" ? ("history" as const) : search["tab"] === "accepted" ? ("accepted" as const) : ("received" as const),
+    tab: search["tab"] === "sent" ? ("sent" as const) : search["tab"] === "accepted" ? ("accepted" as const) : ("received" as const),
     request: typeof search["request"] === "string" ? search["request"] : undefined,
     offer: typeof search["offer"] === "string" ? search["offer"] : undefined,
   }),
@@ -93,8 +92,7 @@ function RequestsPage() {
   const { userId } = useAuth();
   const qc = useQueryClient();
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"sent" | "received" | "accepted" | "history">(search["tab"]);
-  const [openOfferId, setOpenOfferId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"sent" | "received" | "accepted">(search["tab"]);
   const [activeRequestsPage, setActiveRequestsPage] = useState(1);
   const [receivedOffersPage, setReceivedOffersPage] = useState(1);
   const [endRequestId, setEndRequestId] = useState<string | null>(null);
@@ -204,16 +202,7 @@ function RequestsPage() {
     () => personalInquiries.filter((inquiry) => inquiry.status === "accepted"),
     [personalInquiries],
   );
-  const historyRequests = useMemo(
-    () => myRequests.filter((request) => request.status !== "active"),
-    [myRequests],
-  );
-  const historyInquiries = useMemo(
-    () => personalInquiries.filter((inquiry) => ["ended", "completed", "rejected", "cancelled"].includes(inquiry.status)),
-    [personalInquiries],
-  );
   const acceptedCount = acceptedMarketRequests.length + acceptedPersonalInquiries.length;
-  const historyCount = historyRequests.length + historyInquiries.length;
   const acceptedMarketRequestIds = useMemo(
     () => new Set(myRequests
       .filter((request) =>
@@ -253,7 +242,7 @@ function RequestsPage() {
         qc.invalidateQueries({ queryKey: ["office-sent-offers"] }),
         qc.invalidateQueries({ queryKey: ["unread-notifications"] }),
       ]);
-      setTab("history");
+      setTab("accepted");
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر إنهاء الطلب"),
   });
@@ -280,7 +269,7 @@ function RequestsPage() {
         qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] }),
         qc.invalidateQueries({ queryKey: ["unread-notifications"] }),
       ]);
-      setTab("history");
+      setTab("accepted");
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تحديث طلب التواصل"),
   });
@@ -321,7 +310,7 @@ function RequestsPage() {
         qc.invalidateQueries({ queryKey: ["office-sent-offers"] }),
         qc.invalidateQueries({ queryKey: ["unread-notifications"] }),
       ]);
-      setTab("history");
+      setTab("accepted");
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "تعذّر تأكيد اكتمال الطلب"),
   });
@@ -357,11 +346,10 @@ function RequestsPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-4 gap-1.5 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
+        <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-surface p-1.5 ring-1 ring-line">
           <Tab active={tab === "sent"} label="المرسلة" count={activeSent} onClick={() => setTab("sent")} />
           <Tab active={tab === "received"} label="مستلم" count={receivedCount} onClick={() => setTab("received")} />
           <Tab active={tab === "accepted"} label="المقبولة" count={acceptedCount} onClick={() => setTab("accepted")} />
-          <Tab active={tab === "history"} label="تاريخ الطلبات" count={historyCount} onClick={() => setTab("history")} />
         </div>
 
         {isLoading ? (
@@ -434,48 +422,7 @@ function RequestsPage() {
               onCompleteInquiry={(id) => setCompleteInquiryId(id)}
             />
           )
-        ) : tab === "history" ? (
-          inquiriesLoading ? (
-            <ListSkeleton />
-          ) : !historyCount ? (
-            <EmptyState
-              icon={ClipboardList}
-              title="لا يوجد تاريخ للطلبات حتى الآن"
-              
-            />
-          ) : (
-            <div className="space-y-4">
-              {historyRequests.length > 0 && (
-                <section className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <h2 className="font-display text-sm font-extrabold">طلبات السوق السابقة</h2>
-                    <span className="text-[11px] text-muted-foreground">{historyRequests.length} طلب</span>
-                  </div>
-                  {historyRequests.map((request) => (
-                    <RequestCard
-                      key={request.id}
-                      request={request}
-                      highlighted={search["request"] === request.id}
-                      pending={false}
-                      onEnd={() => {}}
-                    />
-                  ))}
-                </section>
-              )}
-              {historyInquiries.length > 0 && (
-                <section className="space-y-2 border-t border-line pt-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <h2 className="font-display text-sm font-extrabold">طلبات التواصل السابقة</h2>
-                    <span className="text-[11px] text-muted-foreground">{historyInquiries.length} طلب</span>
-                  </div>
-                  {historyInquiries.map((inquiry) => (
-                    <HistoryInquiryCard key={inquiry.id} inquiry={inquiry} />
-                  ))}
-                </section>
-              )}
-            </div>
-          )
-        ) : displayedReceivedOffers.length ? (
+
           <section className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-display text-sm font-extrabold">طلبات مستلمة</h2>
@@ -486,10 +433,6 @@ function RequestsPage() {
                 key={offer.id}
                 offer={offer}
                 pending={setOfferStatus.isPending || completeRequest.isPending}
-                contactOpen={openOfferId === offer.id}
-                onContactToggle={() =>
-                  setOpenOfferId((current) => (current === offer.id ? null : offer.id))
-                }
                 onStatus={(status) => setOfferStatus.mutate({ id: offer.id, status })}
                 highlighted={search["offer"] === offer.id}
                 canMarkComplete={!!offer.requestAcceptedOfferId && offer.requestStatus === "active" && offer.id === offer.requestAcceptedOfferId}
@@ -621,8 +564,6 @@ function AcceptedPrioritySection({
         const offer = (request.office_offers ?? []).find((item) => item.id === selectedOfferId)
           ?? (request.office_offers ?? []).find((item) => item.id === request.accepted_offer_id);
         const office = offer?.offices;
-        const phone = String(office?.phone ?? "").trim();
-        const whatsapp = String(office?.whatsapp ?? office?.phone ?? "").trim();
         return (
           <article key={request.id} id={"accepted-request-card-" + request.id}
             className="space-y-1.5 rounded-xl bg-surface p-2.5 ring-1 ring-forest/20 shadow-sm">
@@ -662,16 +603,13 @@ function AcceptedPrioritySection({
               </details>
             )}
 
-            <div className="flex items-center gap-2 rounded-lg bg-background px-2.5 py-1.5 ring-1 ring-line">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-extrabold">{office?.name || "مكتب عقاري"}</div>
-                <div className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">{phone || "رقم المكتب غير متوفر"}</div>
-              </div>
-              {phone && <a href={"tel:" + phone} aria-label="اتصال بالمكتب" title="اتصال بالمكتب"
-                className="grid size-9 shrink-0 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>}
-              {(whatsapp || phone) && <a href={whatsappHref(whatsapp || phone, "مرحبًا " + (office?.name || "المكتب العقاري") + "، بخصوص طلبي العقاري")} target="_blank" rel="noreferrer" aria-label="واتساب المكتب" title="واتساب المكتب"
-                className="grid size-9 shrink-0 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-5" /></a>}
-            </div>
+            <Link
+              to="/chats"
+              search={{ c: undefined, office: office?.id }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background"
+            >
+              <MessageSquare className="size-4" /> الدردشة مع المكتب
+            </Link>
 
             {isCompleted ? (
               <div className="rounded-xl bg-forest-soft py-2.5 text-center text-xs font-bold text-forest">مكتمل</div>
@@ -692,8 +630,6 @@ function AcceptedPrioritySection({
       })}
 
       {inquiries.map((inquiry) => {
-        const phone = String(inquiry.office?.phone ?? "").trim();
-        const whatsapp = String(inquiry.office?.whatsapp ?? inquiry.office?.phone ?? "").trim();
         const inquiryLabel: Record<string, string> = { viewing: "معاينة", buy: "شراء", rent: "استئجار", question: "استفسار" };
         return (
           <article key={inquiry.id} id={"accepted-inquiry-card-" + inquiry.id}
@@ -711,16 +647,14 @@ function AcceptedPrioritySection({
               </span>
             </div>
             {inquiry.message && <details className="rounded-lg bg-background px-3 py-2 ring-1 ring-line"><summary className="cursor-pointer text-xs font-bold text-forest">رسالة الطلب</summary><p className="mt-2 whitespace-pre-wrap text-xs leading-5">{inquiry.message}</p></details>}
-            <div className="flex items-center gap-2 rounded-lg bg-background px-3 py-2 ring-1 ring-line">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-extrabold">{inquiry.office?.name || "مكتب عقاري"}</div>
-                <div className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">{phone || "رقم المكتب غير متوفر"}</div>
-              </div>
-              {phone && <a href={"tel:" + phone} aria-label="اتصال بالمكتب" title="اتصال بالمكتب"
-                className="grid size-9 shrink-0 place-items-center rounded-full bg-forest text-background"><Phone className="size-4" /></a>}
-              {(whatsapp || phone) && <a href={whatsappHref(whatsapp || phone, "مرحبًا " + (inquiry.office?.name || "المكتب العقاري") + "، بخصوص طلب التواصل")}
-                target="_blank" rel="noreferrer" aria-label="واتساب المكتب" title="واتساب المكتب" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-5" /></a>}
-            </div>
+            <Link
+              to="/chats"
+              search={{ c: undefined, office: inquiry.office?.id }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background"
+            >
+              <MessageSquare className="size-4" /> الدردشة مع المكتب
+            </Link>
+
             <a href={"/properties/" + encodeURIComponent(inquiry.property_id)}
               className="block rounded-xl bg-background py-2.5 text-center text-xs font-bold text-forest ring-1 ring-line">تفاصيل العقار</a>
             {inquiry.status === "completed" ? (
@@ -740,150 +674,10 @@ function AcceptedPrioritySection({
   );
 }
 
-function HistoryInquiryCard({ inquiry }: { inquiry: IndividualInquiry }) {
-  const inquiryLabel: Record<string, string> = {
-    viewing: "معاينة", buy: "شراء", rent: "استئجار", question: "استفسار",
-  };
-  const statusLabel: Record<string, string> = {
-    completed: "مكتمل", ended: "منتهي", rejected: "مرفوض من المكتب", cancelled: "ملغي",
-  };
-  const statusClass = inquiry.status === "completed"
-    ? "bg-forest-soft text-forest"
-    : inquiry.status === "rejected"
-      ? "bg-terracotta-soft text-terracotta"
-      : "bg-sand text-muted-foreground";
-
-  return (
-    <article className="space-y-3 rounded-2xl bg-surface p-3 ring-1 ring-line">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-display text-sm font-extrabold">{inquiry.property?.title || "عقار المكتب"}</h3>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {inquiry.property?.property_number ? "رقم العقار: " + inquiry.property.property_number + " · " : ""}
-            {inquiryLabel[inquiry.type] || "طلب تواصل"} · {formatDate(inquiry.created_at)}
-          </p>
-        </div>
-        <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold", statusClass)}>
-          {statusLabel[inquiry.status] || "منتهي"}
-        </span>
-      </div>
-      {inquiry.message && (
-        <p className="whitespace-pre-wrap rounded-xl bg-background p-3 text-sm leading-6">{inquiry.message}</p>
-      )}
-      {(inquiry.status === "completed" ? inquiry.completion_note : inquiry.end_reason) && (
-        <div className="rounded-xl bg-sand p-3 text-xs leading-5 text-muted-foreground">
-          <span className="font-bold text-foreground">{inquiry.status === "completed" ? "ملاحظة الإكمال: " : "سبب الإنهاء: "}</span>
-          {inquiry.status === "completed" ? inquiry.completion_note : inquiry.end_reason}
-        </div>
-      )}
-      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>المكتب: {inquiry.office?.name || "مكتب عقاري"}</span>
-        <a href={"/properties/" + encodeURIComponent(inquiry.property_id)} className="font-bold text-forest underline">
-          تفاصيل العقار
-        </a>
-      </div>
-    </article>
-  );
-}
-
-function Tab({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold",
-        active ? "bg-forest text-background" : "text-muted-foreground",
-      )}
-    >
-      <span>{label}</span>
-      {count > 0 && (
-        <span
-          className={cn(
-            "min-w-5 rounded-full px-1.5 py-0.5 text-[10px] leading-none",
-            active ? "bg-background text-forest" : "bg-terracotta text-background",
-          )}
-        >
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-function RequestCard({
-  request, highlighted, pending, onEnd,
-}: { request: RequestRow; highlighted: boolean; pending: boolean; onEnd: () => void }) {
-  const status = request.status;
-  const isActive = status === "active";
-  const offerCount = request.office_offers?.length ?? 0;
-  const completedOffer = (request.office_offers ?? []).find(
-    (offer) => String(offer.id) === String(request.completed_offer_id ?? ""),
-  );
-  const completedOfficeName =
-    completedOffer?.offices?.name ||
-    (request.office_offers ?? []).find(
-      (offer) => String(offer.offices?.id ?? "") === String(request.completed_office_id ?? ""),
-    )?.offices?.name ||
-    null;
-  return (
-    <div id={"request-card-" + request.id} className={cn("rounded-2xl bg-surface p-3 ring-1 ring-line", highlighted && "ring-2 ring-forest")}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-display text-sm font-extrabold">
-            {PROPERTY_KINDS.find((k) => k.value === request.kind)?.label ?? "عقار"} ·{" "}
-            {LISTING_TYPES.find((l) => l.value === request.listing)?.label ?? "طلب"}
-          </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            {formatDate(request.created_at)}{request.expires_at ? " · ينتهي " + formatDate(request.expires_at) : ""}
-          </div>
-        </div>
-        <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
-          status === "fulfilled" ? "bg-forest-soft text-forest" :
-          status === "cancelled" || status === "ended" ? "bg-terracotta-soft text-terracotta" :
-          status === "expired" ? "bg-sand text-muted-foreground" : "bg-forest-soft text-forest")}>
-          {REQUEST_STATUS[status] ?? status}
-        </span>
-      </div>
-      <p className="mt-2 whitespace-pre-wrap text-sm leading-5 text-muted-foreground">{request.description}</p>
-      {status === "fulfilled" && (
-        <div className="mt-2 rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">
-          تم اكتمال الطلب مع المكتب: <strong>{completedOfficeName || "اسم المكتب غير متاح"}</strong>
-        </div>
-      )}
-      <div className="mt-2.5 grid grid-cols-2 gap-2">
-        <Info label="الميزانية">{request.budget_min != null || request.budget_max != null ? formatPrice(request.budget_min) + " - " + formatPrice(request.budget_max) + " ر.س" : "غير محددة"}</Info>
-        <Info label="المساحة">{request.area_min != null ? "من " + request.area_min + " م²" : "غير محددة"}</Info>
-        <Info label="الحي">{request.neighborhood || "أي حي"}</Info>
-        <Info label="العروض">{offerCount}</Info>
-      </div>
-      {isActive && (
-        <button type="button" onClick={onEnd} disabled={pending}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50">
-          <XCircle className="size-4" /> إنهاء الطلب
-        </button>
-      )}
-      {status === "ended" && request.end_reason && (
-        <div className="mt-2 rounded-xl bg-sand p-2.5 text-xs leading-5 text-muted-foreground">سبب الإنهاء: {request.end_reason}</div>
-      )}
-    </div>
-  );
-}
-
 function OfferCard({
-  offer, pending, contactOpen, onContactToggle, onStatus, highlighted, canMarkComplete, onMarkComplete,
+  offer, pending, onStatus, highlighted, canMarkComplete, onMarkComplete,
 }: {
-  offer: OfferRow; pending: boolean; contactOpen: boolean; onContactToggle: () => void;
+  offer: OfferRow; pending: boolean;
   onStatus: (status: "accepted" | "rejected") => void; highlighted: boolean;
   canMarkComplete: boolean; onMarkComplete: () => void;
 }) {
@@ -910,57 +704,15 @@ function OfferCard({
       {offer.price != null && <div className="mt-2 text-lg font-display font-extrabold text-forest">{formatPrice(offer.price)} <span className="text-sm">ر.س</span></div>}
       {offer.properties?.title && <div className="mt-2 rounded-xl bg-forest-soft p-2.5 text-xs font-semibold text-forest">العقار المقترح: {offer.properties.title}</div>}
       {canRespond && (
-        <div className="mt-2.5 grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => onStatus("accepted")} disabled={pending} className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"><CheckCircle2 className="size-4" /> قبول العرض</button>
-          <button type="button" onClick={() => onStatus("rejected")} disabled={pending} className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"><XCircle className="size-4" /> رفض</button>
-        </div>
-      )}
-      {canMarkComplete && (
-        <div className="mt-2.5 space-y-2 rounded-xl bg-forest-soft p-3">
-          
-          <button type="button" onClick={onMarkComplete} disabled={pending} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"><CheckCircle2 className="size-4" /> الطلب مكتمل</button>
-        </div>
-      )}
-      {offer.status === "ended" && <p className="mt-2.5 rounded-xl bg-terracotta-soft p-3 text-xs leading-5 text-terracotta">{offer.end_reason ? "ألغى المكتب عرضه. سبب الإلغاء: " + offer.end_reason : "انتهى هذا العرض لأن الطلب لم يعد متاحًا للتقديم عليه."}</p>}
-      {offer.status === "completed" && <p className="mt-2.5 rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">تم تسجيل هذا المكتب باعتباره المكتب الذي اكتمل الطلب من خلاله.</p>}
-      <div className="mt-2.5 grid grid-cols-2 gap-2">
-        <button type="button" onClick={(event) => { event.stopPropagation(); onContactToggle(); }} aria-expanded={contactOpen} aria-label="عرض رقم الاتصال" title="اتصال"
-          className={cn("grid size-10 place-items-center rounded-xl ring-1 ring-line", contactOpen ? "bg-forest-soft text-forest" : "bg-surface text-forest")}><Phone className="size-4" /></button>
-        <a href={whatsappHref(office?.whatsapp || office?.phone || "", "مرحبًا، بخصوص العرض الذي أرسلتموه على طلبي العقاري")} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label="واتساب" title="واتساب" className="grid size-10 place-items-center rounded-xl bg-[#25D366]/10 text-[#25D366]"><WhatsAppIcon className="size-5 text-[#25D366]" /></a>
-      </div>
-      {contactOpen && (
-        <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">
-          <div className="text-[10px] font-semibold text-muted-foreground">رقم الاتصال الذي أضافه المكتب</div>
-          <div className="mt-1 flex items-center gap-2"><div className="min-w-0 flex-1 text-sm font-extrabold" dir="ltr">{office?.phone || "المكتب لم يضع رقم الاتصال"}</div>
-            {office?.phone && <button type="button" onClick={async (event) => {
-              event.stopPropagation();
-              try {
-                if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(office.phone!);
-                else {
-                  const input = document.createElement("textarea"); input.value = office.phone!;
-                  input.setAttribute("readonly", ""); input.style.position = "fixed"; input.style.opacity = "0";
-                  document.body.appendChild(input); input.select(); const copied = document.execCommand("copy"); document.body.removeChild(input);
-                  if (!copied) throw new Error("copy_failed");
-                }
-                toast.success("تم نسخ رقم الاتصال");
-              } catch { toast.error("تعذّر نسخ رقم الاتصال"); }
-            }} className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface text-forest ring-1 ring-line" aria-label="نسخ رقم الاتصال" title="نسخ الرقم"><Copy className="size-4" /></button>}
-          </div>
-        </div>
-      )}
+        <Link
+        to="/chats"
+        search={{ c: undefined, office: office?.id }}
+        onClick={(event) => event.stopPropagation()}
+        className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background"
+      >
+        <MessageSquare className="size-4" /> الدردشة مع المكتب
+      </Link>
     </div>
-  );
-}
-
-function WhatsAppIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className={cn("fill-current", className)}
-    >
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.198.297-.767.966-.94 1.164-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.099-.198.05-.372-.025-.521-.075-.149-.669-1.611-.916-2.206-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.075-.792.372-.273.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.077 4.487.71.307 1.263.49 1.694.626.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.268c.001-5.45 4.436-9.884 9.888-9.884a9.83 9.83 0 0 1 6.988 2.898 9.83 9.83 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.89a11.86 11.86 0 0 0 1.595 5.946L.057 24l6.304-1.655a11.88 11.88 0 0 0 5.684 1.448h.005c6.554 0 11.89-5.335 11.893-11.89a11.821 11.821 0 0 0-3.479-8.415" />
-    </svg>
   );
 }
 
