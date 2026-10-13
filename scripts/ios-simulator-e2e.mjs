@@ -259,8 +259,13 @@ let failed = false;
 try {
   driver = await remote({
     hostname: "127.0.0.1", port: 4723, path: "/", logLevel: "warn",
+    // XCUITest may need several minutes to compile and launch WDA on a fresh macOS runner.
+    // Do not let WebdriverIO retry POST /session while the original session is still building WDA.
+    connectionRetryTimeout: 360000,
+    connectionRetryCount: 0,
     capabilities: {
       platformName: "iOS",
+      "appium:platformVersion": "18.5",
       "appium:automationName": "XCUITest",
       "appium:deviceName": process.env.IOS_DEVICE_NAME || "iPhone 16",
       "appium:udid": process.env.IOS_SIMULATOR_UDID,
@@ -269,7 +274,11 @@ try {
       "appium:newCommandTimeout": 300,
       "appium:autoAcceptAlerts": true,
       "appium:webviewConnectTimeout": 45000,
-      "appium:waitForQuiescence": false,
+      "appium:wdaLaunchTimeout": 240000,
+      "appium:wdaConnectionTimeout": 240000,
+      "appium:wdaStartupRetries": 1,
+      "appium:wdaStartupRetryInterval": 10000,
+      "appium:showXcodeLog": true,
     },
   });
   await connectWebView();
