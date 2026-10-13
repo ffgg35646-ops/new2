@@ -876,7 +876,7 @@ function PropertyDetail() {
                 إرسال طلب
               </button>
             )}
-            {!isOffice && officeChatEnabled && (
+            {!isOffice && (
               <button
                 type="button"
                 onClick={() => startChat.mutate()}
