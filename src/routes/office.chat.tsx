@@ -1,16 +1,14 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Building2, Crown, Loader2, MessageSquare, Search } from "lucide-react";
+import { Building2, Loader2, MessageSquare, Search } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { ConversationRoom } from "@/components/ConversationRoom";
-import { CHAT_LOCK_MESSAGE } from "@/components/ProLock";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { useMyOffice } from "@/lib/office";
-import { useMyPlan } from "@/lib/plans";
 import { RoleGuard } from "@/lib/role-guard";
 
 export const Route = createFileRoute("/office/chat")({
@@ -28,7 +26,7 @@ export const Route = createFileRoute("/office/chat")({
       { property: "og:title", content: "الدردشة مع العملاء | عقار البطين" },
       {
         property: "og:description",
-        content: "سجل المحادثات والعملاء لمكتبك العقاري ضمن الباقة الاحترافية.",
+        content: "سجل المحادثات والعملاء لمكتبك العقاري.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -61,7 +59,6 @@ function OfficeChatPage() {
   const { c } = Route.useSearch();
   const navigate = Route.useNavigate();
   const officeId = membership?.office?.id ?? null;
-  const { chatEnabled, isLoading } = useMyPlan();
   const [activeId, setActiveId] = useState<string | null>(c ?? null);
   const [conversationSearch, setConversationSearch] = useState("");
   const qc = useQueryClient();
@@ -198,11 +195,7 @@ function OfficeChatPage() {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
-              {isLoading ? (
-                <div className="grid min-h-full place-items-center py-8">
-                  <Loader2 className="size-5 animate-spin text-forest" />
-                </div>
-              ) : conversations.isLoading ? (
+              {conversations.isLoading ? (
                 <div className="grid min-h-full place-items-center py-8">
                   <Loader2 className="size-5 animate-spin text-forest" />
                 </div>
@@ -211,20 +204,6 @@ function OfficeChatPage() {
                   <MessageSquare className="size-8 text-terracotta" />
                   <p className="text-sm font-bold">تعذّر تحميل المحادثات</p>
                   <p className="text-xs text-muted-foreground">تحقق من الاتصال وحاول مجددًا.</p>
-                </div>
-              ) : !chatEnabled && !conversations.data?.length ? (
-                <div className="grid min-h-full content-center justify-items-center gap-3 p-5 text-center">
-                  <span className="grid size-14 place-items-center rounded-2xl bg-terracotta-soft text-terracotta">
-                    <Crown className="size-7" />
-                  </span>
-                  <h2 className="font-display text-base font-extrabold">الدردشة مقفلة</h2>
-                  <p className="max-w-sm text-xs leading-6 text-muted-foreground">{CHAT_LOCK_MESSAGE}</p>
-                  <Link to="/office/subscription" className="mt-1 block rounded-xl bg-forest px-4 py-3 text-xs font-bold text-background">
-                    ترقية الباقة
-                  </Link>
-                  <Link to="/office/requests" search={{ tab: "inbox", request: undefined }} className="block rounded-xl bg-background px-4 py-3 text-xs font-semibold text-forest ring-1 ring-line">
-                    عرض طلبات التواصل الواردة
-                  </Link>
                 </div>
               ) : matchingConversations.length ? (
                 <ul className="space-y-2">
