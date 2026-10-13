@@ -23,7 +23,7 @@ export const Route = createFileRoute("/")({
 
 function Welcome() {
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background px-5 py-10">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background px-5 app-safe-screen-padding">
       <div className="flex items-center gap-3">
         <BrandLogo size={64} />
         <div className="leading-tight">

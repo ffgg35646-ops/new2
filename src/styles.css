@@ -164,6 +164,24 @@
   }
 }
 
+@utility app-safe-screen-padding {
+  padding-top: max(2.5rem, calc(env(safe-area-inset-top, 0px) + 1rem));
+  padding-bottom: max(2.5rem, calc(env(safe-area-inset-bottom, 0px) + 1rem));
+}
+
+@utility app-safe-form-padding {
+  padding-top: max(2rem, calc(env(safe-area-inset-top, 0px) + 1rem));
+  padding-bottom: max(2rem, calc(env(safe-area-inset-bottom, 0px) + 1rem));
+}
+
+@utility app-safe-top-padding {
+  padding-top: max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));
+}
+
+@utility app-safe-bottom-padding {
+  padding-bottom: max(0.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
+}
+
 @layer base {
   * {
     border-color: var(--line);

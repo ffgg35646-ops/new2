@@ -269,7 +269,7 @@ export function AuthForm({
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-8">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-5 app-safe-form-padding">
       <Link
         to="/"
         className="flex size-9 items-center justify-center rounded-full bg-surface ring-1 ring-line"

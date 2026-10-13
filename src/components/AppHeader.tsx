@@ -128,7 +128,7 @@ export function AppHeader({
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-background/95 backdrop-blur-sm">
-      <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+      <div className="flex items-center gap-2 px-4 app-safe-top-padding pb-2">
         <Link
           to={homeForRoles(roles)}
           className="flex shrink-0 items-center gap-2"

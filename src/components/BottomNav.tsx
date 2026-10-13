@@ -216,8 +216,8 @@ export function BottomNav({
     <nav
       className={
         fixed
-          ? "fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-md auto-cols-fr grid-flow-col gap-1 border-t border-line bg-surface/95 px-2 py-2 backdrop-blur"
-          : "sticky bottom-0 z-30 shrink-0 grid auto-cols-fr grid-flow-col gap-1 border-t border-line bg-surface/95 px-2 py-2 backdrop-blur"
+          ? "fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-md auto-cols-fr grid-flow-col gap-1 border-t border-line bg-surface/95 px-2 pt-2 app-safe-bottom-padding backdrop-blur"
+          : "sticky bottom-0 z-30 shrink-0 grid auto-cols-fr grid-flow-col gap-1 border-t border-line bg-surface/95 px-2 pt-2 app-safe-bottom-padding backdrop-blur"
       }
     >
       {items.map((item) => {
