@@ -307,7 +307,7 @@ function OfficePage() {
                 </div>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div className="mt-3 space-y-2 text-xs">
                 <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
                   <Star className="size-3.5 fill-terracotta text-terracotta" />
                   <span className="font-bold">{Number(office.rating_avg ?? 0).toFixed(1)}</span>
@@ -468,10 +468,8 @@ function OfficePage() {
                   disabled={followLoading || toggleFollow.isPending || setNotify.isPending}
                   aria-pressed={!!isFollowing}
                   className={cn(
-                    "flex h-10 w-full min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold transition disabled:opacity-60",
-                    isFollowing
-                      ? "bg-forest text-background ring-2 ring-forest/30"
-                      : "bg-forest text-background hover:opacity-90",
+                    "flex h-10 w-full min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold text-forest transition hover:bg-forest-soft disabled:opacity-60",
+                    isFollowing && "font-extrabold",
                   )}
                 >
                   {isFollowing ? (
