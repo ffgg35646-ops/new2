@@ -142,9 +142,14 @@ async function registerAndVerify(role, email, name, isOffice = false) {
   }
   const govSelect = await driver.$("select");
   await govSelect.waitForDisplayed({ timeout: 20000 });
-  await driver.waitUntil(async () => (await govSelect.$$("option")).length > 0, {
-    timeout: 15000, interval: 300, timeoutMsg: "Governorate options did not load",
-  });
+  await driver.waitUntil(async () => {
+    const options = await govSelect.$("option");
+    for (const option of options) {
+      if ((await option.getAttribute("value")) === "ios-e2e-governorate") return true;
+    }
+    return false;
+  }, { timeout: 15000, interval: 300, timeoutMsg: "Test governorate option did not load" });
+  await govSelect.selectByAttribute("value", "ios-e2e-governorate");
   await (await driver.$('input[type="checkbox"]')).click();
   await fill('input[placeholder="you@example.com"]', email);
   await fill('input[type="password"]', password);
@@ -196,12 +201,12 @@ async function endRequest(record) {
 async function sendOffer(requestRecord) {
   await goto("/office/requests?tab=market");
   await waitForText(firstRequestText, 20000);
-  await clickText("button", "قبول", true);
+  await clickText("button", "قبول العرض", true);
   await waitForText("ما السبب الذي يجعل العميل يختارك؟", 10000);
   await fill("textarea", "عرض اختبار آيفون من " + officeName + "؛ تم إرساله من محاكي iOS.");
   await fill('input[placeholder="السعر المقترح (اختياري)"]', "125000");
   await clickText("button", "تأكيد وإرسال العرض", true);
-  await waitForText("تم إرسال العرض للعميل", 20000);
+  await waitForText("تم إرسال عرضك للعميل", 20000);
   await driver.waitUntil(async () => !!(await offers.findOne({ request_id: requestRecord.id })), {
     timeout: 15000, interval: 500, timeoutMsg: "Offer was not persisted",
   });
@@ -276,7 +281,7 @@ try {
       "appium:webviewConnectTimeout": 45000,
       "appium:wdaLaunchTimeout": 240000,
       "appium:wdaConnectionTimeout": 240000,
-      "appium:wdaStartupRetries": 1,
+      "appium:wdaStartupRetries": 2,
       "appium:wdaStartupRetryInterval": 10000,
       "appium:showXcodeLog": true,
     },
