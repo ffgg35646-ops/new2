@@ -40,6 +40,8 @@ function authErrorMessage(e: unknown): string {
     return "هذا الإيميل استنفد 15 محاولة إرسال. سيتم إيقاف الإرسال لمدة 5 دقائق ثم يبدأ العداد من جديد.";
   if (m.includes("rate limit") || m.includes("too many") || m.includes("email rate limit"))
     return "تعذر إرسال رسالة التفعيل الآن. حاول مرة أخرى بعد قليل.";
+  if (m.includes("smtp_user") || m.includes("smtp_pass") || m.includes("mail_from"))
+    return "تعذر إرسال رمز التفعيل بسبب نقص إعدادات البريد في الخادم. لم يكتمل التسجيل؛ يرجى المحاولة لاحقًا أو التواصل مع الدعم.";
   if (m.includes("unable to validate email") || m.includes("invalid email"))
     return "صيغة البريد الإلكتروني غير صحيحة.";
   return raw || "حدث خطأ غير متوقع، حاول مجددًا.";
