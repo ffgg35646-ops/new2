@@ -425,7 +425,7 @@ function OfficePage() {
                 )}
               </div>
 
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-3 grid grid-cols-[40px_40px_40px_minmax(0,1fr)] items-center gap-2">
                 {office.phone ? (
                   <a
                     href={`tel:${office.phone}`}
@@ -487,7 +487,7 @@ function OfficePage() {
                   disabled={toggleFollow.isPending || setNotify.isPending}
                   aria-pressed={!!isFollowing}
                   className={cn(
-                    "flex h-10 min-w-0 flex-1 items-center justify-center gap-1 rounded-xl px-2 text-[11px] font-bold transition disabled:opacity-60",
+                    "flex h-10 w-full min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold transition disabled:opacity-60",
                     isFollowing
                       ? "bg-forest-soft text-forest ring-1 ring-forest/30"
                       : "bg-terracotta text-background",
