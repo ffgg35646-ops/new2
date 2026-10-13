@@ -1,13 +1,14 @@
 name: iOS Simulator End-to-End
 
 on:
-  push:
-    branches:
-      - test/ios-simulator-e2e
   pull_request:
     branches:
       - main
   workflow_dispatch:
+
+concurrency:
+  group: ios-simulator-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -120,6 +121,24 @@ jobs:
         run: |
           npm install --no-save appium webdriverio
           npx appium driver install xcuitest
+
+          # Prebuild WDA separately, then let Appium install/run that known artifact.
+          # This avoids the runner's repeated build-and-launch path that left port 8100 closed.
+          WDA_PROJECT="$HOME/.appium/node_modules/appium-xcuitest-driver/node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj"
+          test -d "$WDA_PROJECT"
+          xcodebuild \
+            -project "$WDA_PROJECT" \
+            -scheme WebDriverAgentRunner \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID,arch=arm64" \
+            -derivedDataPath /tmp/aqar-wda-derived \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_IDENTITY=- \
+            build-for-testing
+          WDA_APP_PATH="/tmp/aqar-wda-derived/Build/Products/Debug-iphonesimulator/WebDriverAgentRunner-Runner.app"
+          test -d "$WDA_APP_PATH"
+          echo "WDA_APP_PATH=$WDA_APP_PATH" >> "$GITHUB_ENV"
+
           nohup npx appium --address 127.0.0.1 --port 4723 >/tmp/aqar-appium.log 2>&1 &
           for attempt in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:4723/status >/dev/null; then
