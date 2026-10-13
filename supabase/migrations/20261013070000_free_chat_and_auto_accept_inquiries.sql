@@ -4,7 +4,7 @@ SET chat_enabled = true,
     updated_at = now()
 WHERE is_active = true;
 
--- Chat and sending pictures in chat are free features, not Pro-only package benefits.
+-- Chat is a free feature; sending pictures remains a Pro package benefit.
 UPDATE public.package_catalog AS p
 SET features = COALESCE((
   SELECT jsonb_agg(to_jsonb(f.feature) ORDER BY f.ordinality)
