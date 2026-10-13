@@ -51,7 +51,6 @@ jobs:
           brew install mongodb-community@8.0 mailpit
           brew services start mongodb-community@8.0
           export MP_SMTP_AUTH="testuser:testpass"
-          export MP_SMTP_AUTH_ACCEPT_ANY=true
           export MP_SMTP_AUTH_ALLOW_INSECURE=true
           nohup mailpit --smtp 127.0.0.1:1025 --listen 127.0.0.1:8025 >/tmp/aqar-mailpit.log 2>&1 &
           for attempt in $(seq 1 60); do
