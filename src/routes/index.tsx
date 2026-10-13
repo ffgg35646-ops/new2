@@ -28,7 +28,7 @@ function Welcome() {
         <BrandLogo size={64} />
         <div className="leading-tight">
           <div className="font-display text-2xl font-extrabold">عقار البطين</div>
-          <div className="text-xs text-muted-foreground">وجهتك الأولى للعقار</div>
+          <div className="mt-2 text-xs leading-relaxed text-muted-foreground">وجهتك الأولى للعقار في المزاحمية وضرما</div>
         </div>
       </div>
 
@@ -38,8 +38,8 @@ function Welcome() {
         <span className="text-terracotta">من محافظتك</span>
       </h1>
       <div className="mt-8 space-y-2.5">
-        <Feature icon={ShieldCheck} text="مكاتب عقارية موثقة ومراجعة من الإدارة" />
-        <Feature icon={Sparkles} text="اطلب عقارك ودع المكاتب تعرض عليك" />
+        <Feature icon={ShieldCheck} text="تعامل بثقة مع مكاتب عقارية موثقة" />
+        <Feature icon={Sparkles} text="اطلب عقارك واستقبل عروض المكاتب بكل سهولة" />
       </div>
 
       <div className="mt-auto space-y-3 pt-10">
