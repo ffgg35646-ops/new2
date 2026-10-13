@@ -166,7 +166,7 @@ function OfficeChatPage() {
             }}
           />
         ) : (
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl bg-surface ring-1 ring-line">
+          <section className="flex min-h-[360px] max-h-[68dvh] flex-none flex-col overflow-hidden rounded-3xl bg-surface ring-1 ring-line">
             <div className="shrink-0 border-b border-line p-3 sm:p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
