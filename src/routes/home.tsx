@@ -286,9 +286,11 @@ function Chip({
     <button
       onClick={onClick}
       className={cn(
-        "shrink-0 rounded-full px-4 font-semibold transition",
+        "shrink-0 rounded-full border border-transparent px-4 font-semibold transition",
         small ? "py-1.5 text-xs" : "py-2 text-sm",
-        active ? "bg-forest text-background" : "bg-surface text-muted-foreground ring-1 ring-line",
+        active
+          ? "bg-forest text-background"
+          : "border-line bg-surface text-muted-foreground",
       )}
     >
       {label}
