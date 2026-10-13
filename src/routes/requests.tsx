@@ -675,39 +675,144 @@ function AcceptedPrioritySection({
 }
 
 function OfferCard({
-  offer, pending, onStatus, highlighted, canMarkComplete, onMarkComplete,
+  offer,
+  pending,
+  onStatus,
+  highlighted,
+  canMarkComplete,
+  onMarkComplete,
 }: {
-  offer: OfferRow; pending: boolean;
-  onStatus: (status: "accepted" | "rejected") => void; highlighted: boolean;
-  canMarkComplete: boolean; onMarkComplete: () => void;
+  offer: OfferRow;
+  pending: boolean;
+  onStatus: (status: "accepted" | "rejected") => void;
+  highlighted: boolean;
+  canMarkComplete: boolean;
+  onMarkComplete: () => void;
 }) {
   const office = offer.offices;
   const canRespond = offer.status === "sent" && offer.requestStatus === "active";
+
   return (
-    <div id={"offer-card-" + offer.id} className={cn("rounded-2xl bg-surface p-3 ring-1 ring-line", highlighted && "ring-2 ring-forest")}>
+    <div
+      id={"offer-card-" + offer.id}
+      className={cn(
+        "rounded-2xl bg-surface p-3 ring-1 ring-line",
+        highlighted && "ring-2 ring-forest",
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0"><div className="font-display text-sm font-extrabold">{office?.name ?? "مكتب عقاري"}</div><div className="mt-1 text-[11px] text-muted-foreground">عرض على طلبك · {formatDate(offer.created_at)}</div></div>
-        <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
-          offer.status === "accepted" || offer.status === "completed" ? "bg-forest-soft text-forest" :
-          offer.status === "rejected" || offer.status === "ended" || offer.status === "deleted" ? "bg-terracotta-soft text-terracotta" : "bg-sand text-muted-foreground")}>
-          {offer.status === "sent" ? "جديد" : offer.status === "accepted" ? "مقبول" : offer.status === "rejected" ? "مرفوض" :
-            offer.status === "awaiting_confirmation" ? "بانتظار تأكيدك" : offer.status === "completed" ? "مكتمل" :
-            offer.status === "ended" || offer.status === "deleted" ? "منتهي" : offer.status}
+        <div className="min-w-0">
+          <div className="font-display text-sm font-extrabold">
+            {office?.name ?? "مكتب عقاري"}
+          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            عرض على طلبك · {formatDate(offer.created_at)}
+          </div>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold",
+            offer.status === "accepted" || offer.status === "completed"
+              ? "bg-forest-soft text-forest"
+              : offer.status === "rejected" || offer.status === "ended" || offer.status === "deleted"
+                ? "bg-terracotta-soft text-terracotta"
+                : "bg-sand text-muted-foreground",
+          )}
+        >
+          {offer.status === "sent"
+            ? "جديد"
+            : offer.status === "accepted"
+              ? "مقبول"
+              : offer.status === "rejected"
+                ? "مرفوض"
+                : offer.status === "awaiting_confirmation"
+                  ? "بانتظار تأكيدك"
+                  : offer.status === "completed"
+                    ? "مكتمل"
+                    : offer.status === "ended" || offer.status === "deleted"
+                      ? "منتهي"
+                      : offer.status}
         </span>
       </div>
+
       <div className="mt-2 rounded-2xl bg-background p-3 ring-1 ring-line">
         <div className="text-[10px] font-semibold text-muted-foreground">طلبك</div>
-        <div className="mt-1 text-sm font-bold">{PROPERTY_KINDS.find((k) => k.value === offer.requestKind)?.label ?? "عقار"} · {LISTING_TYPES.find((l) => l.value === offer.requestListing)?.label ?? "طلب"}</div>
+        <div className="mt-1 text-sm font-bold">
+          {PROPERTY_KINDS.find((kind) => kind.value === offer.requestKind)?.label ?? "عقار"}
+          {" · "}
+          {LISTING_TYPES.find((listing) => listing.value === offer.requestListing)?.label ?? "طلب"}
+        </div>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">{offer.requestDescription}</p>
       </div>
-      {offer.message && <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-sand p-3 text-sm leading-6 text-muted-foreground">{offer.message}</p>}
-      {offer.price != null && <div className="mt-2 text-lg font-display font-extrabold text-forest">{formatPrice(offer.price)} <span className="text-sm">ر.س</span></div>}
-      {offer.properties?.title && <div className="mt-2 rounded-xl bg-forest-soft p-2.5 text-xs font-semibold text-forest">العقار المقترح: {offer.properties.title}</div>}
+
+      {offer.message && (
+        <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-sand p-3 text-sm leading-6 text-muted-foreground">
+          {offer.message}
+        </p>
+      )}
+
+      {offer.price != null && (
+        <div className="mt-2 font-display text-lg font-extrabold text-forest">
+          {formatPrice(offer.price)} <span className="text-sm">ر.س</span>
+        </div>
+      )}
+
+      {offer.properties?.title && (
+        <div className="mt-2 rounded-xl bg-forest-soft p-2.5 text-xs font-semibold text-forest">
+          العقار المقترح: {offer.properties.title}
+        </div>
+      )}
+
       {canRespond && (
-        <Link
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onStatus("accepted")}
+            disabled={pending}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+          >
+            <CheckCircle2 className="size-4" /> قبول العرض
+          </button>
+          <button
+            type="button"
+            onClick={() => onStatus("rejected")}
+            disabled={pending}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-terracotta-soft py-2.5 text-xs font-bold text-terracotta disabled:opacity-50"
+          >
+            <XCircle className="size-4" /> رفض
+          </button>
+        </div>
+      )}
+
+      {canMarkComplete && (
+        <div className="mt-2.5 rounded-xl bg-forest-soft p-3">
+          <button
+            type="button"
+            onClick={onMarkComplete}
+            disabled={pending}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-xs font-bold text-background disabled:opacity-50"
+          >
+            <CheckCircle2 className="size-4" /> الطلب مكتمل
+          </button>
+        </div>
+      )}
+
+      {offer.status === "ended" && (
+        <p className="mt-2.5 rounded-xl bg-terracotta-soft p-3 text-xs leading-5 text-terracotta">
+          {offer.end_reason
+            ? "ألغى المكتب عرضه. سبب الإلغاء: " + offer.end_reason
+            : "انتهى هذا العرض لأن الطلب لم يعد متاحًا للتقديم عليه."}
+        </p>
+      )}
+      {offer.status === "completed" && (
+        <p className="mt-2.5 rounded-xl bg-forest-soft p-3 text-xs leading-5 text-forest">
+          تم تسجيل هذا المكتب باعتباره المكتب الذي اكتمل الطلب من خلاله.
+        </p>
+      )}
+
+      <Link
         to="/chats"
         search={{ c: undefined, office: office?.id }}
-        onClick={(event) => event.stopPropagation()}
         className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-xs font-bold text-background"
       >
         <MessageSquare className="size-4" /> الدردشة مع المكتب
