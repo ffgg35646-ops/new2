@@ -78,7 +78,7 @@ export const Route = createFileRoute("/requests")({
   head: () => ({
     meta: [
       { title: "الطلبات | عقار البطين" },
-      { name: "description", content: "طلباتك العقارية والعروض التي وصلتك من المكاتب." },
+      { name: "description", content: "طلباتك العقارية المرسلة والمقبولة والتواصل مع المكاتب عبر الدردشة." },
     ],
   }),
   component: () => (
@@ -580,7 +580,7 @@ function AcceptedPrioritySection({
                 </p>
               </div>
               <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold", inquiry.status === "completed" ? "bg-forest text-background" : "bg-forest-soft text-forest")}>
-                {inquiry.status === "completed" ? "مكتمل" : "المكتب وافق على طلبك"}
+                {inquiry.status === "completed" ? "مكتمل" : "تم قبول الطلب تلقائيًا"}
               </span>
             </div>
             {inquiry.message && <details className="rounded-lg bg-background px-3 py-2 ring-1 ring-line"><summary className="cursor-pointer text-xs font-bold text-forest">رسالة الطلب</summary><p className="mt-2 whitespace-pre-wrap text-xs leading-5">{inquiry.message}</p></details>}
