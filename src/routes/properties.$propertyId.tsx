@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { PropertyCard, type PropertyCardData } from "@/components/PropertyCard";
+import type { PropertyCardData } from "@/components/PropertyCard";
 import { PROPERTY_SELECT, useFavorites } from "@/lib/properties";
 import { formatArea, formatDate, formatPrice, timeAgo } from "@/lib/format";
 import {
@@ -194,9 +194,10 @@ function PropertyDetail() {
     officeChatPlan.chat_enabled === true;
 
   const { data: similar } = useQuery({
-    queryKey: ["similar-properties", propertyId, data?.kind, data?.governorate_id],
-    enabled: !!data?.id,
+    queryKey: ["similar-properties", propertyId, data?.office_id],
+    enabled: !!data?.id && !!data?.office_id,
     queryFn: async () => {
+      // Fetch a small pool for a fast response, then choose four at random.
       const { data: rows, error } = await supabase
         .from("properties")
         .select(PROPERTY_SELECT)
@@ -204,11 +205,16 @@ function PropertyDetail() {
         .eq("is_published", true)
         .eq("is_deleted", false)
         .neq("id", data!.id)
-        .order("is_featured", { ascending: false })
         .order("created_at", { ascending: false })
-        .limit(4);
+        .limit(32);
       if (error) throw error;
-      return (rows ?? []) as unknown as PropertyCardData[];
+
+      const candidates = (rows ?? []) as unknown as PropertyCardData[];
+      for (let i = candidates.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+      }
+      return candidates.slice(0, 4);
     },
   });
 
@@ -738,14 +744,45 @@ function PropertyDetail() {
         {!!similar?.length && (
           <section className="space-y-3">
             <h2 className="font-display text-base font-bold">عقارات أخرى من نفس المكتب</h2>
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2.5">
               {similar.map((p) => (
-                <PropertyCard
+                <Link
                   key={p.id}
-                  property={p}
-                  isFavorite={favoriteIds.has(p.id)}
-                  onToggleFavorite={toggleFavorite}
-                />
+                  to="/properties/$propertyId"
+                  params={{ propertyId: p.id }}
+                  className="min-w-0 overflow-hidden rounded-2xl bg-surface ring-1 ring-line transition active:scale-[0.99]"
+                >
+                  <div className="relative">
+                    {p.cover_url ? (
+                      <img
+                        src={p.cover_url}
+                        alt={p.title}
+                        loading="lazy"
+                        decoding="async"
+                        className="aspect-[4/3] w-full object-cover"
+                      />
+                    ) : (
+                      <div className="grid aspect-[4/3] w-full place-items-center bg-sand text-[10px] text-muted-foreground">
+                        لا توجد صورة
+                      </div>
+                    )}
+                    <span className="absolute right-1.5 top-1.5 rounded-full bg-background/90 px-2 py-0.5 text-[9px] font-semibold text-foreground">
+                      {listingLabel(p.listing)}
+                    </span>
+                  </div>
+                  <div className="min-w-0 p-2">
+                    <div className="truncate font-display text-sm font-extrabold text-forest">
+                      {formatPrice(p.price)} <span className="text-[9px] font-bold">ر.س</span>
+                    </div>
+                    <div className="mt-1 truncate text-xs font-semibold">{p.title}</div>
+                    <div className="mt-1 truncate text-[10px] text-muted-foreground">
+                      {p.neighborhood}
+                    </div>
+                    <div className="mt-1 truncate text-[10px] text-muted-foreground">
+                      {formatArea(p.area)} · {kindLabel(p.kind)}
+                    </div>
+                  </div>
+                </Link>
               ))}
             </div>
           </section>
