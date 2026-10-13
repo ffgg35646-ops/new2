@@ -58,9 +58,12 @@ export function useToggleFollow() {
 
       return Boolean((data as { following?: boolean } | null)?.following);
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["follow-state"] });
-      void qc.invalidateQueries({ queryKey: ["followed-offices"] });
+    onSuccess: async (_following, vars) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["follow-state", vars.officeId, userId] }),
+        qc.invalidateQueries({ queryKey: ["followed-offices"] }),
+        qc.invalidateQueries({ queryKey: ["office-followers-count", vars.officeId] }),
+      ]);
     },
   });
 }
