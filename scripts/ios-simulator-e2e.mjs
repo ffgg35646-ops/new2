@@ -431,7 +431,7 @@ try {
     hostname: "127.0.0.1", port: 4723, path: "/", logLevel: "warn",
     // XCUITest may need several minutes to compile and launch WDA on a fresh macOS runner.
     // Do not let WebdriverIO retry POST /session while the original session is still building WDA.
-    connectionRetryTimeout: 360000,
+    connectionRetryTimeout: 600000,
     connectionRetryCount: 0,
     capabilities: {
       platformName: "iOS",
@@ -449,10 +449,10 @@ try {
       "appium:newCommandTimeout": 300,
       "appium:autoAcceptAlerts": true,
       "appium:webviewConnectTimeout": 45000,
-      "appium:wdaLaunchTimeout": 240000,
-      "appium:wdaConnectionTimeout": 240000,
-      "appium:wdaStartupRetries": 1,
-      "appium:wdaStartupRetryInterval": 10000,
+      "appium:wdaLaunchTimeout": 480000,
+      "appium:wdaConnectionTimeout": 480000,
+      "appium:wdaStartupRetries": 2,
+      "appium:wdaStartupRetryInterval": 15000,
       "appium:showXcodeLog": true,
     },
   });
