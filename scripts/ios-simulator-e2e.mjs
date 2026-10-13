@@ -281,7 +281,7 @@ try {
       "appium:webviewConnectTimeout": 45000,
       "appium:wdaLaunchTimeout": 240000,
       "appium:wdaConnectionTimeout": 240000,
-      "appium:wdaStartupRetries": 2,
+      "appium:wdaStartupRetries": 1,
       "appium:wdaStartupRetryInterval": 10000,
       "appium:showXcodeLog": true,
     },
