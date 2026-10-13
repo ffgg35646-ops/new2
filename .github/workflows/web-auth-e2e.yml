@@ -295,9 +295,24 @@ jobs:
                   const loginPath = role === "office" ? "/auth/office" : "/auth/individual";
                   await loginPage.goto(base + loginPath, { waitUntil: "domcontentloaded", timeout: 45000 });
                   await loginPage.getByLabel("البريد الإلكتروني").waitFor({ state: "visible", timeout: 20000 });
-                  if (role === "office") await loginPage.getByRole("button", { name: "لدي حساب بالفعل", exact: true }).click();
+                  await loginPage.waitForTimeout(1800);
+                  if (role === "office") {
+                    await loginPage.getByRole("button", { name: "لدي حساب بالفعل", exact: true }).click();
+                  } else {
+                    // Toggle both ways as a readiness probe so we do not fill SSR-only inputs before React is active.
+                    await loginPage.getByRole("button", { name: "ليس لدي حساب — تسجيل جديد", exact: true }).click();
+                    await loginPage.getByLabel("الاسم الكامل").waitFor({ state: "visible", timeout: 8000 });
+                    await loginPage.getByRole("button", { name: "لدي حساب بالفعل", exact: true }).click();
+                  }
+                  await loginPage.getByRole("button", { name: "تسجيل الدخول", exact: true }).waitFor({ state: "visible", timeout: 8000 });
+                  await loginPage.waitForTimeout(700);
                   await loginPage.getByLabel("البريد الإلكتروني").fill(mailbox.address);
                   await loginPage.getByLabel("كلمة المرور").fill(mailbox.password);
+                  await loginPage.waitForTimeout(400);
+                  if (await loginPage.getByLabel("البريد الإلكتروني").inputValue() !== mailbox.address ||
+                      await loginPage.getByLabel("كلمة المرور").inputValue() !== mailbox.password) {
+                    throw new Error("Login input values did not persist after React hydration.");
+                  }
                   await loginPage.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
                   await loginPage.waitForTimeout(1500);
                   result.loginAfterFailedEmailSignupUrl = loginPage.url();
