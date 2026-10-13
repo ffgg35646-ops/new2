@@ -175,24 +175,6 @@ function PropertyDetail() {
     staleTime: 60_000,
   });
 
-  const { data: officeChatPlan } = useQuery({
-    queryKey: ["office-chat-plan", data?.office_id],
-    enabled: !!data?.office_id && !!userId && !isOffice,
-    queryFn: async () => {
-      const { data: result, error } = await supabase.rpc("office_effective_plan", {
-        _office_id: data!.office_id,
-      });
-      if (error) throw error;
-      return result as { plan?: string; expires_at?: string | null; chat_enabled?: boolean } | null;
-    },
-    staleTime: 30_000,
-  });
-
-  // The server RPC has already checked Pro status and expiry using server time.
-  const officeChatEnabled =
-    officeChatPlan?.plan === "pro" &&
-    officeChatPlan.chat_enabled === true;
-
   const { data: similar } = useQuery({
     queryKey: ["similar-properties", propertyId, data?.office_id],
     enabled: !!data?.id && !!data?.office_id,
@@ -356,21 +338,6 @@ function PropertyDetail() {
     mutationFn: async () => {
       if (!userId) throw new Error("سجّل الدخول لبدء المحادثة");
       const officeId = data!.office_id;
-
-      const { data: plan, error: planError } = await supabase.rpc("office_effective_plan", {
-        _office_id: officeId,
-      });
-      if (planError) throw planError;
-      const chatResult = plan as {
-        plan?: string;
-        expires_at?: string | null;
-        chat_enabled?: boolean;
-      } | null;
-
-      // Entitlement was calculated by office_effective_plan on the server.
-      if (chatResult?.plan !== "pro" || chatResult.chat_enabled !== true) {
-        throw new Error("الدردشة متاحة للمكاتب المشتركة في الباقة الاحترافية فقط");
-      }
 
       const { data: existing } = await supabase
         .from("conversations")
@@ -622,7 +589,7 @@ function PropertyDetail() {
                 </Link>
               </div>
             </div>
-            {!isOffice && userId && officeChatEnabled && (
+            {!isOffice && userId && (
               <button
                 type="button"
                 onClick={() => startChat.mutate()}
