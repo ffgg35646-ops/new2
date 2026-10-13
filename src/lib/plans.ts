@@ -202,8 +202,7 @@ export function useMyPlan() {
       currentPlan === "pro"
         ? pkg?.property_limit ?? null
         : FREE_PROPERTY_LIMIT,
-    chatEnabled:
-      !expired && Boolean(pkg?.chat_enabled),
+    chatEnabled: true,
     featuredLimit:
       expired
         ? 0
