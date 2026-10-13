@@ -49,7 +49,8 @@ export function useToggleFollow() {
         "toggle_office_follow" as never,
         {
           _office_id: vars.officeId,
-          _following: vars.following,
+          // The RPC expects the desired state, not the current state.
+          _following: !vars.following,
         } as never,
       );
 
