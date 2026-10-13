@@ -133,7 +133,21 @@ async function waitForCode(email) {
 }
 async function registerAndVerify(role, email, name, isOffice = false) {
   await goto(role === "office" ? "/auth/office" : "/auth/individual");
-  if (role === "individual") await clickText("button", "ليس لدي حساب");
+  if (role === "individual") {
+    await clickText("button", "ليس لدي حساب");
+
+    // The first page render can precede React hydration on the simulator.
+    // Confirm the real UI transitioned to registration, retrying one genuine tap if needed.
+    try {
+      await waitForText("أنشئ حسابك للبدء", 5000);
+    } catch {
+      const signupToggle = await driver.$('//button[contains(normalize-space(.), "ليس لدي حساب")]');
+      await signupToggle.waitForDisplayed({ timeout: 10000 });
+      await signupToggle.scrollIntoView();
+      await signupToggle.click();
+      await waitForText("أنشئ حسابك للبدء", 10000);
+    }
+  }
   await fill('input[placeholder="مثال: محمد العتيبي"]', name);
   if (isOffice) {
     await fill('input[placeholder="مثال: مكتب عقار البطين"]', officeName);
