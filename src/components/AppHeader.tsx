@@ -135,13 +135,13 @@ export function AppHeader({
         >
           <BrandLogo size={36} />
 
-          <div className="leading-tight">
+          <div className="min-w-0 leading-tight">
             <div className="font-display text-[15px] font-extrabold">
               عقار البطين
             </div>
 
-            <div className="-mt-0.5 text-[9px] text-muted-foreground">
-              وجهتك الأولى للعقار
+            <div className="mt-1 text-[9px] leading-relaxed text-muted-foreground">
+              وجهتك الأولى للعقار في المزاحمية وضرما
             </div>
           </div>
         </Link>
