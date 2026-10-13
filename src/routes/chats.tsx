@@ -391,11 +391,11 @@ function ChatsPage() {
                 )
               ) : (
                 <div className="space-y-2">
-                  {proOffices.isLoading ? (
+                  {chatOffices.isLoading ? (
                     <div className="grid place-items-center py-8">
                       <Loader2 className="size-5 animate-spin text-forest" />
                     </div>
-                  ) : proOffices.isError ? (
+                  ) : chatOffices.isError ? (
                     <p role="alert" className="rounded-2xl bg-terracotta-soft p-3 text-xs text-terracotta">
                       تعذّر تحميل المكاتب العقارية. حدّث الصفحة وحاول مجددًا.
                     </p>
