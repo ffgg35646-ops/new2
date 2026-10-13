@@ -54,7 +54,6 @@ export const Route = createFileRoute("/offices/$officeId")({
 function OfficePage() {
   const { officeId } = useParams({ from: "/offices/$officeId" });
   const [listing, setListing] = useState<string | null>(null);
-  const [statsOpen, setStatsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const { favoriteIds, toggleFavorite } = useFavorites();
   const { userId } = useAuth();
@@ -308,74 +307,56 @@ function OfficePage() {
                 </div>
               </div>
 
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                  <Star className="size-3.5 fill-terracotta text-terracotta" />
+                  <span className="font-bold">{Number(office.rating_avg ?? 0).toFixed(1)}</span>
+                  <span className="text-muted-foreground">({office.reviews_count ?? 0} تقييم)</span>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                  <Building2 className="size-3.5 text-forest" />
+                  <span className="font-bold">{totalCount ?? 0}</span>
+                  <span className="text-muted-foreground">عقار معروض</span>
+                </div>
+              </div>
+
               <button
                 type="button"
-                onClick={() => {
-                  const nextOpen = !statsOpen;
-                  setStatsOpen(nextOpen);
-                  if (!nextOpen) setMoreOpen(false);
-                }}
-                aria-expanded={statsOpen}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-forest transition hover:bg-forest-soft"
+                onClick={() => setMoreOpen((open) => !open)}
+                aria-expanded={moreOpen}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-forest transition hover:bg-forest-soft"
               >
-                <span>{statsOpen ? "عرض أقل" : "عرض المزيد"}</span>
-                <ChevronDown className={cn("size-4 transition-transform", statsOpen && "rotate-180")} />
+                <span>{moreOpen ? "عرض أقل" : "عرض المزيد"}</span>
+                <ChevronDown className={cn("size-4 transition-transform", moreOpen && "rotate-180")} />
               </button>
 
-              {statsOpen && (
-                <>
-                  <div className="mt-2 space-y-2 text-xs">
-                    <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                      <Star className="size-3.5 fill-terracotta text-terracotta" />
-                      <span className="font-bold">{Number(office.rating_avg ?? 0).toFixed(1)}</span>
-                      <span className="text-muted-foreground">({office.reviews_count ?? 0} تقييم)</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                      <Building2 className="size-3.5 text-forest" />
-                      <span className="font-bold">{totalCount ?? 0}</span>
-                      <span className="text-muted-foreground">عقار معروض</span>
-                    </div>
+              {moreOpen && (
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                    <Building2 className="size-3.5 text-forest" />
+                    <span className="font-bold">{office.experience_years ?? 0}</span>
+                    <span className="text-muted-foreground">سنوات خبرة</span>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setMoreOpen((open) => !open)}
-                    aria-expanded={moreOpen}
-                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-forest transition hover:bg-forest-soft"
-                  >
-                    <span>{moreOpen ? "عرض أقل" : "عرض المزيد"}</span>
-                    <ChevronDown className={cn("size-4 transition-transform", moreOpen && "rotate-180")} />
-                  </button>
-
-                  {moreOpen && (
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                        <Building2 className="size-3.5 text-forest" />
-                        <span className="font-bold">{office.experience_years ?? 0}</span>
-                        <span className="text-muted-foreground">سنوات خبرة</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                        <UserPlus className="size-3.5 text-forest" />
-                        <span className="font-bold">{followersCount ?? 0}</span>
-                        <span className="text-muted-foreground">متابع</span>
-                      </div>
-                      <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                        <Clock className="size-3.5 text-forest" />
-                        <span className="text-muted-foreground">آخر نشاط:</span>
-                        <span className="font-bold">{lastActivityLabel}</span>
-                      </div>
-                      {(office.license_number || office.fal_license_number) && (
-                        <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                          <FileCheck2 className="size-3.5 text-forest" />
-                          <span className="text-muted-foreground">رقم الترخيص:</span>
-                          <span className="font-mono font-bold">
-                            {office.fal_license_number || office.license_number}
-                          </span>
-                        </div>
-                      )}
+                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                    <UserPlus className="size-3.5 text-forest" />
+                    <span className="font-bold">{followersCount ?? 0}</span>
+                    <span className="text-muted-foreground">متابع</span>
+                  </div>
+                  <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                    <Clock className="size-3.5 text-forest" />
+                    <span className="text-muted-foreground">آخر نشاط:</span>
+                    <span className="font-bold">{lastActivityLabel}</span>
+                  </div>
+                  {(office.license_number || office.fal_license_number) && (
+                    <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                      <FileCheck2 className="size-3.5 text-forest" />
+                      <span className="text-muted-foreground">رقم الترخيص:</span>
+                      <span className="font-mono font-bold">
+                        {office.fal_license_number || office.license_number}
+                      </span>
                     </div>
                   )}
-                </>
+                </div>
               )}
 
               {office.description && (
