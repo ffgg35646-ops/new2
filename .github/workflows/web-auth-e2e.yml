@@ -143,6 +143,8 @@ jobs:
               const authPath = role === "office" ? "/auth/office" : "/auth/individual";
               await signupPage.goto(base + authPath, { waitUntil: "domcontentloaded", timeout: 45000 });
               await signupPage.getByLabel("البريد الإلكتروني").waitFor({ state: "visible", timeout: 20000 });
+              // The SSR markup is visible before React hydration; wait before typing/clicking to avoid losing controlled input state.
+              await signupPage.waitForTimeout(1500);
 
               if (role === "individual") {
                 const registerToggle = signupPage.getByRole("button", { name: "ليس لدي حساب — تسجيل جديد", exact: true });
@@ -243,6 +245,7 @@ jobs:
               });
               await loginPage.goto(base + authPath, { waitUntil: "domcontentloaded", timeout: 45000 });
               await loginPage.getByLabel("البريد الإلكتروني").waitFor({ state: "visible", timeout: 20000 });
+              await loginPage.waitForTimeout(1200);
               if (role === "office") {
                 await loginPage.getByRole("button", { name: "لدي حساب بالفعل", exact: true }).click();
               }
