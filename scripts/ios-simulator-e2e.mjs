@@ -134,18 +134,51 @@ async function waitForCode(email) {
 async function registerAndVerify(role, email, name, isOffice = false) {
   await goto(role === "office" ? "/auth/office" : "/auth/individual");
   if (role === "individual") {
-    await clickText("button", "ليس لدي حساب");
+    // Vite dependency optimization/HMR can reload the WebView between locating
+    // the toggle and dispatching the tap. Always reacquire the element after a
+    // failed transition; never keep using a potentially stale element handle.
+    let registrationOpened = false;
+    let lastToggleError;
+    for (let attempt = 1; attempt <= 4 && !registrationOpened; attempt++) {
+      if ((await bodyText()).includes("أنشئ حسابك للبدء")) {
+        registrationOpened = true;
+        break;
+      }
 
-    // The first page render can precede React hydration on the simulator.
-    // Confirm the real UI transitioned to registration, retrying one genuine tap if needed.
-    try {
-      await waitForText("أنشئ حسابك للبدء", 5000);
-    } catch {
-      const signupToggle = await driver.$('//button[contains(normalize-space(.), "ليس لدي حساب")]');
-      await signupToggle.waitForDisplayed({ timeout: 10000 });
-      await signupToggle.scrollIntoView();
-      await signupToggle.click();
-      await waitForText("أنشئ حسابك للبدء", 10000);
+      try {
+        await driver.waitUntil(async () => {
+          const text = await bodyText();
+          return text.includes("ليس لدي حساب") || text.includes("أنشئ حسابك للبدء");
+        }, {
+          timeout: 15000,
+          interval: 500,
+          timeoutMsg: "Login/register toggle did not return after WebView reload",
+        });
+
+        if ((await bodyText()).includes("أنشئ حسابك للبدء")) {
+          registrationOpened = true;
+          break;
+        }
+
+        const signupToggle = await driver.$('//button[contains(normalize-space(.), "ليس لدي حساب")]');
+        await signupToggle.waitForDisplayed({ timeout: 10000 });
+        await signupToggle.scrollIntoView();
+        await signupToggle.click();
+
+        await waitForText("أنشئ حسابك للبدء", 8000);
+        registrationOpened = true;
+      } catch (error) {
+        lastToggleError = error;
+        log("Registration toggle attempt " + attempt + " did not complete; waiting for WebView/React to settle before retry");
+        await sleep(1500 * attempt);
+      }
+    }
+
+    if (!registrationOpened) {
+      throw new Error(
+        "Could not open individual registration after 4 reload-aware attempts. Last error: " +
+        String(lastToggleError?.message || lastToggleError || "registration heading not found")
+      );
     }
   }
   await fill('input[placeholder="مثال: محمد العتيبي"]', name);
