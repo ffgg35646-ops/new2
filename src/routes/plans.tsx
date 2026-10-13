@@ -58,6 +58,10 @@ function PlansPage() {
               const displayedPropertyLimit = packageIsPaid
                 ? pkg.property_limit ?? null
                 : FREE_PROPERTY_LIMIT;
+              const displayedFeatures = [
+                ...(pkg.features ?? []).filter((feature) => !/دردشة|الدردشة|المحادثة/.test(feature)),
+                ...(!packageIsPaid ? ["دردشة مجانية مع العملاء", "إرسال الصور داخل المحادثة"] : []),
+              ].filter((feature, index, all) => all.indexOf(feature) === index);
 
               return (
                 <section
@@ -125,13 +129,11 @@ function PlansPage() {
                         {" · "}
                         المميزة: {pkg.featured_limit}
                         {" · "}
-                        الدردشة: {pkg.chat_enabled ? "مفعلة" : "غير متاحة"}
-                        {" · "}
                         التوثيق: {pkg.verification_included ? "مشمول" : "غير مشمول"}
                       </div>
-                      {pkg.features.length > 0 && (
+                      {displayedFeatures.length > 0 && (
                         <ul className="space-y-2">
-                          {pkg.features.map((f) => (
+                          {displayedFeatures.map((f) => (
                             <li key={f} className="flex items-start gap-2 rounded-xl bg-surface px-2.5 py-2 text-xs leading-5">
                               <Check className="mt-0.5 size-3.5 shrink-0 text-forest" />
                               <span>{f}</span>
