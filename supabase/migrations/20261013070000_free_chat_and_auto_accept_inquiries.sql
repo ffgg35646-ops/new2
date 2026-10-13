@@ -15,7 +15,7 @@ SET features = COALESCE((
     END
   ) WITH ORDINALITY AS f(feature, ordinality)
   WHERE f.feature NOT ILIKE '%دردشة%'
-    AND f.feature NOT ILIKE '%المحادثة%'
+
 ), '[]'::jsonb),
 updated_at = now()
 WHERE lower(COALESCE(p.code, '')) = 'pro';
@@ -33,7 +33,7 @@ SET features = CASE
     WHERE f.feature ILIKE '%دردشة%'
   ) THEN p.features
   ELSE COALESCE(p.features, '[]'::jsonb)
-    || jsonb_build_array('دردشة مجانية مع العملاء', 'إرسال الصور داخل المحادثة')
+    || jsonb_build_array('دردشة مجانية مع العملاء')
   END,
   chat_enabled = true,
   updated_at = now()
