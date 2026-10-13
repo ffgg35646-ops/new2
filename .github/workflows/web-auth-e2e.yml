@@ -163,7 +163,7 @@ jobs:
                 result.registrationToggle = "PASS";
                 await signupPage.getByLabel("الاسم الكامل").fill("اختبار آلي فرد " + tag);
               } else {
-                await signupPage.getByLabel("اسم المسؤول").fill("اختبار آلي مكتب " + tag);
+                await signupPage.getByPlaceholder("مثال: محمد العتيبي").fill("اختبار آلي مكتب " + tag);
                 await signupPage.getByLabel("اسم المكتب").fill("E2E عقار البطين " + tag);
                 await signupPage.getByLabel("رقم الترخيص (فال) *").fill("900000000" + String(Date.now()).slice(-1));
                 await signupPage.getByLabel("السجل التجاري *").fill("100000000" + String(Date.now()).slice(-1));
@@ -274,6 +274,45 @@ jobs:
               if (result.signup === "NOT_RUN") await screenshot(signupPage, role + "-signup-failure");
               else if (result.emailVerification === "NOT_RUN") await screenshot(signupPage, role + "-verification-failure");
               else await screenshot(loginPage, role + "-login-failure");
+
+              // When signup reaches MongoDB but email delivery is misconfigured, test how
+              // the real login form responds to that now-unverified test account.
+              if ((result.signupToasts || []).some((message) => /SMTP_USER|SMTP_PASS|MAIL_FROM/.test(message)) && mailbox?.address) {
+                try {
+                  if (signupContext) {
+                    await signupContext.close();
+                    signupContext = null;
+                  }
+                  loginContext = await browser.newContext();
+                  loginPage = await loginContext.newPage();
+                  loginPage.on("pageerror", (error) => report.browserErrors.push({ role, loginPageError: String(error).slice(0, 500) }));
+                  loginPage.on("response", (response) => {
+                    if (response.status() >= 500) report.http5xx.push({ role, loginAttemptStatus: response.status(), path: new URL(response.url()).pathname });
+                  });
+                  const loginPath = role === "office" ? "/auth/office" : "/auth/individual";
+                  await loginPage.goto(base + loginPath, { waitUntil: "domcontentloaded", timeout: 45000 });
+                  await loginPage.getByLabel("البريد الإلكتروني").waitFor({ state: "visible", timeout: 20000 });
+                  if (role === "office") await loginPage.getByRole("button", { name: "لدي حساب بالفعل", exact: true }).click();
+                  await loginPage.getByLabel("البريد الإلكتروني").fill(mailbox.address);
+                  await loginPage.getByLabel("كلمة المرور").fill(mailbox.password);
+                  await loginPage.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
+                  await loginPage.waitForTimeout(1500);
+                  result.loginAfterFailedEmailSignupUrl = loginPage.url();
+                  result.loginAfterFailedEmailSignupText = (await loginPage.locator("body").innerText()).slice(0, 1600);
+                  result.loginAfterFailedEmailSignupToasts = await loginPage.locator("[data-sonner-toast]").allInnerTexts().catch(() => []);
+                  const loginFeedback = [
+                    result.loginAfterFailedEmailSignupText,
+                    ...(result.loginAfterFailedEmailSignupToasts || []),
+                  ].join(" ");
+                  result.loginAfterFailedEmailSignup = /لم يتم تأكيد البريد|أدخل رمز التحقق|email not confirmed|not confirmed/i.test(loginFeedback)
+                    ? "BLOCKED_EXPECTED_UNVERIFIED"
+                    : "UNCONFIRMED";
+                  await screenshot(loginPage, role + "-login-after-email-config-error");
+                } catch (loginError) {
+                  result.loginAfterFailedEmailSignup = "TEST_ERROR";
+                  result.loginAfterFailedEmailSignupError = String(loginError?.message || loginError).slice(0, 800);
+                }
+              }
               console.error("FAIL " + role + " at " + result.failedAt + ": " + result.failure);
             } finally {
               try { if (signupContext) await signupContext.close(); } catch {}
