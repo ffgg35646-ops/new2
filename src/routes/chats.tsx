@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Building2, Crown, Loader2, MessageSquare, Search, Star } from "lucide-react";
+import { Building2, Loader2, MessageSquare, Search, Star } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -51,7 +51,7 @@ type ConversationRow = {
   unreadCount?: number;
 };
 
-type ProOfficeRow = {
+type ChatOfficeRow = {
   id: string;
   name: string;
   logo_url: string | null;
@@ -89,7 +89,7 @@ function ChatsPage() {
     };
   }, [userId, qc, isAdmin]);
 
-  const proOffices = useQuery({
+  const chatOffices = useQuery({
     queryKey: ["chat-offices", userId],
     enabled: !!userId && !isAdmin,
     refetchInterval: 30_000,
@@ -101,7 +101,7 @@ function ChatsPage() {
         .order("updated_at", { ascending: false })
         .limit(500);
       if (error) throw error;
-      return (data ?? []) as unknown as ProOfficeRow[];
+      return (data ?? []) as unknown as ChatOfficeRow[];
     },
   });
 
@@ -109,8 +109,7 @@ function ChatsPage() {
     mutationFn: async (officeId: string) => {
       if (!userId) throw new Error("سجّل الدخول لبدء المحادثة");
 
-      // Reopen an existing conversation before checking the office's current plan.
-      // Pro expiry should block new conversations, not access to an existing chat.
+      // Chat is free for every office plan. Reuse an existing conversation whenever possible.
       const { data: existing, error: existingError } = await supabase
         .from("conversations")
         .select("id")
@@ -194,7 +193,7 @@ function ChatsPage() {
   });
 
   const normalizedSearch = officeSearch.trim().toLocaleLowerCase("ar");
-  const matchingOffices = (proOffices.data ?? []).filter((office) =>
+  const matchingOffices = (chatOffices.data ?? []).filter((office) =>
     office.name.toLocaleLowerCase("ar").includes(normalizedSearch),
   );
   const normalizedConversationSearch = conversationSearch.trim().toLocaleLowerCase("ar");
@@ -414,7 +413,7 @@ function ChatsPage() {
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center gap-1.5 truncate text-sm font-bold">
                               {office.name}
-                              <Crown className="size-3.5 shrink-0 text-terracotta" />
+
                             </span>
                             <span className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
                               <Star className="size-3 fill-terracotta text-terracotta" />
