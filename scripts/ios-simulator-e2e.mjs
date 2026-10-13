@@ -201,7 +201,7 @@ async function endRequest(record) {
 async function sendOffer(requestRecord) {
   await goto("/office/requests?tab=market");
   await waitForText(firstRequestText, 20000);
-  await clickText("button", "قبول العرض", true);
+  await clickText("button", "قبول", true);
   await waitForText("ما السبب الذي يجعل العميل يختارك؟", 10000);
   await fill("textarea", "عرض اختبار آيفون من " + officeName + "؛ تم إرساله من محاكي iOS.");
   await fill('input[placeholder="السعر المقترح (اختياري)"]', "125000");
