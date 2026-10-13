@@ -130,10 +130,14 @@ jobs:
               signupContext = await browser.newContext();
               signupPage = await signupContext.newPage();
               signupPage.on("pageerror", (error) => report.browserErrors.push({ role, message: String(error).slice(0, 500) }));
+              signupPage.on("console", (message) => {
+                if (message.type() === "error") report.browserErrors.push({ role, console: message.text().slice(0, 500) });
+              });
+              signupPage.on("requestfailed", (request) => {
+                report.browserErrors.push({ role, requestFailed: request.url().slice(0, 400), error: request.failure()?.errorText || "failed" });
+              });
               signupPage.on("response", (response) => {
-                if (response.status() >= 500) {
-                  report.http5xx.push({ role, status: response.status(), path: new URL(response.url()).pathname });
-                }
+                if (response.status() >= 500) report.http5xx.push({ role, status: response.status(), path: new URL(response.url()).pathname });
               });
 
               const authPath = role === "office" ? "/auth/office" : "/auth/individual";
@@ -141,7 +145,22 @@ jobs:
               await signupPage.getByLabel("البريد الإلكتروني").waitFor({ state: "visible", timeout: 20000 });
 
               if (role === "individual") {
-                await signupPage.getByRole("button", { name: "ليس لدي حساب — تسجيل جديد" }).click();
+                const registerToggle = signupPage.getByRole("button", { name: "ليس لدي حساب — تسجيل جديد", exact: true });
+                await registerToggle.click();
+                try {
+                  await signupPage.waitForFunction(
+                    () => Array.from(document.querySelectorAll("button")).some((button) => button.textContent?.trim() === "لدي حساب بالفعل") &&
+                      Array.from(document.querySelectorAll("input")).some((input) => input.labels && Array.from(input.labels).some((label) => label.textContent?.trim() === "الاسم الكامل")),
+                    null,
+                    { timeout: 7000 },
+                  );
+                } catch {
+                  result.registrationToggle = "FAIL";
+                  result.toggleUrl = signupPage.url();
+                  result.toggleText = (await signupPage.locator("body").innerText()).slice(0, 1800);
+                  throw new Error("Clicking the individual registration toggle did not reveal the registration fields; current URL=" + result.toggleUrl);
+                }
+                result.registrationToggle = "PASS";
                 await signupPage.getByLabel("الاسم الكامل").fill("اختبار آلي فرد " + tag);
               } else {
                 await signupPage.getByLabel("اسم المسؤول").fill("اختبار آلي مكتب " + tag);
@@ -167,7 +186,27 @@ jobs:
               await signupPage.getByRole("checkbox").check({ force: true });
               await signupPage.getByRole("button", { name: "إنشاء الحساب", exact: true }).click();
 
-              await signupPage.waitForURL((url) => url.pathname === "/auth/verify-email", { timeout: 25000 });
+              // TanStack client-side navigation does not require a browser page-load event.
+              // Observe the pathname directly and capture short-lived toasts before they disappear.
+              const navDeadline = Date.now() + 20000;
+              let verificationRouteReached = false;
+              while (Date.now() < navDeadline) {
+                if (new URL(signupPage.url()).pathname === "/auth/verify-email") {
+                  verificationRouteReached = true;
+                  break;
+                }
+                const toastTexts = await signupPage.locator("[data-sonner-toast]").allInnerTexts().catch(() => []);
+                if (toastTexts.length) result.signupToasts = toastTexts.map((text) => text.trim()).filter(Boolean);
+                await signupPage.waitForTimeout(250);
+              }
+              if (!verificationRouteReached) {
+                result.afterSubmitUrl = signupPage.url();
+                result.afterSubmitText = (await signupPage.locator("body").innerText().catch(() => "")).slice(0, 2200);
+                result.afterSubmitToasts = await signupPage.locator("[data-sonner-toast]").allInnerTexts().catch(() => []);
+                throw new Error("Signup submit did not navigate to email verification. URL=" + result.afterSubmitUrl +
+                  "; toasts=" + JSON.stringify(result.afterSubmitToasts) +
+                  "; pageText=" + result.afterSubmitText.slice(-900));
+              }
               await signupPage.getByLabel("رمز التأكيد").waitFor({ state: "visible", timeout: 15000 });
               result.signup = "PASS";
               result.signupPath = new URL(signupPage.url()).pathname;
@@ -180,7 +219,11 @@ jobs:
               const allowedPostVerify = role === "office"
                 ? ["/office/status", "/office"]
                 : ["/home"];
-              await signupPage.waitForURL((url) => allowedPostVerify.includes(url.pathname), { timeout: 30000 });
+              await signupPage.waitForFunction(
+                (paths) => paths.includes(window.location.pathname),
+                allowedPostVerify,
+                { timeout: 30000 },
+              );
               result.emailVerification = "PASS";
               result.postVerificationPath = new URL(signupPage.url()).pathname;
               await screenshot(signupPage, role + "-after-verification");
@@ -208,13 +251,25 @@ jobs:
               await loginPage.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
 
               const allowedPostLogin = role === "office" ? ["/office", "/office/status"] : ["/home"];
-              await loginPage.waitForURL((url) => allowedPostLogin.includes(url.pathname), { timeout: 30000 });
+              await loginPage.waitForFunction(
+                (paths) => paths.includes(window.location.pathname),
+                allowedPostLogin,
+                { timeout: 30000 },
+              );
               result.freshSessionLogin = "PASS";
               result.postLoginPath = new URL(loginPage.url()).pathname;
               await screenshot(loginPage, role + "-after-fresh-login");
               console.log("PASS " + role + ": fresh-session password login navigated to " + result.postLoginPath);
             } catch (error) {
               result.failure = String(error?.message || error).slice(0, 1200);
+              const visiblePage = result.signup === "NOT_RUN" ? signupPage : result.emailVerification === "NOT_RUN" ? signupPage : loginPage;
+              try {
+                if (visiblePage && !visiblePage.isClosed()) {
+                  result.failureUrl = visiblePage.url();
+                  result.failureText = (await visiblePage.locator("body").innerText()).slice(0, 2200);
+                  result.failureToasts = await visiblePage.locator("[data-sonner-toast]").allInnerTexts().catch(() => []);
+                }
+              } catch {}
               result.failedAt = result.signup === "NOT_RUN" ? "signup" : result.emailVerification === "NOT_RUN" ? "email-verification" : "fresh-session-login";
               if (result.signup === "NOT_RUN") await screenshot(signupPage, role + "-signup-failure");
               else if (result.emailVerification === "NOT_RUN") await screenshot(signupPage, role + "-verification-failure");
