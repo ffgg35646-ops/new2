@@ -501,8 +501,8 @@ export function ConversationRoom({
   }
 
   return (
-    <section className="fixed inset-0 z-50 flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)]">
-      <div className={"mx-auto flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface p-2 sm:p-3 " + (isOffice ? "max-w-2xl" : "max-w-md md:max-w-5xl")}>
+    <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-background">
+      <div className={"mx-auto flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface p-2 sm:p-3 " + (readOnly ? "max-w-6xl" : "max-w-md")}>
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line pb-3">
         <div className="min-w-0 flex-1">
           <button
