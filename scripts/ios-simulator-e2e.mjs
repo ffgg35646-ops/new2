@@ -173,6 +173,21 @@ async function signIn(role, email) {
   await waitForUrl(role === "office" ? "/office" : "/home", 30000);
   log("Password login passed: " + role);
 }
+async function signOutFromUi(role) {
+  const path = role === "office" ? "/office/profile" : "/account";
+  await driver.url(baseUrl + path);
+  await sleep(700);
+  const before = await bodyText();
+  if (!before.includes("تسجيل الخروج")) {
+    throw new Error("The " + role + " account session did not expose its logout button");
+  }
+  await clickText("button", "تسجيل الخروج", true);
+  await driver.waitUntil(async () => {
+    const currentUrl = String(await driver.getUrl());
+    return !currentUrl.includes(path) && !(await bodyText()).includes("تسجيل الخروج");
+  }, { timeout: 15000, interval: 300, timeoutMsg: "UI logout did not complete for " + role });
+  log("UI logout passed: " + role);
+}
 async function createRequest(description) {
   await goto("/request");
   await fill("textarea", description);
@@ -200,8 +215,36 @@ async function endRequest(record) {
 }
 async function sendOffer(requestRecord) {
   await goto("/office/requests?tab=market");
-  await waitForText(firstRequestText, 20000);
-  await clickText("button", "قبول", true);
+  await waitForText("عرض بيانات الطلب", 20000);
+
+  // The market card intentionally hides the description. Open each visible detail
+  // sheet and select the request by its unique test description.
+  let matchingRequestOpened = false;
+  for (let index = 0; index < 40; index++) {
+    const detailButtons = await driver.$('//button[normalize-space(.)="عرض بيانات الطلب"]');
+    if (index >= detailButtons.length) break;
+    await detailButtons[index].click();
+
+    const details = await driver.$('[role="dialog"][aria-label="تفاصيل طلب العميل"]');
+    await details.waitForDisplayed({ timeout: 10000 });
+    const detailsText = await details.getText();
+
+    if (detailsText.includes(firstRequestText)) {
+      const acceptOfferButton = await details.$('.//button[normalize-space(.)="قبول العرض"]');
+      await acceptOfferButton.waitForDisplayed({ timeout: 10000 });
+      await acceptOfferButton.click();
+      matchingRequestOpened = true;
+      break;
+    }
+
+    await details.$('button[aria-label="إغلاق"]').click();
+    await sleep(300);
+  }
+
+  if (!matchingRequestOpened) {
+    throw new Error("Could not find the unique test request in the office market cards");
+  }
+
   await waitForText("ما السبب الذي يجعل العميل يختارك؟", 10000);
   await fill("textarea", "عرض اختبار آيفون من " + officeName + "؛ تم إرساله من محاكي iOS.");
   await fill('input[placeholder="السعر المقترح (اختياري)"]', "125000");
@@ -302,20 +345,24 @@ try {
   const offerRequest = await createRequest(firstRequestText);
   const requestToEnd = await createRequest(secondRequestText);
   await endRequest(requestToEnd);
+  await signOutFromUi("individual");
 
   const office = await registerAndVerify("office", officeEmail, "مدير " + runId, true);
-  // Simulate admin approval only in this isolated test database before the first office dashboard visit.
+  // Approval is test setup in the isolated Mongo database only. Sign out before
+  // approval and then log back in, so the office role/status is reloaded normally.
+  await signOutFromUi("office");
   await offices.updateOne(
     { owner_id: office._id, is_deleted: { $ne: true } },
     { $set: { verification_status: "verified", updated_at: new Date() } },
   );
   const officeDoc = await offices.findOne({ owner_id: office._id, is_deleted: { $ne: true } });
-  await signIn("office", officeEmail);
   if (!officeDoc) throw new Error("Office profile missing after signup");
   if (officeDoc.governorate_id !== "ios-e2e-governorate") throw new Error("Office governorate did not persist");
+  await signIn("office", officeEmail);
 
   const offer = await sendOffer(offerRequest);
   await createAndDeleteProperty();
+  await signOutFromUi("office");
   await signIn("individual", individualEmail);
   await acceptOffer(offer);
 
