@@ -12,7 +12,6 @@ import {
   MapPin,
   Phone,
   Bell,
-  BellOff,
   Share2,
   Star,
   UserPlus,
@@ -308,28 +307,31 @@ function OfficePage() {
                 </div>
               </div>
 
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                  <Star className="size-3.5 fill-terracotta text-terracotta" />
+                  <span className="font-bold">{Number(office.rating_avg ?? 0).toFixed(1)}</span>
+                  <span className="text-muted-foreground">({office.reviews_count ?? 0} تقييم)</span>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
+                  <Building2 className="size-3.5 text-forest" />
+                  <span className="font-bold">{totalCount ?? 0}</span>
+                  <span className="text-muted-foreground">عقار معروض</span>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setMoreOpen((open) => !open)}
                 aria-expanded={moreOpen}
-                className="mt-3 flex w-full items-center justify-between rounded-2xl bg-background px-3.5 py-3 text-sm font-bold ring-1 ring-line transition hover:bg-sand"
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-forest transition hover:bg-forest-soft"
               >
-                <span>المزيد</span>
+                <span>{moreOpen ? "عرض أقل" : "عرض المزيد"}</span>
                 <ChevronDown className={cn("size-4 transition-transform", moreOpen && "rotate-180")} />
               </button>
 
               {moreOpen && (
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                    <Star className="size-3.5 fill-terracotta text-terracotta" />
-                    <span className="font-bold">{Number(office.rating_avg ?? 0).toFixed(1)}</span>
-                    <span className="text-muted-foreground">({office.reviews_count ?? 0} تقييم)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                    <Building2 className="size-3.5 text-forest" />
-                    <span className="font-bold">{totalCount ?? 0}</span>
-                    <span className="text-muted-foreground">عقار معروض</span>
-                  </div>
                   <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
                     <Building2 className="size-3.5 text-forest" />
                     <span className="font-bold">{office.experience_years ?? 0}</span>
@@ -488,33 +490,6 @@ function OfficePage() {
                   )}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setNotify.mutate(
-                      { officeId, notify: !notifyOn },
-                      {
-                        onSuccess: (on) =>
-                          toast.success(
-                            on ? "تم تفعيل إشعارات هذا المكتب" : "تم إيقاف إشعارات هذا المكتب",
-                          ),
-                        onError: (e) => toast.error((e as Error).message),
-                      },
-                    )
-                  }
-                  disabled={setNotify.isPending}
-                  aria-pressed={notifyOn}
-                  className={cn(
-                    "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-[11px] font-bold transition disabled:opacity-60",
-                    notifyOn
-                      ? "bg-forest-soft text-forest ring-1 ring-forest/30"
-                      : "bg-sand text-foreground ring-1 ring-line",
-                  )}
-                  title={notifyOn ? "إشعارات المكتب مفعّلة" : "تفعيل إشعارات المكتب"}
-                >
-                  {notifyOn ? <Bell className="size-4 shrink-0" /> : <BellOff className="size-4 shrink-0" />}
-                  <span className="truncate">{notifyOn ? "الإشعارات مفعّلة" : "تفعيل الإشعارات"}</span>
-                </button>
               </div>
 
               
