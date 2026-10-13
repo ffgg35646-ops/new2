@@ -207,7 +207,7 @@ function OfficeDashboard() {
                 <Link
                   key={q.id}
                   to="/office/requests"
-                  search={{ tab: "inbox", request: undefined }}
+                  search={{ tab: "accepted", request: undefined }}
                   className="block rounded-2xl bg-surface p-3.5 ring-1 ring-line"
                 >
                   <div className="flex items-center justify-between">
@@ -301,7 +301,7 @@ function OfficeDashboard() {
                   ))}
                 </ol>
               ) : <p className="py-6 text-center text-sm text-muted-foreground">لا توجد طلبات ظاهرة هنا حاليًا.</p>}
-              <Link to="/office/requests" search={{ tab: "inbox", request: undefined }} onClick={() => setShowRequests(false)} className="mt-3 block rounded-2xl bg-forest py-3 text-center text-sm font-bold text-background">عرض كل الطلبات</Link>
+              <Link to="/office/requests" search={{ tab: "accepted", request: undefined }} onClick={() => setShowRequests(false)} className="mt-3 block rounded-2xl bg-forest py-3 text-center text-sm font-bold text-background">عرض كل الطلبات</Link>
             </div>
           </section>
         </div>
