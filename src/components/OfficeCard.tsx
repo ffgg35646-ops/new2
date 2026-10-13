@@ -57,7 +57,7 @@ export function OfficeCard({ office }: { office: OfficeCardData }) {
           )}
         </div>
       </div>
-      {isPro && !isOffice && !isAdmin && (
+      {!isOffice && !isAdmin && (
         <Link
           to="/chats"
           search={{ c: undefined, office: office.id }}
