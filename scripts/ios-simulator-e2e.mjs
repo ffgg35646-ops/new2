@@ -275,6 +275,7 @@ try {
       "appium:deviceName": process.env.IOS_DEVICE_NAME || "iPhone 16",
       "appium:udid": process.env.IOS_SIMULATOR_UDID,
       "appium:bundleId": "cloud.baytialkhass.app",
+      "appium:additionalWebviewBundleIds": ["process-App"],
       "appium:noReset": false,
       "appium:newCommandTimeout": 300,
       "appium:autoAcceptAlerts": true,
