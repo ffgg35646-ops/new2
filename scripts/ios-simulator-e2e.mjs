@@ -89,8 +89,68 @@ async function connectWebView() {
 }
 async function goto(path) {
   if (activeContext === "NATIVE_APP") await connectWebView();
-  await driver.url(baseUrl + path);
-  await waitForUrl(path.split("?")[0], 25000);
+
+  const expectedPath = path.split("?")[0];
+  const currentPath = async () => {
+    try { return new URL(String(await driver.getUrl())).pathname; }
+    catch { return ""; }
+  };
+
+  if (await currentPath() === expectedPath) {
+    await sleep(300);
+    return;
+  }
+
+  // The first trip from the iOS home page must behave like a real user tap.
+  // A full WebView URL navigation can snap back to "/" while React is hydrating.
+  if (await currentPath() === "/" && path === "/auth/individual") {
+    try {
+      await clickText("a", "دخول كفرد");
+      await waitForUrl(expectedPath, 8000);
+      await sleep(300);
+      return;
+    } catch (error) {
+      log("Home-page individual link did not navigate; trying WebView navigation fallback");
+    }
+  }
+  if (await currentPath() === "/" && path === "/auth/office") {
+    try {
+      await clickText("a", "دخول كمكتب عقاري");
+      await waitForUrl(expectedPath, 8000);
+      await sleep(300);
+      return;
+    } catch (error) {
+      log("Home-page office link did not navigate; trying WebView navigation fallback");
+    }
+  }
+
+  let navigationError;
+  try {
+    await driver.url(baseUrl + path);
+    await waitForUrl(expectedPath, 8000);
+    await sleep(300);
+    return;
+  } catch (error) {
+    navigationError = error;
+    log("Full WebView navigation did not reach " + expectedPath + "; retrying through the app router");
+  }
+
+  // Preserve the live WebView and let TanStack Router handle a popstate event.
+  // Form submission and every business action below still go through real UI controls.
+  await driver.execute((targetPath) => {
+    const target = new URL(targetPath, window.location.origin);
+    window.history.pushState({}, "", target.pathname + target.search + target.hash);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+  }, path);
+  try {
+    await waitForUrl(expectedPath, 12000);
+  } catch (error) {
+    throw new Error(
+      "Could not navigate to " + expectedPath + ". Full-navigation error: " +
+      String(navigationError?.message || navigationError || "unknown") +
+      "; router fallback error: " + String(error?.message || error)
+    );
+  }
   await sleep(300);
 }
 async function fill(selector, value) {
