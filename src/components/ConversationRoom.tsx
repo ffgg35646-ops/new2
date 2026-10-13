@@ -501,7 +501,7 @@ export function ConversationRoom({
   }
 
   return (
-    <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-background">
+    <section className={"flex min-h-[360px] max-h-[68dvh] w-full flex-none flex-col overflow-hidden rounded-3xl bg-background " + (readOnly ? "max-w-6xl" : "max-w-md")}>
       <div className={"mx-auto flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface p-2 sm:p-3 " + (readOnly ? "max-w-6xl" : "max-w-md")}>
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line pb-3">
         <div className="min-w-0 flex-1">
