@@ -141,9 +141,6 @@ function OfficeDashboard() {
               </span>
             )}
           </div>
-          <p className="mt-3 text-xs opacity-90">
-            إحصائيات المكتب بالكامل: {stats?.published ?? 0} عقار نشط — {newRequests} طلب مستلم/مقبول — {stats?.views ?? 0} مشاهدة — {stats?.favorites ?? 0} عملية حفظ
-          </p>
         </section>
 
         <section className="grid grid-cols-2 gap-2">
