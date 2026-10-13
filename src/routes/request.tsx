@@ -298,11 +298,11 @@ function RequestPage() {
 
         <Link
           to="/requests"
-          search={{ tab: "received", request: undefined, offer: undefined }}
+          search={{ tab: "accepted", request: undefined, offer: undefined }}
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 text-sm font-bold text-forest ring-1 ring-line"
         >
           <ClipboardList className="size-4" />
-          عرض طلباتي والعروض المستلمة
+          عرض طلباتي والطلبات المقبولة
         </Link>
       </main>
       <BottomNav />
