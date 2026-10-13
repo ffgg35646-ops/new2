@@ -29,7 +29,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 30
     env:
-      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL || vars.VITE_PUBLIC_APP_URL }}
+      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL || vars.VITE_PUBLIC_APP_URL || 'https://new2-five-roan.vercel.app' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
