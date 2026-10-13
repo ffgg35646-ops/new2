@@ -88,9 +88,20 @@ async function connectWebView() {
   });
 }
 async function goto(path) {
-  if (activeContext === "NATIVE_APP") await connectWebView();
-
   const expectedPath = path.split("?")[0];
+
+  // WebKit can recreate its content process after navigation. Re-discover the
+  // live WebView before every route change instead of trusting a stale context.
+  const contexts = await driver.getContexts();
+  const liveWebView = contexts.find((item) => String(item).toLowerCase().includes("webview"));
+  if (liveWebView) {
+    if (String(liveWebView) !== activeContext) await driver.switchContext(liveWebView);
+    activeContext = String(liveWebView);
+  } else {
+    activeContext = "NATIVE_APP";
+    await connectWebView();
+  }
+
   const currentPath = async () => {
     try { return new URL(String(await driver.getUrl())).pathname; }
     catch { return ""; }
@@ -101,16 +112,16 @@ async function goto(path) {
     return;
   }
 
-  // The first trip from the iOS home page must behave like a real user tap.
-  // A full WebView URL navigation can snap back to "/" while React is hydrating.
+  // Start from the actual home-page link on iOS; this verifies the same entry
+  // point a customer uses rather than silently bypassing the welcome screen.
   if (await currentPath() === "/" && path === "/auth/individual") {
     try {
       await clickText("a", "دخول كفرد");
       await waitForUrl(expectedPath, 8000);
       await sleep(300);
       return;
-    } catch (error) {
-      log("Home-page individual link did not navigate; trying WebView navigation fallback");
+    } catch {
+      log("Home-page individual link did not navigate; trying route fallback");
     }
   }
   if (await currentPath() === "/" && path === "/auth/office") {
@@ -119,8 +130,8 @@ async function goto(path) {
       await waitForUrl(expectedPath, 8000);
       await sleep(300);
       return;
-    } catch (error) {
-      log("Home-page office link did not navigate; trying WebView navigation fallback");
+    } catch {
+      log("Home-page office link did not navigate; trying route fallback");
     }
   }
 
@@ -132,11 +143,9 @@ async function goto(path) {
     return;
   } catch (error) {
     navigationError = error;
-    log("Full WebView navigation did not reach " + expectedPath + "; retrying through the app router");
+    log("Full WebView navigation did not reach " + expectedPath + "; trying TanStack router fallback");
   }
 
-  // Preserve the live WebView and let TanStack Router handle a popstate event.
-  // Form submission and every business action below still go through real UI controls.
   await driver.execute((targetPath) => {
     const target = new URL(targetPath, window.location.origin);
     window.history.pushState({}, "", target.pathname + target.search + target.hash);
@@ -145,10 +154,19 @@ async function goto(path) {
   try {
     await waitForUrl(expectedPath, 12000);
   } catch (error) {
+    let currentUrl = "";
+    let page = "";
+    let availableContexts = [];
+    try { currentUrl = String(await driver.getUrl()); } catch {}
+    try { page = (await bodyText()).slice(0, 1000); } catch {}
+    try { availableContexts = await driver.getContexts(); } catch {}
     throw new Error(
-      "Could not navigate to " + expectedPath + ". Full-navigation error: " +
-      String(navigationError?.message || navigationError || "unknown") +
-      "; router fallback error: " + String(error?.message || error)
+      "Could not navigate to " + expectedPath +
+      ". Full-navigation error: " + String(navigationError?.message || navigationError || "unknown") +
+      "; router fallback error: " + String(error?.message || error) +
+      "; current URL: " + currentUrl +
+      "; contexts: " + JSON.stringify(availableContexts) +
+      "; page: " + page
     );
   }
   await sleep(300);
