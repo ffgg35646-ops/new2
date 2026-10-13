@@ -1440,7 +1440,8 @@ async function runDb(input: DbInput) {
             throw new Error("inquiry_invalid");
           }
 
-          // Contact requests are accepted immediately; customers and offices continue in chat.\n          doc.status = "accepted";
+          // Contact requests are accepted immediately; customers and offices continue in chat.
+          doc.status = "accepted";
 
           const existing = await collection.findOne({
             user_id: userId,
@@ -3237,7 +3238,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
                   title: "تم قبول عرضك وانتقل الطلب إلى طلبات التواصل",
                   body: "قبل العميل " + clientName + " عرض مكتبك. أصبح الطلب خاصًا بمكتبك ويمكنك متابعة تفاصيله وبيانات الاتصال من طلبات التواصل.",
                   type: "property_offer_response",
-                  link: "/office/requests?tab=inbox&request=" + encodeURIComponent(String(request.id)),
+                  link: "/office/requests?tab=accepted&request=" + encodeURIComponent(String(request.id)),
                   is_read: false,
                   created_at: now,
                 }),
@@ -3858,7 +3859,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             title: isCompleted ? "العميل أكد اكتمال طلب التواصل" : "العميل أنهى طلب التواصل",
             body: message,
             type: isCompleted ? "property_inquiry_completed" : "property_inquiry_ended",
-            link: "/office/requests?tab=inbox",
+            link: "/office/requests?tab=accepted",
             inquiry_id: inquiryId,
             is_read: false,
             created_at: now,
@@ -4163,7 +4164,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               body: String(office.name ?? "المكتب العقاري") +
                 " أبلغك بإتمام الصفقة. راجع العرض ثم أكّد الإتمام إذا تمت الصفقة فعلًا.",
               type: "property_offer_completion",
-              link: "/requests?tab=received",
+              link: "/requests?tab=accepted",
               is_read: false,
               created_at: now,
             }),
@@ -4258,7 +4259,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               "قام مكتب " + String(office.name ?? "عقاري") +
               " بإلغاء عرضه على طلبك. سبب الإلغاء: " + reason,
             type: "property_offer_cancelled",
-            link: "/requests?tab=received&offer=" + encodeURIComponent(offerId),
+            link: "/requests?tab=accepted&offer=" + encodeURIComponent(offerId),
             request_id: requestId,
             offer_id: offerId,
             is_read: false,
@@ -4308,7 +4309,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
               body: String(office.name ?? "المكتب العقاري") +
                 " أنهى عرضه. لم تُسجّل الصفقة كمكتملة لعدم وجود تأكيد من الطرفين.",
               type: "property_offer_ended",
-              link: "/requests?tab=received",
+              link: "/requests?tab=accepted",
               is_read: false,
               created_at: now,
             }),
@@ -4655,7 +4656,7 @@ export const rpcRequest = createServerFn({ method: "POST" })
             priceText +
             (offer.message ? " · " + String(offer.message).slice(0, 160) : ""),
           type: "property_offer",
-          link: "/requests?tab=received&request=" + encodeURIComponent(String(request.id)) +
+          link: "/requests?tab=accepted&request=" + encodeURIComponent(String(request.id)) +
             "&offer=" + encodeURIComponent(offerId),
           is_read: false,
           created_at: new Date(),
