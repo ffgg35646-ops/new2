@@ -21,7 +21,7 @@ export const Route = createFileRoute("/chats")({
       { title: "الدردشة | عقار البطين" },
       {
         name: "description",
-        content: "ابحث عن مكتب احترافي وراسل المكتب، مع سجل المحادثات والرسائل.",
+        content: "ابحث عن مكتب عقاري وراسل المكتب، مع سجل المحادثات والرسائل.",
       },
       { property: "og:title", content: "الدردشة | عقار البطين" },
       { property: "og:description", content: "محادثاتك مع المكاتب العقارية الاحترافية داخل عقار البطين." },
@@ -307,7 +307,7 @@ function ChatsPage() {
                 <input
                   value={listMode === "conversations" ? conversationSearch : officeSearch}
                   onChange={(event) => listMode === "conversations" ? setConversationSearch(event.target.value) : setOfficeSearch(event.target.value)}
-                  placeholder={listMode === "conversations" ? "ابحث باسم المكتب أو رسالة..." : "ابحث عن مكتب احترافي..."}
+                  placeholder={listMode === "conversations" ? "ابحث باسم المكتب أو رسالة..." : "ابحث عن مكتب عقاري..."}
                   aria-label={listMode === "conversations" ? "البحث في المحادثات" : "البحث عن مكتب"}
                   className="w-full rounded-2xl bg-background py-3 pe-10 ps-3 text-sm ring-1 ring-line outline-none transition focus:ring-2 focus:ring-forest"
                 />
@@ -454,8 +454,8 @@ function ChatsPage() {
                   ) : (
                     <div className="grid min-h-40 place-items-center gap-2 px-4 text-center">
                       <Building2 className="size-8 text-muted-foreground" />
-                      <p className="text-sm font-bold">مفيش مكاتب مطابقة للبحث</p>
-                      <p className="text-xs text-muted-foreground">غيّر اسم المكتب وجرب تاني.</p>
+                      <p className="text-sm font-bold">لا توجد مكاتب عقارية مطابقة لبحثك</p>
+                      <p className="text-xs text-muted-foreground">جرّب البحث باسم آخر</p>
                     </div>
                   )}
                 </div>
