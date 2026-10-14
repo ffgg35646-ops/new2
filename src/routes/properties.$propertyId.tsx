@@ -645,7 +645,7 @@ function PropertyDetail() {
           <button
             onClick={() => inquire.mutate()}
             disabled={inquire.isPending}
-            className="w-full rounded-2xl bg-terracotta py-3.5 font-display font-bold text-background disabled:opacity-60"
+            className="w-full rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
           >
             إرسال الطلب
           </button>
