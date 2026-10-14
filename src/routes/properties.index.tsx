@@ -99,13 +99,14 @@ function AllPropertiesPage() {
         ) : properties?.length ? (
           <>
             <p className="text-xs text-muted-foreground">{properties.length} عقار</p>
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               {properties.map((p) => (
                 <PropertyCard
                   key={p.id}
                   property={p}
                   isFavorite={favoriteIds.has(p.id)}
                   onToggleFavorite={toggleFavorite}
+                  compact
                 />
               ))}
             </div>
