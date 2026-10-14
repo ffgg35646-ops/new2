@@ -4056,8 +4056,10 @@ export const rpcRequest = createServerFn({ method: "POST" })
             _id: randomUUID(),
             user_id: requesterId,
             title: nextStatus === "accepted" ? "تم قبول طلب المراسلة" : "تم رفض طلب المراسلة",
-            body: String(office.name ?? "المكتب العقاري") +
-              (nextStatus === "accepted" ? " وافق على طلب المراسلة." : " رفض طلب المراسلة."),
+            body: role === "individual"
+              ? (nextStatus === "accepted" ? "العميل قبل طلب مراسلتك." : "العميل رفض طلب مراسلتك.")
+              : String(office.name ?? "المكتب العقاري") +
+                (nextStatus === "accepted" ? " وافق على طلب مراسلتك." : " رفض طلب مراسلتك."),
             type: "chat_request_response",
             link: nextStatus === "accepted"
               ? (role === "individual" ? "/office/chat?c=" : "/chats?c=") + encodeURIComponent(conversationId)
