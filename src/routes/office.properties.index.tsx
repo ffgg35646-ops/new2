@@ -191,16 +191,20 @@ function OfficeProperties() {
           <div className="space-y-2.5">
             {visibleProperties.map((p) => (
               <div key={p.id} className="rounded-2xl bg-surface p-3 ring-1 ring-line">
-                <div className="flex gap-3">
+                <Link
+                  to="/properties/$propertyId"
+                  params={{ propertyId: p.id }}
+                  className="flex gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+                >
                   {p.cover_url ? (
                     <img
                       src={p.cover_url}
                       alt={p.title}
                       loading="lazy"
-                      className="size-16 rounded-xl object-cover"
+                      className="size-16 shrink-0 rounded-xl object-cover"
                     />
                   ) : (
-                    <div className="grid size-16 place-items-center rounded-xl bg-sand">
+                    <div className="grid size-16 shrink-0 place-items-center rounded-xl bg-sand">
                       <Home className="size-5 text-muted-foreground" />
                     </div>
                   )}
@@ -222,11 +226,7 @@ function OfficeProperties() {
                     </div>
                   </div>
                 </Link>
-              <div className="mt-0.5 text-xs font-bold text-forest">
-                      {formatPrice(p.price)} ر.س · {formatArea(p.area)}
-                    </div>
-                  </div>
-                </div>
+
                 <div className="mt-3 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Link
@@ -237,75 +237,74 @@ function OfficeProperties() {
                       <Eye className="size-4" />
                       إدارة العقار
                     </Link>
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <button
-                                            type="button"
-                                            className="grid size-9 place-items-center rounded-xl bg-background text-muted-foreground ring-1 ring-line transition hover:text-foreground hover:ring-forest/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
-                                            aria-label={`خيارات العقار: ${p.title}`}
-                                          >
-                                            <MoreHorizontal className="size-4" />
-                                          </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start" sideOffset={6} className="w-52">
-                                          <DropdownMenuItem
-                                            onSelect={() => {
-                                              if (!canFeature && !p.is_featured) {
-                                                toast.error("التمييز ميزة احترافية — رقِّ باقتك لإبراز عقاراتك.");
-                                                return;
-                                              }
-                                              toggleFeatured.mutate({ id: p.id, next: !p.is_featured });
-                                            }}
-                                            disabled={toggleFeatured.isPending}
-                                          >
-                                            <Star className={`size-4 ${p.is_featured ? "fill-current text-forest" : ""}`} />
-                                            {p.is_featured ? "إلغاء التمييز" : "تمييز العرض"}
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onSelect={() => togglePublish.mutate({ id: p.id, next: !p.is_published })}
-                                            disabled={togglePublish.isPending}
-                                          >
-                                            {p.is_published ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                                            {p.is_published ? "إيقاف العقار" : "تفعيل العقار"}
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onSelect={() => {
-                                              if (!canFeature) {
-                                                toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
-                                                return;
-                                              }
-                                              if (!p.is_published) {
-                                                toast.error("انشر العقار أولًا لإنشاء رمز QR صالح للمشاركة.");
-                                                return;
-                                              }
-                                              const url = getPublicAppUrl(`/properties/${p.id}`);
-                                              if (!url) {
-                                                toast.error(PUBLIC_APP_URL_HELP);
-                                                return;
-                                              }
-                                              setQrFor({ id: p.id, title: p.title, url });
-                                            }}
-                                          >
-                                            <QrCode className="size-4" />
-                                            رمز QR
-                                          </DropdownMenuItem>
-                                          <DropdownMenuSeparator />
-                                          <DropdownMenuItem
-                                            onSelect={() => setDeleteFor({ id: p.id, title: p.title })}
-                                            className="text-destructive focus:text-destructive"
-                                          >
-                                            <Trash2 className="size-4" />
-                                            حذف العقار
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="grid size-9 place-items-center rounded-xl bg-background text-muted-foreground ring-1 ring-line transition hover:text-foreground hover:ring-forest/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+                          aria-label={`خيارات العقار: ${p.title}`}
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" sideOffset={6} className="w-52">
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            if (!canFeature && !p.is_featured) {
+                              toast.error("التمييز ميزة احترافية — رقِّ باقتك لإبراز عقاراتك.");
+                              return;
+                            }
+                            toggleFeatured.mutate({ id: p.id, next: !p.is_featured });
+                          }}
+                          disabled={toggleFeatured.isPending}
+                        >
+                          <Star className={`size-4 ${p.is_featured ? "fill-current text-forest" : ""}`} />
+                          {p.is_featured ? "إلغاء التمييز" : "تمييز العرض"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => togglePublish.mutate({ id: p.id, next: !p.is_published })}
+                          disabled={togglePublish.isPending}
+                        >
+                          {p.is_published ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          {p.is_published ? "إيقاف العقار" : "تفعيل العقار"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            if (!canFeature) {
+                              toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
+                              return;
+                            }
+                            if (!p.is_published) {
+                              toast.error("انشر العقار أولًا لإنشاء رمز QR صالح للمشاركة.");
+                              return;
+                            }
+                            const url = getPublicAppUrl(`/properties/${p.id}`);
+                            if (!url) {
+                              toast.error(PUBLIC_APP_URL_HELP);
+                              return;
+                            }
+                            setQrFor({ id: p.id, title: p.title, url });
+                          }}
+                        >
+                          <QrCode className="size-4" />
+                          رمز QR
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={() => setDeleteFor({ id: p.id, title: p.title })}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                          حذف العقار
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs font-semibold">
                     <span className={p.is_published ? "size-2.5 rounded-full bg-green-500" : "size-2.5 rounded-full bg-yellow-400"} />
                     <span>{p.is_published ? "مفعل" : "موقوف"}</span>
                   </div>
                 </div>
-
               </div>
             ))}
           </div>
