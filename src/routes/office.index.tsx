@@ -128,7 +128,7 @@ function OfficeDashboard() {
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
       <AppHeader showSearch={false} />
       <main className="flex-1 space-y-5 px-4 py-4">
-        <section className="relative isolate min-h-[164px] overflow-hidden rounded-3xl bg-gradient-to-br from-forest via-forest to-emerald-700 p-5 text-background">
+        <section className="relative isolate min-h-[164px] overflow-hidden rounded-3xl bg-[#17633F] p-5 text-white">
           <svg
             aria-hidden="true"
             viewBox="0 0 156 126"
