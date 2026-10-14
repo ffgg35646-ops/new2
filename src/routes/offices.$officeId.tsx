@@ -236,6 +236,10 @@ function OfficePage() {
       toast.error("سجّل الدخول لتفعيل إشعارات المكتب");
       return;
     }
+    if (!isFollowing) {
+      toast.error("تابع المكتب أولًا حتى تتمكن من تفعيل إشعاراته");
+      return;
+    }
 
     try {
       const enabled = await setNotify.mutateAsync({
