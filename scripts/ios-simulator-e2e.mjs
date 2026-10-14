@@ -471,6 +471,9 @@ try {
       "appium:noReset": false,
       "appium:newCommandTimeout": 300,
       "appium:autoAcceptAlerts": true,
+      // GitHub-hosted macOS runners can report simctl boot complete before
+      // SpringBoard/Appium sees the device as fully booted.
+      "appium:simulatorStartupTimeout": 300000,
       "appium:webviewConnectTimeout": 45000,
       "appium:wdaLaunchTimeout": 480000,
       "appium:wdaConnectionTimeout": 480000,
