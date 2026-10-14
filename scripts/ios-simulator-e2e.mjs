@@ -408,7 +408,7 @@ async function sendOffer(requestRecord) {
   // sheet and select the request by its unique test description.
   let matchingRequestOpened = false;
   for (let index = 0; index < 40; index++) {
-    const detailButtons = await driver.$('//button[normalize-space(.)="عرض بيانات الطلب"]');
+    const detailButtons = await driver.$$('//button[normalize-space(.)="عرض بيانات الطلب"]');
     if (index >= detailButtons.length) break;
     await detailButtons[index].click();
 
