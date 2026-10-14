@@ -8,6 +8,7 @@ import { ConversationRoom } from "@/components/ConversationRoom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
+import { toast } from "sonner";
 import { useMyOffice } from "@/lib/office";
 import { RoleGuard } from "@/lib/role-guard";
 
@@ -44,6 +45,9 @@ type ConversationRow = {
   user_id: string;
   property_id: string | null;
   updated_at: string;
+  status?: string;
+  requested_by?: string;
+  requested_at?: string;
   properties: { title: string } | null;
   client?: { full_name: string } | null;
   lastMessage?: {
@@ -56,11 +60,13 @@ type ConversationRow = {
 
 function OfficeChatPage() {
   const { data: membership } = useMyOffice();
+  const { userId } = useAuth();
   const { c } = Route.useSearch();
   const navigate = Route.useNavigate();
   const officeId = membership?.office?.id ?? null;
   const [activeId, setActiveId] = useState<string | null>(c ?? null);
   const [conversationSearch, setConversationSearch] = useState("");
+  const [chatSection, setChatSection] = useState<"conversations" | "requests">("conversations");
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -93,7 +99,7 @@ function OfficeChatPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("conversations")
-        .select("id,user_id,property_id,updated_at,properties(title)")
+        .select("id,user_id,property_id,updated_at,status,requested_by,requested_at,properties(title)")
         .eq("office_id", officeId!)
         .order("updated_at", { ascending: false });
       if (error) throw error;
@@ -143,13 +149,51 @@ function OfficeChatPage() {
   });
 
   const normalizedConversationSearch = conversationSearch.trim().toLocaleLowerCase("ar");
-  const matchingConversations = (conversations.data ?? []).filter((conversation) =>
+  const activeConversations = (conversations.data ?? []).filter(
+    (conversation) => conversation.status !== "pending" && conversation.status !== "declined",
+  );
+  const pendingRequests = (conversations.data ?? []).filter(
+    (conversation) => conversation.status === "pending",
+  );
+  const incomingRequestCount = pendingRequests.filter(
+    (conversation) => conversation.requested_by !== userId,
+  ).length;
+  const matchingConversations = activeConversations.filter((conversation) =>
     [
       conversation.client?.full_name,
       conversation.lastMessage?.body,
       conversation.properties?.title,
     ].some((value) => String(value ?? "").toLocaleLowerCase("ar").includes(normalizedConversationSearch)),
   );
+  const matchingRequests = pendingRequests.filter((conversation) =>
+    [
+      conversation.client?.full_name,
+      conversation.lastMessage?.body,
+      conversation.properties?.title,
+    ].some((value) => String(value ?? "").toLocaleLowerCase("ar").includes(normalizedConversationSearch)),
+  );
+
+  const resolveMessageRequest = useMutation({
+    mutationFn: async ({ conversationId, action }: { conversationId: string; action: "accept" | "decline" }) => {
+      const { data, error } = await supabase.rpc("resolve_chat_request", {
+        _conversation_id: conversationId,
+        _action: action,
+      });
+      if (error) throw error;
+      return { conversationId, action, status: data };
+    },
+    onSuccess: ({ conversationId, action }) => {
+      void qc.invalidateQueries({ queryKey: ["office-conversations", officeId] });
+      toast.success(action === "accept" ? "تم قبول طلب المراسلة" : "تم رفض طلب المراسلة");
+      if (action === "accept") {
+        setActiveId(conversationId);
+        void navigate({ search: { c: conversationId } });
+      }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "تعذّر التعامل مع طلب المراسلة");
+    },
+  });
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col overflow-hidden bg-background">
@@ -179,23 +223,102 @@ function OfficeChatPage() {
                   </div>
                 </div>
                 <span className="shrink-0 rounded-full bg-forest-soft px-3 py-1.5 text-xs font-bold text-forest">
-                  {conversations.data?.length ?? 0} محادثة
+                  {activeConversations.length} محادثة
                 </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-1 rounded-2xl bg-background p-1 ring-1 ring-line">
+                <button
+                  type="button"
+                  onClick={() => setChatSection("conversations")}
+                  className={"flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-bold transition " + (chatSection === "conversations" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
+                >
+                  <span className="grid size-5 place-items-center rounded-full bg-background/20 text-[10px]">١</span>
+                  <span>المحادثات</span>
+                  <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px]">{activeConversations.length}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChatSection("requests")}
+                  className={"flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-bold transition " + (chatSection === "requests" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
+                >
+                  <span className="grid size-5 place-items-center rounded-full bg-background/20 text-[10px]">٢</span>
+                  <span>طلبات المراسلة</span>
+                  <span className="rounded-full bg-terracotta px-1.5 py-0.5 text-[10px] text-background">{incomingRequestCount}</span>
+                </button>
               </div>
               <div className="relative mt-3">
                 <Search className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={conversationSearch}
                   onChange={(event) => setConversationSearch(event.target.value)}
-                  placeholder="ابحث باسم العميل أو محتوى الرسالة..."
-                  aria-label="البحث في محادثات العملاء"
+                  placeholder={chatSection === "requests" ? "ابحث في طلبات المراسلة..." : "ابحث باسم العميل أو محتوى الرسالة..."}
+                  aria-label={chatSection === "requests" ? "البحث في طلبات المراسلة" : "البحث في محادثات العملاء"}
                   className="w-full rounded-2xl bg-background py-3 pe-10 ps-3 text-sm ring-1 ring-line outline-none transition focus:ring-2 focus:ring-forest"
                 />
               </div>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
-              {conversations.isLoading ? (
+              {chatSection === "requests" ? (
+                conversations.isLoading ? (
+                  <div className="grid min-h-full place-items-center py-8">
+                    <Loader2 className="size-5 animate-spin text-forest" />
+                  </div>
+                ) : conversations.isError ? (
+                  <div className="grid min-h-full content-center justify-items-center gap-3 p-5 text-center">
+                    <MessageSquare className="size-8 text-terracotta" />
+                    <p className="text-sm font-bold">تعذّر تحميل طلبات المراسلة</p>
+                    <p className="text-xs text-muted-foreground">تحقق من الاتصال وحاول مجددًا.</p>
+                  </div>
+                ) : matchingRequests.length ? (
+                  <ul className="space-y-2">
+                    {matchingRequests.map((conversation) => {
+                      const isIncoming = conversation.requested_by !== userId;
+                      return (
+                        <li key={conversation.id} className="rounded-2xl border border-line bg-background p-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveId(conversation.id);
+                              void navigate({ search: { c: conversation.id } });
+                            }}
+                            className="flex w-full items-center gap-3 text-right"
+                          >
+                            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-forest-soft font-display text-base font-extrabold text-forest">
+                              {(conversation.client?.full_name || "؟").charAt(0)}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-bold">{conversation.client?.full_name || "عميل"}</span>
+                              <span className="mt-1 block truncate text-xs text-muted-foreground">
+                                {conversation.lastMessage?.body || (conversation.lastMessage?.image_url ? "📷 صورة" : null) || conversation.properties?.title || "طلب مراسلة جديد"}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-[10px] text-muted-foreground">{formatDate(conversation.lastMessage?.created_at ?? conversation.requested_at ?? conversation.updated_at)}</span>
+                          </button>
+                          <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
+                            {isIncoming ? (
+                              <>
+                                <span className="text-[10px] font-semibold text-terracotta">طلب جديد</span>
+                                <div className="flex items-center gap-2">
+                                  <button type="button" disabled={resolveMessageRequest.isPending} onClick={() => resolveMessageRequest.mutate({ conversationId: conversation.id, action: "decline" })} className="rounded-xl border border-line px-3 py-2 text-xs font-bold text-muted-foreground disabled:opacity-50">رفض</button>
+                                  <button type="button" disabled={resolveMessageRequest.isPending} onClick={() => resolveMessageRequest.mutate({ conversationId: conversation.id, action: "accept" })} className="rounded-xl bg-forest px-3 py-2 text-xs font-bold text-background disabled:opacity-50">قبول</button>
+                                </div>
+                              </>
+                            ) : (
+                              <span className="rounded-full bg-forest-soft px-3 py-1.5 text-[10px] font-bold text-forest">بانتظار رد العميل</span>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="grid min-h-full content-center justify-items-center gap-3 px-5 py-8 text-center">
+                    <span className="grid size-16 place-items-center rounded-3xl bg-forest-soft text-forest"><MessageSquare className="size-8" /></span>
+                    <h2 className="font-display text-base font-extrabold">{conversationSearch.trim() ? "لا توجد نتائج مطابقة" : "لا توجد طلبات مراسلة جديدة"}</h2>
+                  </div>
+                )
+              ) : conversations.isLoading ? (
                 <div className="grid min-h-full place-items-center py-8">
                   <Loader2 className="size-5 animate-spin text-forest" />
                 </div>
