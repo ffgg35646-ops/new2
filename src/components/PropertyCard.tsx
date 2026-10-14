@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Camera, Heart, ShieldCheck } from "lucide-react";
+import { Camera, Heart, Send, ShieldCheck } from "lucide-react";
 import { formatArea, formatPrice, timeAgo } from "@/lib/format";
 import { kindLabel, listingLabel, rentPeriodLabel } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -170,7 +170,17 @@ export function PropertyCard({
         </div>
       </Link>
 
-
+      {compact && !isOffice && (
+        <div className="px-2 pb-2">
+          <a
+            href={`/properties/${encodeURIComponent(property.id)}#property-inquiry`}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background transition hover:opacity-90"
+          >
+            <Send className="size-4" />
+            إرسال طلب
+          </a>
+        </div>
+      )}
     </article>
   );
 }
