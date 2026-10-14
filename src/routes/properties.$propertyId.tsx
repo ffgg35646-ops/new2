@@ -39,8 +39,6 @@ import { shareLink, whatsappHref } from "@/lib/office";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
-import { saudiAppointmentDateTime, saudiInputDateTime } from "@/lib/saudi-time";
-import { appNowMs } from "@/lib/clock";
 
 const REPORT_REASONS = [
   "معلومات غير صحيحة",
@@ -78,9 +76,6 @@ function PropertyDetail() {
   const qc = useQueryClient();
   const { userId, profile, session, isOffice } = useAuth();
   const { favoriteIds, toggleFavorite } = useFavorites();
-  const [bookingDate, setBookingDate] = useState("");
-  const [bookingTime, setBookingTime] = useState("");
-  const [bookingContact, setBookingContact] = useState("");
   const [inquiryType, setInquiryType] = useState<string>(INQUIRY_TYPES[0].value);
   const [inquiryMessage, setInquiryMessage] = useState("");
   const [inquiryPhone, setInquiryPhone] = useState("");
@@ -234,14 +229,8 @@ function PropertyDetail() {
 
   const book = useMutation({
     mutationFn: async () => {
-      if (!userId) throw new Error("سجّل الدخول لحجز معاينة");
-      if (!bookingDate || !bookingTime) throw new Error("اختر تاريخ ووقت المعاينة بتوقيت السعودية");
-      const contactPhone = (bookingContact || profile?.phone || "").trim();
-      if (!contactPhone) throw new Error("أدخل رقم الهاتف أو وسيلة اتصال");
-      const scheduled = saudiAppointmentDateTime(bookingDate, bookingTime);
-      if (!Number.isFinite(scheduled.getTime()) || scheduled.getTime() <= appNowMs()) {
-        throw new Error("اختر موعدًا مستقبليًا");
-      }
+      if (!userId) throw new Error("سجّل الدخول لطلب معاينة");
+
       const sessionName =
         typeof session?.user?.user_metadata?.full_name === "string"
           ? session.user.user_metadata.full_name.trim()
@@ -253,40 +242,41 @@ function PropertyDetail() {
         ) || "عميل";
 
       const { data: row, error } = await supabase
-        .from("viewing_bookings")
+        .from("property_inquiries")
         .insert({
           property_id: data!.id,
-          user_id: userId,
           office_id: data!.office_id,
-          visit_date: bookingDate,
-          visit_time: bookingTime,
-          status: "pending",
-          contact_phone: contactPhone,
+          user_id: userId,
+          type: "viewing",
           contact_name: contactName,
-          contact_governorate_id: profile?.governorate_id || null,
+          contact_phone: profile?.phone?.trim() || "",
+          message: "أرغب بمعاينة العقار، يرجى التواصل معي لتحديد الموعد.",
+          status: "new",
         })
         .select("id")
         .single();
       if (error) throw error;
+
       if (row) {
-        notifyWhatsApp("booking_created", row.id);
+        notifyWhatsApp("inquiry_created", row.id);
         const { error: notifyError } = await supabase.rpc(
-          "notify_new_viewing_booking" as never,
-          { _booking_id: row.id } as never,
+          "notify_new_property_inquiry" as never,
+          { _inquiry_id: row.id } as never,
         );
         if (notifyError) {
-          console.warn("[property-detail] booking notification failed", notifyError);
+          console.warn("[property-detail] viewing inquiry notification failed", notifyError);
         }
       }
     },
     onSuccess: () => {
-      toast.success("تم إرسال طلب المعاينة للمكتب");
-      setBookingDate("");
-      setBookingTime("");
-      setBookingContact("");
-      void qc.invalidateQueries({ queryKey: ["bookings"] });
+      toast.success("تم إرسال طلب المعاينة للمكتب، وسيتم تنسيق الموعد عبر الدردشة");
+      void qc.invalidateQueries({ queryKey: ["office-inquiries"] });
+      void qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] });
+      void qc.invalidateQueries({ queryKey: ["new-inquiries-count"] });
+      void qc.invalidateQueries({ queryKey: ["office-bottom-nav-request-count"] });
+      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر الحجز"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر إرسال طلب المعاينة"),
   });
 
   const inquire = useMutation({
@@ -666,40 +656,9 @@ function PropertyDetail() {
             <CalendarDays className="size-4 text-terracotta" /> حجز معاينة
           </h2>
           
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block text-xs font-semibold text-muted-foreground">
-              التاريخ السعودي
-              <input
-                type="date"
-                value={bookingDate}
-                min={saudiInputDateTime(new Date(appNowMs() + 60_000)).slice(0, 10)}
-                onChange={(e) => setBookingDate(e.target.value)}
-                className="mt-1.5 w-full min-w-0 rounded-2xl bg-sand px-3 py-3 text-sm font-normal text-foreground outline-none focus:ring-2 focus:ring-forest"
-              />
-            </label>
-            <label className="block text-xs font-semibold text-muted-foreground">
-              الساعة السعودية
-              <input
-                type="time"
-                value={bookingTime}
-                min={
-                  bookingDate === saudiInputDateTime(new Date(appNowMs() + 60_000)).slice(0, 10)
-                    ? saudiInputDateTime(new Date(appNowMs() + 60_000)).slice(11, 16)
-                    : undefined
-                }
-                step={60}
-                onChange={(e) => setBookingTime(e.target.value)}
-                className="mt-1.5 w-full min-w-0 rounded-2xl bg-sand px-3 py-3 text-sm font-normal text-foreground outline-none focus:ring-2 focus:ring-forest"
-              />
-            </label>
-          </div>
-          <input
-            type="text"
-            value={bookingContact || profile?.phone || ""}
-            onChange={(e) => setBookingContact(e.target.value)}
-            placeholder="رقم الهاتف أو وسيلة الاتصال"
-            className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
-          />
+          <p className="text-xs leading-6 text-muted-foreground">
+            أرسل طلب المعاينة، وسيتم الاتفاق على التاريخ والوقت مع المكتب عبر الدردشة.
+          </p>
           
           <button
             onClick={() => book.mutate()}
