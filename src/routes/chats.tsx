@@ -41,6 +41,9 @@ type ConversationRow = {
   office_id: string;
   property_id: string | null;
   updated_at: string;
+  status?: string;
+  requested_by?: string;
+  requested_at?: string;
   properties: { title: string } | null;
   offices: { name: string; logo_url: string | null } | null;
   lastMessage?: {
@@ -72,6 +75,7 @@ function ChatsPage() {
   const [officeSearch, setOfficeSearch] = useState("");
   const [conversationSearch, setConversationSearch] = useState("");
   const [listMode, setListMode] = useState<"conversations" | "offices">("conversations");
+  const [chatSection, setChatSection] = useState<"conversations" | "requests">("conversations");
   const startRequestedFor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -115,6 +119,7 @@ function ChatsPage() {
         .select("id")
         .eq("user_id", userId)
         .eq("office_id", officeId)
+        .neq("status", "declined")
         .limit(1)
         .maybeSingle();
       if (existingError) throw existingError;
@@ -155,7 +160,7 @@ function ChatsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("conversations")
-        .select("id,office_id,property_id,updated_at,properties(title),offices(name,logo_url)")
+        .select("id,office_id,property_id,updated_at,status,requested_by,requested_at,properties(title),offices(name,logo_url)")
         .eq("user_id", userId!)
         .order("updated_at", { ascending: false });
 
@@ -197,13 +202,48 @@ function ChatsPage() {
     office.name.toLocaleLowerCase("ar").includes(normalizedSearch),
   );
   const normalizedConversationSearch = conversationSearch.trim().toLocaleLowerCase("ar");
-  const matchingConversations = (conversations.data ?? []).filter((conversation) =>
+  const activeConversations = (conversations.data ?? []).filter(
+    (conversation) => conversation.status !== "pending" && conversation.status !== "declined",
+  );
+  const pendingRequests = (conversations.data ?? []).filter(
+    (conversation) => conversation.status === "pending",
+  );
+  const incomingRequestCount = pendingRequests.filter(
+    (conversation) => conversation.requested_by !== userId,
+  ).length;
+  const matchingConversations = activeConversations.filter((conversation) =>
     [
       conversation.offices?.name,
       conversation.lastMessage?.body,
       conversation.properties?.title,
     ].some((value) => String(value ?? "").toLocaleLowerCase("ar").includes(normalizedConversationSearch)),
   );
+  const matchingRequests = pendingRequests.filter((conversation) =>
+    [
+      conversation.offices?.name,
+      conversation.lastMessage?.body,
+      conversation.properties?.title,
+    ].some((value) => String(value ?? "").toLocaleLowerCase("ar").includes(normalizedConversationSearch)),
+  );
+
+  const resolveMessageRequest = useMutation({
+    mutationFn: async ({ conversationId, action }: { conversationId: string; action: "accept" | "decline" }) => {
+      const { data, error } = await supabase.rpc("resolve_chat_request", {
+        _conversation_id: conversationId,
+        _action: action,
+      });
+      if (error) throw error;
+      return { conversationId, action, status: data };
+    },
+    onSuccess: ({ conversationId, action }) => {
+      void qc.invalidateQueries({ queryKey: ["my-conversations", userId] });
+      toast.success(action === "accept" ? "تم قبول طلب المراسلة" : "تم رفض طلب المراسلة");
+      if (action === "accept") void navigate({ search: { c: conversationId, office: undefined } });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "تعذّر التعامل مع طلب المراسلة");
+    },
+  });
 
   return (
     <div
@@ -263,41 +303,126 @@ function ChatsPage() {
                   </div>
                 </div>
                 <span className="shrink-0 rounded-full bg-forest-soft px-3 py-1.5 text-xs font-bold text-forest">
-                  {conversations.data?.length ?? 0} محادثة
+                  {activeConversations.length} محادثة
                 </span>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-1 rounded-2xl bg-background p-1 ring-1 ring-line">
                 <button
                   type="button"
-                  onClick={() => setListMode("conversations")}
-                  className={"rounded-xl px-3 py-2.5 text-xs font-bold transition " + (listMode === "conversations" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
+                  onClick={() => setChatSection("conversations")}
+                  className={"flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-bold transition " + (chatSection === "conversations" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
                 >
-                  محادثاتي
+                  <span className="grid size-5 place-items-center rounded-full bg-background/20 text-[10px]">١</span>
+                  <span>المحادثات</span>
+                  <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px]">{activeConversations.length}</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setListMode("offices")}
-                  className={"rounded-xl px-3 py-2.5 text-xs font-bold transition " + (listMode === "offices" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
+                  onClick={() => setChatSection("requests")}
+                  className={"flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-bold transition " + (chatSection === "requests" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
                 >
-                  ابدأ محادثة
+                  <span className="grid size-5 place-items-center rounded-full bg-background/20 text-[10px]">٢</span>
+                  <span>طلبات المراسلة</span>
+                  <span className="rounded-full bg-terracotta px-1.5 py-0.5 text-[10px] text-background">{incomingRequestCount}</span>
                 </button>
               </div>
+
+              {chatSection === "conversations" && (
+                <div className="mt-2 grid grid-cols-2 gap-1 rounded-2xl bg-background p-1 ring-1 ring-line">
+                  <button
+                    type="button"
+                    onClick={() => setListMode("conversations")}
+                    className={"rounded-xl px-3 py-2.5 text-xs font-bold transition " + (listMode === "conversations" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
+                  >
+                    محادثاتي
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setListMode("offices")}
+                    className={"rounded-xl px-3 py-2.5 text-xs font-bold transition " + (listMode === "offices" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
+                  >
+                    ابدأ محادثة
+                  </button>
+                </div>
+              )}
 
               <div className="relative mt-3">
                 <Search className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
-                  value={listMode === "conversations" ? conversationSearch : officeSearch}
-                  onChange={(event) => listMode === "conversations" ? setConversationSearch(event.target.value) : setOfficeSearch(event.target.value)}
-                  placeholder={listMode === "conversations" ? "ابحث باسم المكتب أو رسالة..." : "ابحث عن مكتب عقاري..."}
-                  aria-label={listMode === "conversations" ? "البحث في المحادثات" : "البحث عن مكتب"}
+                  value={chatSection === "requests" || listMode === "conversations" ? conversationSearch : officeSearch}
+                  onChange={(event) => (chatSection === "requests" || listMode === "conversations") ? setConversationSearch(event.target.value) : setOfficeSearch(event.target.value)}
+                  placeholder={chatSection === "requests" ? "ابحث في طلبات المراسلة..." : listMode === "conversations" ? "ابحث باسم المكتب أو رسالة..." : "ابحث عن مكتب عقاري..."}
+                  aria-label={chatSection === "requests" ? "البحث في طلبات المراسلة" : listMode === "conversations" ? "البحث في المحادثات" : "البحث عن مكتب"}
                   className="w-full rounded-2xl bg-background py-3 pe-10 ps-3 text-sm ring-1 ring-line outline-none transition focus:ring-2 focus:ring-forest"
                 />
               </div>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
-              {listMode === "conversations" ? (
+              {chatSection === "requests" ? (
+                conversations.isLoading ? (
+                  <div className="grid min-h-full place-items-center py-8">
+                    <Loader2 className="size-5 animate-spin text-forest" />
+                  </div>
+                ) : conversations.isError ? (
+                  <div className="grid min-h-full content-center justify-items-center gap-3 p-5 text-center">
+                    <MessageSquare className="size-8 text-terracotta" />
+                    <p className="text-sm font-bold">تعذّر تحميل طلبات المراسلة</p>
+                    <p className="text-xs text-muted-foreground">تحقق من الاتصال وحاول مجددًا.</p>
+                  </div>
+                ) : matchingRequests.length ? (
+                  <ul className="space-y-2">
+                    {matchingRequests.map((conv) => {
+                      const isIncoming = conv.requested_by !== userId;
+                      return (
+                        <li key={conv.id} className="rounded-2xl border border-line bg-background p-3">
+                          <button
+                            type="button"
+                            onClick={() => void navigate({ search: { c: conv.id, office: undefined } })}
+                            className="flex w-full items-center gap-3 text-right"
+                          >
+                            {conv.offices?.logo_url ? (
+                              <img src={conv.offices.logo_url} alt="" loading="lazy" className="size-11 shrink-0 rounded-2xl object-cover" />
+                            ) : (
+                              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-forest-soft text-forest">
+                                <Building2 className="size-5" />
+                              </span>
+                            )}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-bold">{conv.offices?.name || "مكتب عقاري"}</span>
+                              <span className="mt-1 block truncate text-xs text-muted-foreground">
+                                {conv.lastMessage?.body || (conv.lastMessage?.image_url ? "📷 صورة" : null) || conv.properties?.title || "طلب مراسلة جديد"}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-[10px] text-muted-foreground">{formatDate(conv.lastMessage?.created_at ?? conv.requested_at ?? conv.updated_at)}</span>
+                          </button>
+                          <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
+                            {isIncoming ? (
+                              <>
+                                <span className="text-[10px] font-semibold text-terracotta">طلب جديد</span>
+                                <div className="flex items-center gap-2">
+                                  <button type="button" disabled={resolveMessageRequest.isPending} onClick={() => resolveMessageRequest.mutate({ conversationId: conv.id, action: "decline" })} className="rounded-xl border border-line px-3 py-2 text-xs font-bold text-muted-foreground disabled:opacity-50">رفض</button>
+                                  <button type="button" disabled={resolveMessageRequest.isPending} onClick={() => resolveMessageRequest.mutate({ conversationId: conv.id, action: "accept" })} className="rounded-xl bg-forest px-3 py-2 text-xs font-bold text-background disabled:opacity-50">قبول</button>
+                                </div>
+                              </>
+                            ) : (
+                              <span className="rounded-full bg-forest-soft px-3 py-1.5 text-[10px] font-bold text-forest">بانتظار رد المكتب</span>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="grid min-h-full content-center justify-items-center gap-3 px-5 py-8 text-center">
+                    <span className="grid size-16 place-items-center rounded-3xl bg-forest-soft text-forest">
+                      <MessageSquare className="size-8" />
+                    </span>
+                    <h2 className="font-display text-base font-extrabold">{conversationSearch.trim() ? "لا توجد نتائج مطابقة" : "لا توجد طلبات مراسلة جديدة"}</h2>
+                  </div>
+                )
+              ) : listMode === "conversations" ? (
                 conversations.isLoading ? (
                   <div className="grid min-h-full place-items-center py-8">
                     <Loader2 className="size-5 animate-spin text-forest" />
