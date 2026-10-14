@@ -413,71 +413,7 @@ function OfficePage() {
                 )}
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {(office.whatsapp || office.phone) ? (
-                  <a
-                    href={whatsappHref(
-                      (office.whatsapp || office.phone)!,
-                      `مرحبًا ${office.name}، لدي استفسار عن عروضكم العقارية.`,
-                    )}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="مراسلة المكتب"
-                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-forest px-2 text-xs font-bold text-background transition hover:opacity-90"
-                  >
-                    <WhatsAppIcon className="size-4 shrink-0" />
-                    <span>مراسلة</span>
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    aria-label="وسيلة المراسلة غير متاحة"
-                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-forest px-2 text-xs font-bold text-background opacity-60"
-                  >
-                    <WhatsAppIcon className="size-4 shrink-0" />
-                    <span>مراسلة</span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => void onShare()}
-                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-sand px-2 text-xs font-bold text-foreground transition hover:opacity-80"
-                >
-                  <Share2 className="size-4 shrink-0" />
-                  <span>مشاركة</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onToggleFollow}
-                  disabled={followLoading || toggleFollow.isPending || setNotify.isPending}
-                  aria-pressed={!!isFollowing}
-                  className={cn(
-                    "flex h-11 items-center justify-center gap-2 rounded-xl px-2 text-xs font-bold transition disabled:opacity-60",
-                    isFollowing ? "bg-forest-soft text-forest" : "bg-sand text-foreground",
-                  )}
-                >
-                  {isFollowing ? <Check className="size-4 shrink-0" /> : <UserPlus className="size-4 shrink-0" />}
-                  <span>{isFollowing ? "متابَع" : "متابعة"}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onToggleNotifications}
-                  disabled={followLoading || setNotify.isPending || toggleFollow.isPending}
-                  aria-pressed={!!notifyOn}
-                  className={cn(
-                    "flex h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold transition disabled:opacity-60",
-                    notifyOn ? "bg-forest-soft text-forest" : "bg-sand text-foreground",
-                  )}
-                >
-                  <Bell className="size-4 shrink-0" />
-                  <span>{notifyOn ? "الإشعارات مفعّلة" : "تفعيل الإشعارات"}</span>
-                </button>
-              </div>
-
+              
               
             </section>
 
@@ -509,6 +445,73 @@ function OfficePage() {
               ) : (
                 <p className="text-sm text-muted-foreground">لا توجد عروض مطابقة حاليًا.</p>
               )}
+            </section>
+
+            <section className="rounded-3xl bg-surface p-3 ring-1 ring-line" aria-label="التواصل ومتابعة المكتب">
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                              {(office.whatsapp || office.phone) ? (
+                                <a
+                                  href={whatsappHref(
+                                    (office.whatsapp || office.phone)!,
+                                    `مرحبًا ${office.name}، لدي استفسار عن عروضكم العقارية.`,
+                                  )}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  aria-label="مراسلة المكتب"
+                                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-forest px-2 text-xs font-bold text-background transition hover:opacity-90"
+                                >
+                                  <WhatsAppIcon className="size-4 shrink-0" />
+                                  <span>مراسلة</span>
+                                </a>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled
+                                  aria-label="وسيلة المراسلة غير متاحة"
+                                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-forest px-2 text-xs font-bold text-background opacity-60"
+                                >
+                                  <WhatsAppIcon className="size-4 shrink-0" />
+                                  <span>مراسلة</span>
+                                </button>
+                              )}
+              
+                              <button
+                                type="button"
+                                onClick={() => void onShare()}
+                                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-sand px-2 text-xs font-bold text-foreground transition hover:opacity-80"
+                              >
+                                <Share2 className="size-4 shrink-0" />
+                                <span>مشاركة</span>
+                              </button>
+              
+                              <button
+                                type="button"
+                                onClick={onToggleFollow}
+                                disabled={followLoading || toggleFollow.isPending || setNotify.isPending}
+                                aria-pressed={!!isFollowing}
+                                className={cn(
+                                  "flex h-11 items-center justify-center gap-2 rounded-xl px-2 text-xs font-bold transition disabled:opacity-60",
+                                  isFollowing ? "bg-forest-soft text-forest" : "bg-sand text-foreground",
+                                )}
+                              >
+                                {isFollowing ? <Check className="size-4 shrink-0" /> : <UserPlus className="size-4 shrink-0" />}
+                                <span>{isFollowing ? "متابَع" : "متابعة"}</span>
+                              </button>
+              
+                              <button
+                                type="button"
+                                onClick={onToggleNotifications}
+                                disabled={followLoading || setNotify.isPending || toggleFollow.isPending}
+                                aria-pressed={!!notifyOn}
+                                className={cn(
+                                  "flex h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold transition disabled:opacity-60",
+                                  notifyOn ? "bg-forest-soft text-forest" : "bg-sand text-foreground",
+                                )}
+                              >
+                                <Bell className="size-4 shrink-0" />
+                                <span>{notifyOn ? "الإشعارات مفعّلة" : "تفعيل الإشعارات"}</span>
+                              </button>
+                            </div>
             </section>
 
             {!!staff?.length && (
