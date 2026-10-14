@@ -313,8 +313,15 @@ async function signOutFromUi(role) {
 async function createRequest(description) {
   // Navigate through the actual in-app bottom navigation. A hard WebView URL
   // load can race with auth query hydration immediately after password login.
-  const requestLink = await driver.$('a[href="/request"]');
-  if (await requestLink.isDisplayed().catch(() => false)) {
+  const requestLinks = await driver.$('a[href="/request"]');
+  let requestLink = null;
+  for (const candidate of requestLinks) {
+    if (await candidate.isDisplayed().catch(() => false)) {
+      requestLink = candidate;
+      break;
+    }
+  }
+  if (requestLink) {
     await requestLink.click();
     await waitForUrl("/request", 20000);
   } else {
