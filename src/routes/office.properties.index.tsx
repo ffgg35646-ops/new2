@@ -187,7 +187,7 @@ function OfficeProperties() {
 
         {isLoading ? (
           <ListSkeleton />
-        ) : data?.length ? (
+        ) : visibleProperties.length ? (
           <div className="space-y-2.5">
             {visibleProperties.map((p) => (
               <div key={p.id} className="rounded-2xl bg-surface p-3 ring-1 ring-line">
@@ -292,71 +292,7 @@ function OfficeProperties() {
                     <span>{p.is_published ? "مفعل" : "موقوف"}</span>
                   </div>
                 </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex items-center gap-2 rounded-xl bg-background px-3 py-2 text-xs font-semibold text-muted-foreground ring-1 ring-line transition hover:text-foreground hover:ring-forest/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
-                        aria-label={`خيارات العقار: ${p.title}`}
-                      >
-                        <MoreHorizontal className="size-4" />
-                        خيارات أخرى
-                        <ChevronDown className="size-3.5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" sideOffset={6} className="w-52">
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          if (!canFeature && !p.is_featured) {
-                            toast.error("التمييز ميزة احترافية — رقِّ باقتك لإبراز عقاراتك.");
-                            return;
-                          }
-                          toggleFeatured.mutate({ id: p.id, next: !p.is_featured });
-                        }}
-                        disabled={toggleFeatured.isPending}
-                      >
-                        <Star className={`size-4 ${p.is_featured ? "fill-current text-forest" : ""}`} />
-                        {p.is_featured ? "إلغاء التمييز" : "تمييز العرض"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => togglePublish.mutate({ id: p.id, next: !p.is_published })}
-                        disabled={togglePublish.isPending}
-                      >
-                        {p.is_published ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                        {p.is_published ? "إخفاء العقار" : "إعادة نشر العقار"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          if (!canFeature) {
-                            toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
-                            return;
-                          }
-                          if (!p.is_published) {
-                            toast.error("انشر العقار أولًا لإنشاء رمز QR صالح للمشاركة.");
-                            return;
-                          }
-                          const url = getPublicAppUrl(`/properties/${p.id}`);
-                          if (!url) {
-                            toast.error(PUBLIC_APP_URL_HELP);
-                            return;
-                          }
-                          setQrFor({ id: p.id, title: p.title, url });
-                        }}
-                      >
-                        <QrCode className="size-4" />
-                        رمز QR
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={() => setDeleteFor({ id: p.id, title: p.title })}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="size-4" />
-                        حذف العقار
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+
               </div>
             ))}
           </div>
