@@ -486,12 +486,20 @@ function PropertyDetail() {
             <Spec icon={Ruler} label="عرض الشارع" value={`${data.street_width} م`} />
           )}
           {data.facing && <Spec icon={Compass} label="الواجهة" value={formatFacing(data.facing)} />}
-          {data.age_years != null && (
-            <Spec
-              icon={CalendarDays}
-              label="عمر العقار"
-              value={`${data.age_years} سنة`}
-            />
+          {!isOffice && userId && (
+            <button
+              type="button"
+              onClick={() => startChat.mutate()}
+              disabled={startChat.isPending}
+              className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-terracotta p-2 text-center text-white disabled:opacity-60"
+            >
+              {startChat.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <MessageCircle className="size-3.5" />
+              )}
+              <span className="text-[10px] font-bold">الدردشة</span>
+            </button>
           )}
         </div>
 
@@ -636,21 +644,6 @@ function PropertyDetail() {
           >
             {book.isPending ? <Loader2 className="mx-auto size-4 animate-spin" /> : "إرسال طلب المعاينة"}
           </button>
-          {!isOffice && userId && (
-            <button
-              type="button"
-              onClick={() => startChat.mutate()}
-              disabled={startChat.isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-terracotta py-3.5 font-display font-bold text-white disabled:opacity-60"
-            >
-              {startChat.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <MessageCircle className="size-4" />
-              )}
-              الدردشة
-            </button>
-          )}
         </section>
 
         {!!similar?.length && (
