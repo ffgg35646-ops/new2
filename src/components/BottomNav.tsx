@@ -229,10 +229,10 @@ export function BottomNav({
               to={item.to}
               className="flex flex-col items-center gap-1 py-1.5 -mt-4"
             >
-              <span className="grid size-12 place-items-center rounded-2xl bg-terracotta text-background ring-4 ring-background">
+              <span className={`grid size-12 place-items-center rounded-2xl ${resolved === "office" ? "bg-forest" : "bg-terracotta"} text-background ring-4 ring-background`}>
                 <Icon className="size-6" />
               </span>
-              <span className="text-[11px] font-semibold text-terracotta">{item.label}</span>
+              <span className={`text-[11px] font-semibold ${resolved === "office" ? "text-forest" : "text-terracotta"}`}>{item.label}</span>
             </Link>
           );
         }
@@ -247,12 +247,12 @@ export function BottomNav({
             <span className="relative">
               <Icon className="size-5" />
               {item.to === "/office/requests" && officeRequestsCount > 0 && (
-                <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
+                <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-forest px-1 text-[9px] font-bold text-background">
                   {officeRequestsCount > 99 ? "99+" : officeRequestsCount}
                 </span>
               )}
               {item.to === "/office/chat" && officeUnreadMessages > 0 && (
-                <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
+                <span className="absolute -top-1.5 -left-2 grid min-w-4 place-items-center rounded-full bg-forest px-1 text-[9px] font-bold text-background">
                   {officeUnreadMessages > 99 ? "99+" : officeUnreadMessages}
                 </span>
               )}
