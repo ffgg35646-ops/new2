@@ -346,9 +346,23 @@ async function signIn(role, email) {
   await waitForUrl(role === "office" ? "/office" : "/home", 30000);
   log("Password login passed: " + role);
 }
+async function goViaBottomNav(path) {
+  // Prefer a real in-app navigation tap after authentication. Full WebView URL
+  // loads can race session hydration and make RoleGuard treat the user as guest.
+  const links = await driver.$$('nav a[href="' + path + '"]');
+  for (const link of links) {
+    if (!(await link.isDisplayed().catch(() => false))) continue;
+    await link.scrollIntoView().catch(() => {});
+    await link.click();
+    await waitForUrl(path, 20000);
+    await sleep(300);
+    return;
+  }
+  await goto(path);
+}
 async function signOutFromUi(role) {
   const path = role === "office" ? "/office/profile" : "/account";
-  await goto(path);
+  await goViaBottomNav(path);
   await waitForText("تسجيل الخروج", 15000);
   await clickText("button", "تسجيل الخروج", true);
   await driver.waitUntil(async () => {
@@ -359,16 +373,7 @@ async function signOutFromUi(role) {
   log("UI logout passed: " + role);
 }
 async function createRequest(description) {
-  // Use one unique XPath match. The request link appears both in the home CTA
-  // and bottom navigation, so a strict CSS selector without a positional path
-  // fails in WebdriverIO before it can navigate.
-  const requestLink = await driver.$('(//a[@href="/request"])[1]');
-  if (await requestLink.isDisplayed().catch(() => false)) {
-    await requestLink.click();
-    await waitForUrl("/request", 20000);
-  } else {
-    await goto("/request");
-  }
+  await goViaBottomNav("/request");
   await driver.waitUntil(async () => (await bodyText()).includes("نشر الطلب"), {
     timeout: 30000, interval: 500,
     timeoutMsg: "Individual session was not restored on the request screen after login",
@@ -401,7 +406,8 @@ async function endRequest(record) {
   log("End-request flow passed");
 }
 async function sendOffer(requestRecord) {
-  await goto("/office/requests?tab=market");
+  await goViaBottomNav("/office/requests");
+  await clickText("button", "السوق", true);
   await waitForText("عرض بيانات الطلب", 20000);
 
   // The market card intentionally hides the description. Open each visible detail
@@ -457,7 +463,7 @@ async function acceptOffer(offer) {
   log("Individual accepted the office offer");
 }
 async function createAndDeleteProperty() {
-  await goto("/office/properties/new");
+  await goViaBottomNav("/office/properties/new");
   await fill('input[placeholder="أرض سكنية بحي الروضة"]', propertyTitle);
   await fill('input[placeholder="المزاحمية"]', "محافظة الاختبار");
   await fill('input[placeholder="حي الروضة"]', "حي الاختبار");
@@ -474,7 +480,7 @@ async function createAndDeleteProperty() {
   if (!property) throw new Error("Published property not found");
   log("Property publishing passed");
 
-  await goto("/office/properties");
+  await goViaBottomNav("/office/properties");
   const menu = await driver.$('button[aria-label="خيارات العقار: ' + propertyTitle + '"]');
   await menu.waitForDisplayed({ timeout: 20000 });
   await menu.click();
