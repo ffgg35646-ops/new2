@@ -193,7 +193,7 @@ function OfficeDashboard() {
 
         <Link
           to="/office/properties"
-          className="group relative isolate flex min-h-[132px] w-full items-center justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-[#F9FCFA] via-[#F2FAF4] to-[#EAF6ED] px-5 py-4 text-forest ring-1 ring-[#D8EBDD] shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+          className="group relative isolate flex min-h-[66px] w-full items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-[#F9FCFA] via-[#F2FAF4] to-[#EAF6ED] px-4 py-2 text-forest ring-1 ring-[#D8EBDD] shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
         >
           <svg
             aria-hidden="true"
@@ -234,10 +234,10 @@ function OfficeDashboard() {
             <path d="M145 18C145 8 153 2 162 2S179 8 179 18C179 30 162 43 162 43S145 30 145 18Z" fill="#17633F" fillOpacity=".82" />
             <circle cx="162" cy="17" r="5" fill="#F4FAF5" />
           </svg>
-          <div className="relative z-10 mr-auto flex items-center gap-2 rounded-2xl bg-white/80 px-3 py-2 font-display text-lg font-extrabold text-forest shadow-sm backdrop-blur-sm">
+          <div className="relative z-10 mr-auto flex items-center gap-2 rounded-xl bg-white/80 px-3 py-1 font-display text-base font-extrabold text-forest shadow-sm backdrop-blur-sm">
             إدارة العروض
-            <span className="grid size-8 place-items-center rounded-full bg-forest/10 transition group-hover:bg-forest/15">
-              <ArrowLeft className="size-4" />
+            <span className="grid size-7 place-items-center rounded-full bg-forest/10 transition group-hover:bg-forest/15">
+              <ArrowLeft className="size-3.5" />
             </span>
           </div>
         </Link>
