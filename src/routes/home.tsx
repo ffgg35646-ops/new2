@@ -1,7 +1,7 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Home as HomeIcon, ChevronLeft, Building2, House, KeyRound, ShieldCheck, Sparkles } from "lucide-react";
+import { Home as HomeIcon, ChevronLeft, Building2, House, KeyRound } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -126,28 +126,6 @@ function HomePage() {
 
       <main className="flex-1 space-y-6 overflow-x-clip px-4 py-4">
         <GovernorateBanner governorate={governorate} />
-
-        <section
-          className="rounded-3xl bg-forest px-3.5 shadow-sm"
-          aria-label="مزايا عقار البطين"
-        >
-          <div className="feature-slide-from-right flex items-center gap-3 py-3.5">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/15 text-background">
-              <ShieldCheck className="size-[19px]" />
-            </span>
-            <p className="text-sm font-semibold leading-6 text-background">
-              تعامل بثقة مع مكاتب عقارية موثقة
-            </p>
-          </div>
-          <div className="feature-slide-from-left flex items-center gap-3 border-t border-white/20 py-3.5">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/15 text-background">
-              <Sparkles className="size-[19px]" />
-            </span>
-            <p className="text-sm font-semibold leading-6 text-background">
-              اطلب عقارك واستقبل عروض المكاتب بكل سهولة
-            </p>
-          </div>
-        </section>
 
         <section className="grid grid-cols-3 gap-2.5">
           <StatCard
