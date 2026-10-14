@@ -231,10 +231,11 @@ function OfficeDashboard() {
               <rect x="131" y="96" width="7" height="9" rx="1" fill="#F7FCF8" />
               <rect x="116" y="108" width="9" height="14" rx="1" fill="#F7FCF8" />
             </g>
-            <path d="M145 18C145 8 153 2 162 2S179 8 179 18C179 30 162 43 162 43S145 30 145 18Z" fill="#17633F" fillOpacity=".82" />
-            <circle cx="162" cy="17" r="5" fill="#F4FAF5" />
+            <circle cx="378" cy="29" r="24" fill="#DFF0E4" fillOpacity=".96" stroke="#B6D9C0" strokeWidth="1.5" />
+            <path d="M359 25C359 14 367 6 378 6S397 14 397 25C397 38 378 53 378 53S359 38 359 25Z" fill="#17633F" />
+            <circle cx="378" cy="24" r="6" fill="#F4FAF5" />
           </svg>
-          <div className="relative z-10 mr-auto flex items-center gap-2 rounded-xl bg-white/80 px-3 py-1 font-display text-base font-extrabold text-forest shadow-sm backdrop-blur-sm">
+          <div className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-xl border border-white/80 bg-white/90 px-4 py-2 font-display text-base font-extrabold text-forest shadow-md backdrop-blur-sm">
             إدارة العروض
             <span className="grid size-7 place-items-center rounded-full bg-forest/10 transition group-hover:bg-forest/15">
               <ArrowLeft className="size-3.5" />
