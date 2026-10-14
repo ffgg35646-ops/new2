@@ -175,7 +175,7 @@ export function PropertyCard({
           href={`/properties/${encodeURIComponent(property.id)}`}
           className={cn("relative z-20 flex-1 cursor-pointer rounded-xl bg-forest text-center font-bold text-background", compact ? "min-w-0 px-1 py-2 text-[10px]" : "py-2.5 text-xs")}
         >
-          {compact ? "عرض المزيد" : "عرض التفاصيل"}
+          {compact ? "تفاصيل العقار" : "عرض التفاصيل"}
         </a>
         {!isOffice && (
           <a
