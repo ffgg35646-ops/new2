@@ -186,6 +186,7 @@ function OfficeChatPage() {
       void qc.invalidateQueries({ queryKey: ["office-conversations", officeId] });
       toast.success(action === "accept" ? "تم قبول طلب المراسلة" : "تم رفض طلب المراسلة");
       if (action === "accept") {
+        setChatSection("conversations");
         setActiveId(conversationId);
         void navigate({ search: { c: conversationId } });
       }
