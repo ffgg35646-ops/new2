@@ -10,7 +10,8 @@ import {
   Eye,
   Heart,
   Home,
-  Plus,
+  ArrowLeft,
+  MapPin,
   X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -127,19 +128,34 @@ function OfficeDashboard() {
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
       <AppHeader showSearch={false} />
       <main className="flex-1 space-y-5 px-4 py-4">
-        <section className="rounded-3xl bg-forest p-4 text-background">
-          <div className="text-xs opacity-80">مرحبًا بك</div>
-          <div className="font-display text-lg font-extrabold">{office?.name}</div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-background/15 px-2.5 py-1 text-[11px]">
-              <Crown className="size-3.5" />
-              {currentPackage?.name ?? "الباقة"}
-            </span>
-            {!isOwner && (
-              <span className="rounded-full bg-background/15 px-2.5 py-1 text-[11px]">
-                حساب موظف
+        <section className="relative isolate min-h-[164px] overflow-hidden rounded-3xl bg-gradient-to-br from-forest via-forest to-emerald-700 p-5 text-background">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 156 126"
+            className="pointer-events-none absolute bottom-0 left-1 h-[126px] w-[156px] text-white opacity-25"
+            fill="none"
+          >
+            <path d="M4 122V67L28 53L52 67V122M22 122V82H36V122" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M48 122V36L72 20L96 36V122M61 53H68M78 53H85M61 69H68M78 69H85M61 85H68M78 85H85" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M91 122V61L112 48L133 61V122M104 76H110M118 76H124M104 92H110M118 92H124" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M0 122H151" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M107 22C107 12 115 5 124 5S141 12 141 22C141 34 124 46 124 46S107 34 107 22Z" fill="currentColor" fillOpacity=".22" stroke="currentColor" strokeWidth="2" />
+            <circle cx="124" cy="21" r="5" stroke="currentColor" strokeWidth="2" />
+          </svg>
+          <div className="relative z-10 text-right">
+            <div className="text-sm opacity-90">مرحبًا بك</div>
+            <div className="mt-1 font-display text-xl font-extrabold">{office?.name}</div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-background/15 px-2.5 py-1 text-[11px]">
+                <Crown className="size-3.5" />
+                {currentPackage?.name ?? "الباقة"}
               </span>
-            )}
+              {!isOwner && (
+                <span className="rounded-full bg-background/15 px-2.5 py-1 text-[11px]">
+                  حساب موظف
+                </span>
+              )}
+            </div>
           </div>
         </section>
 
@@ -149,7 +165,7 @@ function OfficeDashboard() {
             className="rounded-2xl bg-surface p-3 text-center ring-1 ring-line transition hover:ring-2 hover:ring-forest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
             aria-label="عرض العقارات النشطة وإدارة العقارات"
           >
-            <Home className="mx-auto size-4 text-terracotta" />
+            <Home className="mx-auto size-4 text-forest" />
             <div className="mt-1 font-display text-lg font-extrabold">{stats?.published ?? 0}</div>
             <div className="text-[10px] text-muted-foreground">العقارات النشطة</div>
             <div className="mt-1 text-[10px] font-semibold text-forest">عرض عقاراتي</div>
@@ -164,7 +180,7 @@ function OfficeDashboard() {
           className="flex items-center justify-between rounded-2xl bg-surface p-3.5 ring-1 ring-line"
         >
           <span className="flex items-center gap-2 text-sm font-semibold">
-            <Crown className="size-4 text-terracotta" /> الباقة والاشتراك
+            <Crown className="size-4 text-forest" /> الباقة والاشتراك
           </span>
           <span className="text-xs text-muted-foreground">
             {expired
@@ -175,29 +191,23 @@ function OfficeDashboard() {
           </span>
         </Link>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Link
-            to="/office/properties/new"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-terracotta py-3.5 font-display font-bold text-background"
-          >
-            <Plus className="size-4" /> إضافة عرض
-          </Link>
-          <Link
-            to="/office/properties"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
-          >
+        <Link
+          to="/office/properties"
+          className="group relative isolate flex min-h-[132px] w-full items-center justify-between overflow-hidden rounded-3xl bg-gradient-to-l from-emerald-700 via-forest to-emerald-500 px-5 py-4 text-background shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+        >
+          <div className="relative z-10 flex items-center gap-2 font-display text-lg font-extrabold">
             إدارة العروض
-          </Link>
-        </div>
-
-        {!isOwner && (
-          <Link
-            to="/office/profile"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line"
-          >
-            ملف المكتب
-          </Link>
-        )}
+            <span className="grid size-8 place-items-center rounded-full bg-background/15 transition group-hover:bg-background/25">
+              <ArrowLeft className="size-4" />
+            </span>
+          </div>
+          <div aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35">
+            <Building2 className="absolute -left-8 bottom-0 size-14 stroke-[1.2]" />
+            <Building2 className="absolute -left-1 bottom-0 size-20 stroke-[1.1]" />
+            <Building2 className="relative left-9 top-2 size-12 stroke-[1.2]" />
+            <MapPin className="absolute left-8 -top-9 size-8 fill-white/10 stroke-white/70 stroke-[1.5]" />
+          </div>
+        </Link>
 
         <section className="space-y-3">
           <h2 className="font-display text-lg font-extrabold">آخر طلبات العملاء</h2>
@@ -214,7 +224,7 @@ function OfficeDashboard() {
                     <span className="truncate text-sm font-bold">
                       {(q.properties as { title: string } | null)?.title}
                     </span>
-                    <span className="shrink-0 rounded-full bg-terracotta-soft px-2 py-0.5 text-[10px] font-semibold text-terracotta">
+                    <span className="shrink-0 rounded-full bg-forest-soft px-2 py-0.5 text-[10px] font-semibold text-forest">
                       {inquiryTypeLabel(q.type)}
                     </span>
                   </div>
@@ -239,7 +249,7 @@ function OfficeDashboard() {
                     <span className="truncate text-sm font-bold">
                       {(b.properties as { title: string } | null)?.title}
                     </span>
-                    <span className="shrink-0 rounded-full bg-terracotta-soft px-2 py-0.5 text-[10px] font-semibold text-terracotta">
+                    <span className="shrink-0 rounded-full bg-forest-soft px-2 py-0.5 text-[10px] font-semibold text-forest">
                       {BOOKING_STATUS[b.status]}
                     </span>
                   </div>
@@ -341,7 +351,7 @@ function OfficeDashboard() {
                   <span className="text-sm text-muted-foreground">جارٍ التحميل...</span>
                 </div>
               ) : savedPeopleError ? (
-                <p role="alert" className="py-4 text-center text-xs text-terracotta">
+                <p role="alert" className="py-4 text-center text-xs text-forest">
                   تعذّر تحميل الأسماء.
                 </p>
               ) : savedPeople.length ? (
@@ -362,8 +372,8 @@ function OfficeDashboard() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex min-w-0 items-center gap-2 rounded-xl bg-terracotta-soft/60 px-3 py-2.5">
-                        <Heart className="size-4 shrink-0 fill-terracotta text-terracotta" />
+                      <div className="flex min-w-0 items-center gap-2 rounded-xl bg-forest-soft/60 px-3 py-2.5">
+                        <Heart className="size-4 shrink-0 fill-forest text-forest" />
                         <span className="min-w-0 flex-1 break-words text-sm font-extrabold text-foreground">
                           {person.user_name}
                         </span>
@@ -400,7 +410,7 @@ function Stat({
 
   const content = (
     <>
-      <Icon className="mx-auto size-4 text-terracotta" />
+      <Icon className="mx-auto size-4 text-forest" />
       <div className="mt-1 font-display text-lg font-extrabold">{value}</div>
       <div className="text-[10px] text-muted-foreground">{label}</div>
       {onClick && <div className="mt-1 text-[10px] font-semibold text-forest">عرض التفاصيل</div>}
