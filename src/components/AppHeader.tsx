@@ -148,7 +148,7 @@ export function AppHeader({
 
         {isOffice ? (
           <span className="ms-auto flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 ring-1 ring-line">
-            <MapPin className="size-3.5 text-terracotta" />
+            <MapPin className="size-3.5 text-forest" />
             <span className="text-sm">
               {officeGovernorate ?? "—"}
             </span>
@@ -185,7 +185,7 @@ export function AppHeader({
           <Bell className="size-[18px] text-muted-foreground" />
 
           {unread > 0 && (
-            <span className="absolute -top-1 -left-1 grid min-w-5 h-5 place-items-center rounded-full bg-terracotta px-1 text-[9px] font-bold text-background">
+            <span className={`absolute -top-1 -left-1 grid min-w-5 h-5 place-items-center rounded-full ${isOffice ? "bg-forest" : "bg-terracotta"} px-1 text-[9px] font-bold text-background`}>
               {unread > 99 ? "99+" : unread}
             </span>
           )}
