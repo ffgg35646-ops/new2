@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Compass,
   Flag,
+  Heart,
   Loader2,
   MapPin,
   Maximize,
@@ -22,7 +23,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import type { PropertyCardData } from "@/components/PropertyCard";
-import { PROPERTY_SELECT } from "@/lib/properties";
+import { PROPERTY_SELECT, useFavorites } from "@/lib/properties";
 import { formatArea, formatPrice, timeAgo } from "@/lib/format";
 import {
   INQUIRY_TYPES,
@@ -73,6 +74,7 @@ function PropertyDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { userId, profile, session, isOffice } = useAuth();
+  const { favoriteIds, toggleFavorite } = useFavorites();
   const [inquiryType, setInquiryType] = useState<string>(INQUIRY_TYPES[0].value);
   const [inquiryMessage, setInquiryMessage] = useState("");
   const [inquiryPhone, setInquiryPhone] = useState("");
@@ -491,14 +493,32 @@ function PropertyDetail() {
               type="button"
               onClick={() => startChat.mutate()}
               disabled={startChat.isPending}
-              className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-terracotta p-2 text-center text-white disabled:opacity-60"
+              className="col-span-2 flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-terracotta p-2 text-center text-white disabled:opacity-60"
             >
               {startChat.isPending ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
-                <MessageCircle className="size-3.5" />
+                <MessageCircle className="size-4" />
               )}
-              <span className="text-[10px] font-bold">الدردشة</span>
+              <span className="text-xs font-bold">الدردشة</span>
+            </button>
+          )}
+          {!isOffice && (
+            <button
+              type="button"
+              onClick={() => toggleFavorite(data.id)}
+              aria-label={favoriteIds.has(data.id) ? "إزالة من المحفوظات" : "حفظ العقار"}
+              className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-surface p-2 text-center ring-1 ring-line"
+            >
+              <Heart
+                className={cn(
+                  "size-4",
+                  favoriteIds.has(data.id) ? "fill-terracotta text-terracotta" : "text-muted-foreground",
+                )}
+              />
+              <span className="text-xs font-bold">
+                {favoriteIds.has(data.id) ? "محفوظ" : "حفظ"}
+              </span>
             </button>
           )}
         </div>
