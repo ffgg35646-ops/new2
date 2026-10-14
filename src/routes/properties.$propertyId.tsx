@@ -440,7 +440,7 @@ function PropertyDetail() {
             </div>
           )}
         </div>
-        <span className="absolute right-4 top-4 z-10 rounded-full bg-terracotta px-3 py-1.5 text-xs font-bold text-white">
+        <span className="absolute left-4 top-4 z-10 rounded-full bg-terracotta px-3 py-1.5 text-xs font-bold text-white">
           {listingLabel(data.listing)}
         </span>
         <button
