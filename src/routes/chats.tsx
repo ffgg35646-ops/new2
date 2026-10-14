@@ -238,7 +238,10 @@ function ChatsPage() {
     onSuccess: ({ conversationId, action }) => {
       void qc.invalidateQueries({ queryKey: ["my-conversations", userId] });
       toast.success(action === "accept" ? "تم قبول طلب المراسلة" : "تم رفض طلب المراسلة");
-      if (action === "accept") void navigate({ search: { c: conversationId, office: undefined } });
+      if (action === "accept") {
+        setChatSection("conversations");
+        void navigate({ search: { c: conversationId, office: undefined } });
+      }
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "تعذّر التعامل مع طلب المراسلة");
