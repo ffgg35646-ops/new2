@@ -2,7 +2,7 @@ import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ChevronDown, Eye, EyeOff, Home, MoreHorizontal, Pencil, Plus, QrCode, Star, Trash2 } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Home, MoreHorizontal, QrCode, Search, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -48,6 +48,13 @@ function OfficeProperties() {
   const canFeature = featuredLimit > 0;
   const [qrFor, setQrFor] = useState<{ id: string; title: string; url: string } | null>(null);
   const [deleteFor, setDeleteFor] = useState<{ id: string; title: string } | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [filters, setFilters] = useState({
+    rent: false,
+    sale: false,
+    purchase: false,
+    suspended: false,
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["office-my-properties", userId, officeId],
@@ -64,6 +71,30 @@ function OfficeProperties() {
       if (error) throw error;
       return data ?? [];
     },
+  });
+
+  const selectedFilters = Object.values(filters).some(Boolean);
+  const visibleProperties = (data ?? []).filter((property) => {
+    const query = searchText.trim().toLocaleLowerCase("ar");
+    const matchesSearch =
+      !query ||
+      [
+        property.title,
+        property.property_number,
+        property.neighborhood,
+        kindLabel(property.kind),
+        listingLabel(property.listing),
+        stateLabel(property.state),
+      ].some((value) => String(value ?? "").toLocaleLowerCase("ar").includes(query));
+
+    const matchesFilters =
+      !selectedFilters ||
+      (filters.rent && property.listing === "rent") ||
+      (filters.sale && property.listing === "sale") ||
+      (filters.purchase && property.state === "sold") ||
+      (filters.suspended && !property.is_published);
+
+    return matchesSearch && matchesFilters;
   });
 
   const toggleFeatured = useMutation({
@@ -116,21 +147,49 @@ function OfficeProperties() {
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
       <AppHeader showSearch={false} />
       <main className="flex-1 space-y-4 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="font-display text-xl font-extrabold">عروضي</h1>
-          <Link
-            to="/office/properties/new"
-            className="flex items-center gap-1.5 rounded-full bg-terracotta px-3.5 py-2 text-xs font-bold text-background"
-          >
-            <Plus className="size-3.5" /> إضافة
-          </Link>
+        <div>
+          <h1 className="font-display text-xl font-extrabold">عقارات</h1>
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="بحث"
+            aria-label="بحث في عقارات المكتب"
+            className="w-full rounded-xl bg-surface py-3 pr-10 pl-3 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-forest"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            ["rent", "إيجار"],
+            ["sale", "بيع"],
+            ["purchase", "شراء"],
+            ["suspended", "موقوفة"],
+          ] as const).map(([key, label]) => (
+            <label
+              key={key}
+              className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2.5 text-sm ring-1 ring-line"
+            >
+              <input
+                type="checkbox"
+                checked={filters[key]}
+                onChange={(event) =>
+                  setFilters((current) => ({ ...current, [key]: event.target.checked }))
+                }
+                className="size-4 accent-forest"
+              />
+              <span>{label}</span>
+            </label>
+          ))}
         </div>
 
         {isLoading ? (
           <ListSkeleton />
         ) : data?.length ? (
           <div className="space-y-2.5">
-            {data.map((p) => (
+            {visibleProperties.map((p) => (
               <div key={p.id} className="rounded-2xl bg-surface p-3 ring-1 ring-line">
                 <div className="flex gap-3">
                   {p.cover_url ? (
@@ -163,26 +222,76 @@ function OfficeProperties() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Link
-                    to="/office/properties/$propertyId/edit"
-                    params={{ propertyId: p.id }}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-forest py-3 text-sm font-bold text-background shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2"
-                  >
-                    <Pencil className="size-4" />
-                    تعديل
-                  </Link>
-                  <Link
-                    to="/properties/$propertyId"
-                    params={{ propertyId: p.id }}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-sand py-3 text-sm font-bold text-foreground ring-1 ring-forest/20 transition hover:bg-forest-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2"
-                  >
-                    <Eye className="size-4 text-forest" />
-                    معاينة
-                  </Link>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 rounded-xl bg-background px-3 py-2 text-xs font-semibold text-muted-foreground ring-1 ring-line transition hover:text-foreground hover:ring-forest/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+                        aria-label={`إدارة العقار: ${p.title}`}
+                      >
+                        <MoreHorizontal className="size-4" />
+                        إدارة العقار
+                        <ChevronDown className="size-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" sideOffset={6} className="w-52">
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          if (!canFeature && !p.is_featured) {
+                            toast.error("التمييز ميزة احترافية — رقِّ باقتك لإبراز عقاراتك.");
+                            return;
+                          }
+                          toggleFeatured.mutate({ id: p.id, next: !p.is_featured });
+                        }}
+                        disabled={toggleFeatured.isPending}
+                      >
+                        <Star className={`size-4 ${p.is_featured ? "fill-current text-forest" : ""}`} />
+                        {p.is_featured ? "إلغاء التمييز" : "تمييز العرض"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => togglePublish.mutate({ id: p.id, next: !p.is_published })}
+                        disabled={togglePublish.isPending}
+                      >
+                        {p.is_published ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                        {p.is_published ? "إيقاف العقار" : "تفعيل العقار"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          if (!canFeature) {
+                            toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
+                            return;
+                          }
+                          if (!p.is_published) {
+                            toast.error("انشر العقار أولًا لإنشاء رمز QR صالح للمشاركة.");
+                            return;
+                          }
+                          const url = getPublicAppUrl(`/properties/${p.id}`);
+                          if (!url) {
+                            toast.error(PUBLIC_APP_URL_HELP);
+                            return;
+                          }
+                          setQrFor({ id: p.id, title: p.title, url });
+                        }}
+                      >
+                        <QrCode className="size-4" />
+                        رمز QR
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={() => setDeleteFor({ id: p.id, title: p.title })}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="size-4" />
+                        حذف العقار
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                    <span className={p.is_published ? "size-2.5 rounded-full bg-green-500" : "size-2.5 rounded-full bg-yellow-400"} />
+                    <span>{p.is_published ? "مفعل" : "موقوف"}</span>
+                  </div>
                 </div>
-
-                <div className="mt-2 flex justify-start">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
