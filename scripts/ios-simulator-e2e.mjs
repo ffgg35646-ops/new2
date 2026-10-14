@@ -407,7 +407,7 @@ async function endRequest(record) {
 }
 async function sendOffer(requestRecord) {
   await goViaBottomNav("/office/requests");
-  await clickText("button", "السوق", true);
+  await clickText("button", "السوق");
   await waitForText("عرض بيانات الطلب", 20000);
 
   // The market card intentionally hides the description. Open each visible detail
