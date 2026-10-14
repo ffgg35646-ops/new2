@@ -1353,6 +1353,12 @@ async function runDb(input: DbInput) {
           }
           doc.user_id = clientId;
         }
+
+        // New conversations start as message requests. The recipient must accept
+        // before replying; legacy conversations without a status remain active.
+        doc.status = "pending";
+        doc.requested_by = userId;
+        doc.requested_at = new Date();
       }
     }
 
@@ -4004,6 +4010,68 @@ export const rpcRequest = createServerFn({ method: "POST" })
         return { data: null, error: null };
       }
 
+      if (data.name === "resolve_chat_request") {
+        if (!userId || !["individual", "office"].includes(String(role))) {
+          throw new Error("يجب تسجيل الدخول لقبول طلب المراسلة.");
+        }
+
+        const conversationId = String(data.args?._conversation_id ?? "");
+        const action = String(data.args?._action ?? "");
+        if (!conversationId || !["accept", "decline"].includes(action)) {
+          throw new Error("طلب المراسلة غير صالح.");
+        }
+
+        const conversations = await getMongoCollection<Record<string, unknown>>("conversations");
+        const conversation = await conversations.findOne({ id: conversationId });
+        if (!conversation) throw new Error("طلب المراسلة غير موجود.");
+        if (String(conversation.status ?? "") !== "pending") {
+          throw new Error("تم التعامل مع طلب المراسلة من قبل.");
+        }
+
+        const clientId = String(conversation.user_id ?? "");
+        const officeId = String(conversation.office_id ?? "");
+        const requesterId = String(conversation.requested_by ?? "");
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const office = await offices.findOne({ id: officeId, is_deleted: { $ne: true } });
+        if (!office || !clientId || !requesterId) {
+          throw new Error("بيانات طلب المراسلة غير مكتملة.");
+        }
+
+        const isRecipient = role === "individual"
+          ? clientId === userId && requesterId !== userId
+          : String(office.owner_id ?? "") === userId && requesterId !== userId;
+        if (!isRecipient) throw new Error("لا يمكنك التعامل مع طلب مراسلة أرسلته بنفسك.");
+
+        const nextStatus = action === "accept" ? "accepted" : "declined";
+        const now = new Date();
+        const updated = await conversations.updateOne(
+          { id: conversationId, status: "pending", requested_by: { $ne: userId } },
+          { $set: { status: nextStatus, responded_by: userId, responded_at: now, updated_at: now } },
+        );
+        if (!updated.modifiedCount) throw new Error("تم التعامل مع طلب المراسلة من قبل.");
+
+        try {
+          await (await getMongoCollection<Record<string, unknown>>("notifications")).insertOne({
+            id: randomUUID(),
+            _id: randomUUID(),
+            user_id: requesterId,
+            title: nextStatus === "accepted" ? "تم قبول طلب المراسلة" : "تم رفض طلب المراسلة",
+            body: String(office.name ?? "المكتب العقاري") +
+              (nextStatus === "accepted" ? " وافق على طلب المراسلة." : " رفض طلب المراسلة."),
+            type: "chat_request_response",
+            link: nextStatus === "accepted"
+              ? (role === "individual" ? "/office/chat?c=" : "/chats?c=") + encodeURIComponent(conversationId)
+              : (role === "individual" ? "/office/chat" : "/chats"),
+            is_read: false,
+            created_at: now,
+          });
+        } catch (notificationError) {
+          console.error("[chat-request-response-notification]", notificationError);
+        }
+
+        return { data: nextStatus, error: null };
+      }
+
       if (data.name === "send_chat_message") {
         if (!userId) throw new Error("not_authenticated");
 
@@ -4037,6 +4105,13 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
         if (!office || String(office.owner_id ?? "") !== userId && userId !== clientId) {
           throw new Error("not_conversation_member");
+        }
+
+        if (conversation.status === "pending" && String(conversation.requested_by ?? "") !== userId) {
+          throw new Error("اقبل طلب المراسلة قبل الرد.");
+        }
+        if (conversation.status === "declined") {
+          throw new Error("تم رفض طلب المراسلة.");
         }
 
         // Chat is free for both sides; membership and blocking are still enforced above.
