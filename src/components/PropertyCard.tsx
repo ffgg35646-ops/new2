@@ -170,22 +170,7 @@ export function PropertyCard({
         </div>
       </Link>
 
-      <div className={cn("relative z-20 flex border-t border-line bg-surface pointer-events-auto", compact ? "gap-1.5 p-2" : "gap-2 p-3")}>
-        <a
-          href={`/properties/${encodeURIComponent(property.id)}`}
-          className={cn("relative z-20 flex-1 cursor-pointer rounded-xl bg-forest text-center font-bold text-background", compact ? "min-w-0 px-1 py-2 text-[10px]" : "py-2.5 text-xs")}
-        >
-          {compact ? "تفاصيل العقار" : "عرض التفاصيل"}
-        </a>
-        {!isOffice && (
-          <a
-            href={`/properties/${encodeURIComponent(property.id)}#property-inquiry`}
-            className={cn("relative z-20 flex-1 cursor-pointer rounded-xl bg-terracotta-soft text-center font-bold text-terracotta", compact ? "min-w-0 px-1 py-2 text-[10px]" : "py-2.5 text-xs")}
-          >
-            إرسال طلب
-          </a>
-        )}
-      </div>
+
     </article>
   );
 }
