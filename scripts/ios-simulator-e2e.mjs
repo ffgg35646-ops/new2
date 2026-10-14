@@ -311,7 +311,23 @@ async function signOutFromUi(role) {
   log("UI logout passed: " + role);
 }
 async function createRequest(description) {
-  await goto("/request");
+  // Navigate through the actual in-app bottom navigation. A hard WebView URL
+  // load can race with auth query hydration immediately after password login.
+  const requestLink = await driver.$('a[href="/request"]');
+  if (await requestLink.isDisplayed().catch(() => false)) {
+    await requestLink.click();
+    await waitForUrl("/request", 20000);
+  } else {
+    await goto("/request");
+  }
+  await driver.waitUntil(async () => (await bodyText()).includes("نشر الطلب"), {
+    timeout: 30000, interval: 500,
+    timeoutMsg: "Individual session was not restored on the request screen after login",
+  });
+  const publish = await driver.$('//button[normalize-space(.)="نشر الطلب"]');
+  if (!(await publish.isDisplayed().catch(() => false))) {
+    throw new Error("Individual session missing on /request: " + (await bodyText()).slice(0, 1000));
+  }
   await fill("textarea", description);
   await clickText("button", "نشر الطلب", true);
   await waitForText("تم نشر طلبك", 20000);
