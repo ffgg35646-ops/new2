@@ -8,12 +8,10 @@ import {
   CalendarDays,
   Compass,
   Flag,
-  Heart,
   Loader2,
   MapPin,
   Maximize,
   MessageCircle,
-  Phone,
   Ruler,
   Send,
   Share2,
@@ -24,8 +22,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import type { PropertyCardData } from "@/components/PropertyCard";
-import { PROPERTY_SELECT, useFavorites } from "@/lib/properties";
-import { formatArea, formatDate, formatPrice, timeAgo } from "@/lib/format";
+import { PROPERTY_SELECT } from "@/lib/properties";
+import { formatArea, formatPrice, timeAgo } from "@/lib/format";
 import {
   INQUIRY_TYPES,
   kindLabel,
@@ -35,7 +33,7 @@ import {
 } from "@/lib/constants";
 import { notifyWhatsApp } from "@/lib/notify-whatsapp";
 import { googleMapsUrl } from "@/lib/location";
-import { shareLink, whatsappHref } from "@/lib/office";
+import { shareLink } from "@/lib/office";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -75,7 +73,6 @@ function PropertyDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { userId, profile, session, isOffice } = useAuth();
-  const { favoriteIds, toggleFavorite } = useFavorites();
   const [inquiryType, setInquiryType] = useState<string>(INQUIRY_TYPES[0].value);
   const [inquiryMessage, setInquiryMessage] = useState("");
   const [inquiryPhone, setInquiryPhone] = useState("");
@@ -451,18 +448,6 @@ function PropertyDetail() {
         >
           <ArrowRight className="size-4" />
         </button>
-        <button
-          onClick={() => toggleFavorite(data.id)}
-          aria-label="المفضلة"
-          className="absolute top-4 left-4 grid size-9 place-items-center rounded-full bg-background/90 ring-1 ring-line"
-        >
-          <Heart
-            className={cn(
-              "size-4",
-              favoriteIds.has(data.id) ? "fill-terracotta text-terracotta" : "",
-            )}
-          />
-        </button>
       </div>
 
       <main className="flex-1 space-y-5 px-4 py-5">
@@ -488,7 +473,7 @@ function PropertyDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-1.5">
           <Spec icon={Maximize} label="المساحة" value={formatArea(data.area)} />
           <Spec icon={Compass} label="نوع العقار" value={kindLabel(data.kind)} />
           {["villa", "apartment"].includes(data.kind) && data.rooms != null && (
@@ -500,7 +485,7 @@ function PropertyDetail() {
           {data.street_width != null && (
             <Spec icon={Ruler} label="عرض الشارع" value={`${data.street_width} م`} />
           )}
-          {data.facing && <Spec icon={Compass} label="الواجهة" value={data.facing} />}
+          {data.facing && <Spec icon={Compass} label="الواجهة" value={formatFacing(data.facing)} />}
           {data.age_years != null && (
             <Spec
               icon={CalendarDays}
@@ -580,21 +565,6 @@ function PropertyDetail() {
                 </Link>
               </div>
             </div>
-            {!isOffice && userId && (
-              <button
-                type="button"
-                onClick={() => startChat.mutate()}
-                disabled={startChat.isPending}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
-              >
-                {startChat.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <MessageCircle className="size-4" />
-                )}
-                مراسلة المكتب
-              </button>
-            )}
 
             {agent && (
               <div className="rounded-2xl bg-background p-3 text-xs ring-1 ring-line">
@@ -666,6 +636,21 @@ function PropertyDetail() {
           >
             {book.isPending ? <Loader2 className="mx-auto size-4 animate-spin" /> : "إرسال طلب المعاينة"}
           </button>
+          {!isOffice && userId && (
+            <button
+              type="button"
+              onClick={() => startChat.mutate()}
+              disabled={startChat.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-terracotta py-3.5 font-display font-bold text-white disabled:opacity-60"
+            >
+              {startChat.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <MessageCircle className="size-4" />
+              )}
+              الدردشة
+            </button>
+          )}
         </section>
 
         {!!similar?.length && (
@@ -813,79 +798,52 @@ function PropertyDetail() {
         </div>
       )}
 
-      <div
-        className={cn(
-          "fixed z-30 mx-auto flex w-full max-w-md gap-2 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur",
-          isOffice ? "bottom-[72px]" : "bottom-0",
-        )}
-      >
-        {userId ? (
-          <>
-            {!isOffice && (
-              <button
-                type="button"
-                onClick={() =>
-                  document.getElementById("property-inquiry")?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  })
-                }
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-terracotta py-3.5 font-display font-bold text-background"
-              >
-                <Send className="size-4" />
-                إرسال طلب
-              </button>
-            )}
-            {!isOffice && (
-              <button
-                type="button"
-                onClick={() => startChat.mutate()}
-                disabled={startChat.isPending}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 font-display font-bold ring-1 ring-line disabled:opacity-60"
-              >
-                {startChat.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <MessageCircle className="size-4" />
-                )}
-                مراسلة
-              </button>
-            )}
-            {office?.phone && (
-              <a
-                href={`tel:${office.phone}`}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background"
-              >
-                <Phone className="size-4" /> اتصال
-              </a>
-            )}
-            {(office?.whatsapp || office?.phone) && (
-              <a
-                href={whatsappHref(
-                  office.whatsapp || office.phone!,
-                  `مرحبًا، لدي استفسار عن العقار ${data.property_number}`,
-                )}
-                target="_blank"
-                rel="noreferrer"
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-sand py-3.5 font-display font-bold"
-              >
-                <MessageCircle className="size-4" /> واتساب
-              </a>
-            )}
-          </>
-        ) : (
-          <Link
-            to="/auth/individual"
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background"
-          >
-            <Phone className="size-4" /> سجّل الدخول للتواصل
-          </Link>
-        )}
-      </div>
+      {!isOffice && (
+        <div className="fixed bottom-0 z-30 mx-auto flex w-full max-w-md gap-2 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur">
+          {userId ? (
+            <button
+              type="button"
+              onClick={() =>
+                document.getElementById("property-inquiry")?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                })
+              }
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-terracotta py-3.5 font-display font-bold text-white"
+            >
+              <Send className="size-4" />
+              إرسال طلب
+            </button>
+          ) : (
+            <Link
+              to="/auth/individual"
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-forest py-3.5 font-display font-bold text-background"
+            >
+              <MessageCircle className="size-4" /> سجّل الدخول للتواصل
+            </Link>
+          )}
+        </div>
+      )}
 
       <BottomNav variant={isOffice ? "office" : "individual"} fixed />
     </div>
   );
+}
+
+function formatFacing(value: string): string {
+  return value
+    .replace(/[,_|]+/g, " / ")
+    .replace(/\bnorth[\s-]?east\b/gi, "شمال شرقي")
+    .replace(/\bnorth[\s-]?west\b/gi, "شمال غربي")
+    .replace(/\bsouth[\s-]?east\b/gi, "جنوب شرقي")
+    .replace(/\bsouth[\s-]?west\b/gi, "جنوب غربي")
+    .replace(/\bnorth\b/gi, "شمال")
+    .replace(/\bsouth\b/gi, "جنوب")
+    .replace(/\beast\b/gi, "شرق")
+    .replace(/\bwest\b/gi, "غرب")
+    .replace(/\s*\/\s*/g, " / ")
+    .replace(/(شمال|جنوب|شرق|غرب)\s+(?=(شمال|جنوب|شرق|غرب)(?:\s|$))/g, "$1 / ")
+    .trim();
 }
 
 function Spec({
@@ -898,12 +856,12 @@ function Spec({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl bg-surface p-3 text-center ring-1 ring-line">
-      <div className="flex items-center justify-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
-        <Icon className="size-4 shrink-0 text-terracotta" />
+    <div className="rounded-xl bg-surface p-2 text-center ring-1 ring-line">
+      <div className="flex items-center justify-center gap-1 text-[9px] font-semibold text-muted-foreground">
+        <Icon className="size-3 shrink-0 text-terracotta" />
         <span>{label}</span>
       </div>
-      <div className="mt-1.5 text-sm font-bold">{value}</div>
+      <div className="mt-1 text-[13px] font-bold">{value}</div>
     </div>
   );
 }
