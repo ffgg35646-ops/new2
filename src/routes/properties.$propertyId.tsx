@@ -425,13 +425,13 @@ function PropertyDetail() {
                 key={img.id}
                 type="button"
                 onClick={() => setLightboxIndex(index)}
-                className="w-full shrink-0 snap-center"
+                className="aspect-[4/3] w-full shrink-0 snap-center overflow-hidden"
                 aria-label="عرض الصورة بالحجم الكامل"
               >
                 <img
                   src={img.url}
                   alt={data.title}
-                  className="aspect-[4/3] w-full object-cover"
+                  className="h-full w-full object-fill"
                 />
               </button>
             ))
@@ -441,10 +441,13 @@ function PropertyDetail() {
             </div>
           )}
         </div>
+        <span className="absolute right-4 top-4 z-10 rounded-full bg-terracotta px-3 py-1.5 text-xs font-bold text-white">
+          {listingLabel(data.listing)}
+        </span>
         <button
           onClick={() => navigate({ to: isOffice ? "/office" : "/home" })}
           aria-label="رجوع للرئيسية"
-          className="absolute top-4 right-4 grid size-9 place-items-center rounded-full bg-background/90 ring-1 ring-line"
+          className="absolute top-4 right-4 mt-11 grid size-9 place-items-center rounded-full bg-background/90 ring-1 ring-line"
         >
           <ArrowRight className="size-4" />
         </button>
@@ -465,33 +468,29 @@ function PropertyDetail() {
       <main className="flex-1 space-y-5 px-4 py-5">
         <div>
           <div className="flex items-start justify-between gap-3">
-            <h1 className="font-display text-xl leading-tight font-extrabold">{data.title}</h1>
-            <span className="shrink-0 rounded-full bg-terracotta-soft px-2.5 py-1 text-[11px] font-semibold text-terracotta">
-              {listingLabel(data.listing)}
-            </span>
+            <h1 className="min-w-0 flex-1 font-display text-xl leading-tight font-extrabold">{data.title}</h1>
+            <div className="shrink-0 text-left font-display text-xl font-extrabold text-forest">
+              {formatPrice(data.price)} <span className="text-sm">ر.س</span>
+              {data.listing === "rent" && (
+                <span className="block text-xs font-bold text-muted-foreground">
+                  / {rentPeriodLabel(data.rent_period)}
+                </span>
+              )}
+            </div>
           </div>
           <div className="mt-1 text-sm text-muted-foreground">
             {data.neighborhood} · {governorateData?.name_ar || "—"} ·{" "}
             {timeAgo(data.created_at)}
           </div>
-          <div className="mt-3 font-display text-2xl font-extrabold text-forest">
-            {formatPrice(data.price)} <span className="text-base">ر.س</span>
-            {data.listing === "rent" && (
-              <span className="text-sm font-bold text-muted-foreground">
-                {" "}
-                / {rentPeriodLabel(data.rent_period)}
-              </span>
-            )}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="font-mono">{data.property_number}</span> · {stateLabel(data.state)} ·{" "}
-            {data.views_count} مشاهدة · {images.length} صورة · أُضيف {formatDate(data.created_at)}
+            {data.views_count} مشاهدة · {images.length} صورة
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2">
           <Spec icon={Maximize} label="المساحة" value={formatArea(data.area)} />
-          <Spec icon={Compass} label="النوع" value={kindLabel(data.kind)} />
+          <Spec icon={Compass} label="نوع العقار" value={kindLabel(data.kind)} />
           {["villa", "apartment"].includes(data.kind) && data.rooms != null && (
             <Spec icon={BedDouble} label="الغرف" value={String(data.rooms)} />
           )}
@@ -900,9 +899,11 @@ function Spec({
 }) {
   return (
     <div className="rounded-2xl bg-surface p-3 text-center ring-1 ring-line">
-      <Icon className="mx-auto size-4 text-terracotta" />
+      <div className="flex items-center justify-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+        <Icon className="size-4 shrink-0 text-terracotta" />
+        <span>{label}</span>
+      </div>
       <div className="mt-1.5 text-sm font-bold">{value}</div>
-      <div className="text-[10px] text-muted-foreground">{label}</div>
     </div>
   );
 }
