@@ -417,36 +417,6 @@ function OfficePage() {
               
             </section>
 
-            <section className="space-y-3">
-              <h2 className="font-display text-lg font-extrabold">عروض المكتب</h2>
-              <div className="flex gap-2">
-                <Chip active={!listing} onClick={() => setListing(null)} label="الكل" />
-                {LISTING_TYPES.map((l) => (
-                  <Chip
-                    key={l.value}
-                    active={listing === l.value}
-                    onClick={() => setListing(l.value)}
-                    label={l.label}
-                  />
-                ))}
-              </div>
-              {properties?.length ? (
-                <div className="grid grid-cols-2 gap-3">
-                  {properties.map((p) => (
-                    <PropertyCard
-                      key={p.id}
-                      property={p}
-                      isFavorite={favoriteIds.has(p.id)}
-                      onToggleFavorite={toggleFavorite}
-                      compact
-                    />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">لا توجد عروض مطابقة حاليًا.</p>
-              )}
-            </section>
-
             <section className="rounded-3xl bg-surface p-3 ring-1 ring-line" aria-label="التواصل ومتابعة المكتب">
               <div className="mt-4 grid grid-cols-2 gap-2">
                               {(office.whatsapp || office.phone) ? (
@@ -513,6 +483,38 @@ function OfficePage() {
                               </button>
                             </div>
             </section>
+
+            <section className="space-y-3">
+              <h2 className="font-display text-lg font-extrabold">عروض المكتب</h2>
+              <div className="flex gap-2">
+                <Chip active={!listing} onClick={() => setListing(null)} label="الكل" />
+                {LISTING_TYPES.map((l) => (
+                  <Chip
+                    key={l.value}
+                    active={listing === l.value}
+                    onClick={() => setListing(l.value)}
+                    label={l.label}
+                  />
+                ))}
+              </div>
+              {properties?.length ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {properties.map((p) => (
+                    <PropertyCard
+                      key={p.id}
+                      property={p}
+                      isFavorite={favoriteIds.has(p.id)}
+                      onToggleFavorite={toggleFavorite}
+                      compact
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">لا توجد عروض مطابقة حاليًا.</p>
+              )}
+            </section>
+
+
 
             {!!staff?.length && (
               <section className="space-y-2">
