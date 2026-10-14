@@ -193,7 +193,7 @@ function OfficeDashboard() {
 
         <Link
           to="/office/properties"
-          className="group relative isolate flex min-h-[66px] w-full items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-[#F9FCFA] via-[#F2FAF4] to-[#EAF6ED] px-4 py-2 text-forest ring-1 ring-[#D8EBDD] shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+          className="group relative isolate flex min-h-[90px] w-full items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-[#F9FCFA] via-[#F2FAF4] to-[#EAF6ED] px-4 py-3 text-forest ring-1 ring-[#D8EBDD] shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
         >
           <svg
             aria-hidden="true"
