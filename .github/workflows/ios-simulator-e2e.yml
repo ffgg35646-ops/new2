@@ -1,0 +1,164 @@
+name: iOS Simulator End-to-End
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ios-simulator-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ios-simulator-e2e:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://127.0.0.1:27017/?directConnection=true
+      MONGODB_DB_NAME: aqar_albatin_ios_e2e
+      JWT_SECRET: ios-simulator-test-secret-keep-out-of-production-2026
+      SMTP_HOST: 127.0.0.1
+      SMTP_PORT: "1025"
+      SMTP_USER: testuser
+      SMTP_PASS: testpass
+      MAIL_FROM: test@example.test
+      CAPACITOR_SERVER_URL: http://127.0.0.1:8080
+      VITE_PUBLIC_APP_URL: http://127.0.0.1:8080
+      E2E_BASE_URL: http://127.0.0.1:8080
+      MAILPIT_URL: http://127.0.0.1:8025
+
+    steps:
+      - name: Check out the isolated test branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Install an isolated MongoDB and Mailpit
+        run: |
+          brew tap mongodb/brew
+          brew trust mongodb/brew
+          brew install mongodb-community@8.0 mailpit
+          brew services start mongodb-community@8.0
+          export MP_SMTP_AUTH="testuser:testpass"
+          export MP_SMTP_AUTH_ALLOW_INSECURE=true
+          nohup mailpit --smtp 127.0.0.1:1025 --listen 127.0.0.1:8025 >/tmp/aqar-mailpit.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if mongosh "$MONGODB_URI" --quiet --eval 'db.runCommand({ping:1}).ok' 2>/dev/null | grep -q 1; then
+              break
+            fi
+            sleep 2
+          done
+          mongosh "$MONGODB_URI" --quiet --eval 'db.runCommand({ping:1})'
+          for attempt in $(seq 1 30); do
+            if curl -fsS "$MAILPIT_URL/api/v1/messages" >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS "$MAILPIT_URL/api/v1/messages" >/dev/null
+
+      - name: Start the app's local server against test-only services
+        run: |
+          nohup npm run dev:mobile >/tmp/aqar-vite.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS "$E2E_BASE_URL/" >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS "$E2E_BASE_URL/" >/dev/null
+
+      - name: Generate the native iOS project
+        run: |
+          # This build uses server.url, so the bundled page only needs to satisfy Capacitor sync.
+          mkdir -p www
+          printf '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>' > www/index.html
+          npm run cap:ios:add
+          npm run cap:ios:sync
+          npm run cap:ios:prepare
+
+      - name: Build and boot an iPhone simulator
+        run: |
+          DEVICE_LINE="$(xcrun simctl list devices available | grep -m1 'iPhone 16 (')"
+          if [ -z "$DEVICE_LINE" ]; then
+            DEVICE_LINE="$(xcrun simctl list devices available | grep -m1 -E 'iPhone [0-9]+ \(')"
+          fi
+          echo "$DEVICE_LINE"
+          IOS_SIMULATOR_UDID="$(printf '%s' "$DEVICE_LINE" | sed -E 's/.*\(([A-F0-9-]{36})\).*/\1/')"
+          IOS_DEVICE_NAME="$(printf '%s' "$DEVICE_LINE" | sed -E 's/^[[:space:]]*([^()]*) \(.*/\1/' | xargs)"
+          if [ -z "$IOS_SIMULATOR_UDID" ] || [ "$IOS_SIMULATOR_UDID" = "$DEVICE_LINE" ]; then
+            echo "No available iPhone simulator was found."
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "IOS_SIMULATOR_UDID=$IOS_SIMULATOR_UDID" >> "$GITHUB_ENV"
+          echo "IOS_DEVICE_NAME=$IOS_DEVICE_NAME" >> "$GITHUB_ENV"
+          xcrun simctl boot "$IOS_SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$IOS_SIMULATOR_UDID" -b
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+            -derivedDataPath /tmp/aqar-ios-derived \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          xcrun simctl install "$IOS_SIMULATOR_UDID" /tmp/aqar-ios-derived/Build/Products/Debug-iphonesimulator/App.app
+
+      - name: Install Appium with the XCUITest driver
+        run: |
+          npm install --no-save appium webdriverio
+          npx appium driver install xcuitest
+
+          # Prebuild WDA separately, then let Appium install/run that known artifact.
+          # This avoids the runner's repeated build-and-launch path that left port 8100 closed.
+          WDA_PROJECT="$HOME/.appium/node_modules/appium-xcuitest-driver/node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj"
+          test -d "$WDA_PROJECT"
+          xcodebuild \
+            -project "$WDA_PROJECT" \
+            -scheme WebDriverAgentRunner \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+            -derivedDataPath /tmp/aqar-wda-derived \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_IDENTITY=- \
+            build-for-testing
+          WDA_APP_PATH="/tmp/aqar-wda-derived/Build/Products/Debug-iphonesimulator/WebDriverAgentRunner-Runner.app"
+          test -d "$WDA_APP_PATH"
+          echo "WDA_APP_PATH=$WDA_APP_PATH" >> "$GITHUB_ENV"
+
+          nohup npx appium --address 127.0.0.1 --port 4723 >/tmp/aqar-appium.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4723/status >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:4723/status >/dev/null
+
+      - name: Run real iOS simulator user journeys
+        run: node scripts/ios-simulator-e2e.mjs
+
+      - name: Save iOS simulator diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqar-ios-simulator-diagnostics
+          path: |
+            /tmp/aqar-ios-e2e-failure.png
+            /tmp/aqar-vite.log
+            /tmp/aqar-mailpit.log
+            /tmp/aqar-appium.log
+          if-no-files-found: warn
