@@ -60,17 +60,19 @@ export function PropertyCard({
   property,
   isFavorite,
   onToggleFavorite,
+  compact = false,
 }: {
   property: PropertyCardData;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
+  compact?: boolean;
 }) {
   const { isOffice } = useAuth();
   const photos = Math.max(property.images_count ?? 0, property.cover_url ? 1 : 0);
   const officeIsVerified = property.offices?.verification_badge === true;
 
   return (
-    <article className="overflow-hidden rounded-3xl bg-surface ring-1 ring-line animate-rise-in">
+    <article className={cn("overflow-hidden bg-surface ring-1 ring-line animate-rise-in", compact ? "rounded-2xl" : "rounded-3xl")}>
       <div className="relative">
         <Link to="/properties/$propertyId" params={{ propertyId: property.id }}>
           {property.cover_url ? (
@@ -78,10 +80,10 @@ export function PropertyCard({
               src={property.cover_url}
               alt={property.title}
               loading="lazy"
-              className="aspect-[16/10] w-full object-cover"
+              className={cn("w-full object-cover", compact ? "aspect-[4/3]" : "aspect-[16/10]")}
             />
           ) : (
-            <div className="grid aspect-[16/10] w-full place-items-center bg-sand text-xs text-muted-foreground">
+            <div className={cn("grid w-full place-items-center bg-sand text-xs text-muted-foreground", compact ? "aspect-[4/3]" : "aspect-[16/10]")}>
               لا توجد صورة
             </div>
           )}
@@ -123,25 +125,25 @@ export function PropertyCard({
       <Link
         to="/properties/$propertyId"
         params={{ propertyId: property.id }}
-        className="block p-3.5"
+        className={cn("block", compact ? "p-2" : "p-3.5")}
       >
         <div className="flex items-start justify-between gap-2">
           <PriceLine
             price={property.price}
             listing={property.listing}
             rentPeriod={property.rent_period}
-            className="font-display text-lg leading-tight font-extrabold"
+            className={cn("font-display leading-tight font-extrabold", compact ? "text-sm" : "text-lg")}
           />
-          <span className="shrink-0 rounded-full bg-sand px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+          <span className={cn("shrink-0 rounded-full bg-sand px-2 py-0.5 font-semibold text-muted-foreground", compact ? "text-[9px]" : "text-[10px]")}>
             {kindLabel(property.kind)}
           </span>
         </div>
 
-        <div className="mt-1 text-sm">
+        <div className={cn("mt-1", compact ? "text-xs" : "text-sm")}>
           {property.neighborhood} · {property.governorates?.name_ar ?? ""}
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <div className={cn("mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground", compact ? "text-[10px]" : "text-xs")}>
           <span>{formatArea(property.area)}</span>
           {property.created_at && <span>· {timeAgo(property.created_at)}</span>}
           {officeIsVerified && (
@@ -168,17 +170,17 @@ export function PropertyCard({
         </div>
       </Link>
 
-      <div className="relative z-20 flex gap-2 border-t border-line bg-surface p-3 pointer-events-auto">
+      <div className={cn("relative z-20 flex border-t border-line bg-surface pointer-events-auto", compact ? "gap-1.5 p-2" : "gap-2 p-3")}>
         <a
           href={`/properties/${encodeURIComponent(property.id)}`}
-          className="relative z-20 flex-1 cursor-pointer rounded-xl bg-forest py-2.5 text-center text-xs font-bold text-background"
+          className={cn("relative z-20 flex-1 cursor-pointer rounded-xl bg-forest text-center font-bold text-background", compact ? "min-w-0 px-1 py-2 text-[10px]" : "py-2.5 text-xs")}
         >
           عرض التفاصيل
         </a>
         {!isOffice && (
           <a
             href={`/properties/${encodeURIComponent(property.id)}#property-inquiry`}
-            className="relative z-20 flex-1 cursor-pointer rounded-xl bg-terracotta-soft py-2.5 text-center text-xs font-bold text-terracotta"
+            className={cn("relative z-20 flex-1 cursor-pointer rounded-xl bg-terracotta-soft text-center font-bold text-terracotta", compact ? "min-w-0 px-1 py-2 text-[10px]" : "py-2.5 text-xs")}
           >
             إرسال طلب
           </a>
