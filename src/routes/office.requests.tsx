@@ -54,6 +54,7 @@ async function ensureOfficeConversation(
     .select("id")
     .eq("user_id", userId)
     .eq("office_id", officeId)
+    .neq("status", "declined")
     .maybeSingle();
   if (existing.error) throw existing.error;
   if (existing.data?.id) return String(existing.data.id);
