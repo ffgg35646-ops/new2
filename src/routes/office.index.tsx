@@ -193,19 +193,19 @@ function OfficeDashboard() {
 
         <Link
           to="/office/properties"
-          className="group relative isolate flex min-h-[132px] w-full items-center justify-between overflow-hidden rounded-3xl bg-gradient-to-l from-emerald-700 via-forest to-emerald-500 px-5 py-4 text-background shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+          className="group relative isolate flex min-h-[132px] w-full items-center justify-between overflow-hidden rounded-3xl bg-gradient-to-l from-emerald-100 via-green-50 to-emerald-200 px-5 py-4 text-forest ring-1 ring-emerald-200 shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
         >
           <div className="relative z-10 flex items-center gap-2 font-display text-lg font-extrabold">
             إدارة العروض
-            <span className="grid size-8 place-items-center rounded-full bg-background/15 transition group-hover:bg-background/25">
+            <span className="grid size-8 place-items-center rounded-full bg-forest/10 transition group-hover:bg-forest/15">
               <ArrowLeft className="size-4" />
             </span>
           </div>
-          <div aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35">
+          <div aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-forest/35">
             <Building2 className="absolute -left-8 bottom-0 size-14 stroke-[1.2]" />
             <Building2 className="absolute -left-1 bottom-0 size-20 stroke-[1.1]" />
             <Building2 className="relative left-9 top-2 size-12 stroke-[1.2]" />
-            <MapPin className="absolute left-8 -top-9 size-8 fill-white/10 stroke-white/70 stroke-[1.5]" />
+            <MapPin className="absolute left-8 -top-9 size-8 fill-forest/10 stroke-forest/70 stroke-[1.5]" />
           </div>
         </Link>
 
