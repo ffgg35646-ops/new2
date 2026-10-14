@@ -193,8 +193,30 @@ function OfficeDashboard() {
 
         <Link
           to="/office/properties"
-          className="group relative isolate flex min-h-[132px] w-full items-center justify-between overflow-hidden rounded-3xl bg-gradient-to-l from-emerald-100 via-green-50 to-emerald-200 px-5 py-4 text-forest ring-1 ring-emerald-200 shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+          className="group relative isolate flex min-h-[132px] w-full items-center justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-[#F9FCFA] via-[#F2FAF4] to-[#EAF6ED] px-5 py-4 text-forest ring-1 ring-[#D8EBDD] shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
         >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 440 132"
+            preserveAspectRatio="none"
+            className="pointer-events-none absolute inset-0 size-full opacity-80"
+            fill="none"
+          >
+            <path d="M0 20L74 0H130L99 35L0 55Z" fill="#DDEFE2" fillOpacity=".55" />
+            <path d="M255 0H345L315 32L264 42L230 19Z" fill="#D7EBD9" fillOpacity=".6" />
+            <path d="M354 132L391 94L440 82V132Z" fill="#DCEFE0" fillOpacity=".8" />
+            <path d="M-18 94C45 65 74 74 119 41S208 4 255 24S333 82 458 35" stroke="#FFFFFF" strokeWidth="9" strokeLinecap="round" />
+            <path d="M-18 94C45 65 74 74 119 41S208 4 255 24S333 82 458 35" stroke="#D9E5DC" strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M58 -12C70 28 107 52 153 65S227 91 246 146" stroke="#FFFFFF" strokeWidth="7" strokeLinecap="round" />
+            <path d="M58 -12C70 28 107 52 153 65S227 91 246 146" stroke="#D9E5DC" strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M304 -12C282 22 294 54 326 77S372 104 386 145" stroke="#FFFFFF" strokeWidth="8" strokeLinecap="round" />
+            <path d="M304 -12C282 22 294 54 326 77S372 104 386 145" stroke="#D9E5DC" strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M-10 119L42 93L79 103L103 132M151 -5L178 24L207 16M355 11L386 43L434 49" stroke="#BBD9C4" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12 8L30 31L53 25M236 106L269 83L294 88M397 113L423 99" stroke="#BBD9C4" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="195" cy="36" r="3" fill="#A9D0B3" />
+            <circle cx="331" cy="91" r="2.5" fill="#A9D0B3" />
+            <circle cx="78" cy="78" r="2.5" fill="#A9D0B3" />
+          </svg>
           <div className="relative z-10 flex items-center gap-2 font-display text-lg font-extrabold">
             إدارة العروض
             <span className="grid size-8 place-items-center rounded-full bg-forest/10 transition group-hover:bg-forest/15">
