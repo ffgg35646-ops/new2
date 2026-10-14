@@ -6,11 +6,10 @@ import {
   BadgeCheck,
   Building2,
   Check,
-  ChevronDown,
   Clock,
   FileCheck2,
   MapPin,
-  Phone,
+  MoreHorizontal,
   Bell,
   Share2,
   Star,
@@ -226,21 +225,26 @@ function OfficePage() {
         following: !!isFollowing,
       });
 
-      if (nowFollowing) {
-        // Following an office also enables its notifications, represented by the bell on this button.
-        if (!notifyOn) {
-          await setNotify.mutateAsync({ officeId, notify: true });
-        }
-        toast.success(
-          notifyOn
-            ? "تمت متابعة المكتب"
-            : "تمت متابعة المكتب وتفعيل إشعاراته",
-        );
-      } else {
-        toast.success("تم إلغاء المتابعة");
-      }
+      toast.success(nowFollowing ? "تمت متابعة المكتب" : "تم إلغاء المتابعة");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذرت متابعة المكتب");
+    }
+  }
+
+  async function onToggleNotifications() {
+    if (!userId) {
+      toast.error("سجّل الدخول لتفعيل إشعارات المكتب");
+      return;
+    }
+
+    try {
+      const enabled = await setNotify.mutateAsync({
+        officeId,
+        notify: !notifyOn,
+      });
+      toast.success(enabled ? "تم تفعيل إشعارات المكتب" : "تم إيقاف إشعارات المكتب");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذّر تحديث إشعارات المكتب");
     }
   }
 
@@ -277,8 +281,8 @@ function OfficePage() {
         ) : (
           <>
             <section className="rounded-3xl bg-surface p-4 ring-1 ring-line">
-              <div className="flex items-center gap-3">
-                <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-forest-soft font-display text-2xl font-extrabold text-forest">
+              <div className="flex items-start gap-3">
+                <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-forest-soft font-display text-xl font-extrabold text-forest">
                   {office.logo_url ? (
                     <img
                       src={office.logo_url}
@@ -289,67 +293,68 @@ function OfficePage() {
                     office.name.charAt(0)
                   )}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <h1 className="truncate font-display text-lg font-extrabold">{office.name}</h1>
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <div className="flex items-center gap-1">
+                    <h1 className="truncate font-display text-base font-extrabold">{office.name}</h1>
                     {verified && <BadgeCheck className="size-4 shrink-0 text-forest" />}
                     {isPro && (
-                      <span className="shrink-0 rounded-full bg-terracotta/10 px-1.5 py-0.5 text-[10px] font-bold text-terracotta">
+                      <span className="shrink-0 rounded-full bg-terracotta/10 px-1.5 py-0.5 text-[9px] font-bold text-terracotta">
                         احترافي
                       </span>
                     )}
                   </div>
-                  {verified && (
-                    <span className="mt-1 inline-block rounded-full bg-forest-soft px-2 py-0.5 text-[10px] font-semibold text-forest">
-                      موثق
-                    </span>
-                  )}
+                  <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+                    <MapPin className="size-3.5 shrink-0 text-forest" />
+                    <span>{(office.governorates as { name_ar: string } | null)?.name_ar || "المدينة غير محددة"}</span>
+                    {verified && (
+                      <span className="rounded-full bg-forest-soft px-1.5 py-0.5 text-[9px] font-semibold text-forest">
+                        موثق
+                      </span>
+                    )}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setMoreOpen((open) => !open)}
+                  aria-expanded={moreOpen}
+                  aria-label={moreOpen ? "إخفاء المزيد" : "المزيد"}
+                  className="flex shrink-0 items-center gap-1 rounded-xl bg-sand px-2 py-2 text-[11px] font-bold text-foreground transition hover:bg-forest-soft"
+                >
+                  <MoreHorizontal className="size-4" />
+                  <span>المزيد</span>
+                </button>
               </div>
-
-              <div className="mt-3 space-y-2 text-xs">
-                <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                  <Star className="size-3.5 fill-terracotta text-terracotta" />
-                  <span className="font-bold">{Number(office.rating_avg ?? 0).toFixed(1)}</span>
-                  <span className="text-muted-foreground">({office.reviews_count ?? 0} تقييم)</span>
-                </div>
-                <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                  <Building2 className="size-3.5 text-forest" />
-                  <span className="font-bold">{totalCount ?? 0}</span>
-                  <span className="text-muted-foreground">عقار معروض</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setMoreOpen((open) => !open)}
-                aria-expanded={moreOpen}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-forest transition hover:bg-forest-soft"
-              >
-                <span>{moreOpen ? "عرض أقل" : "عرض المزيد"}</span>
-                <ChevronDown className={cn("size-4 transition-transform", moreOpen && "rotate-180")} />
-              </button>
 
               {moreOpen && (
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                    <Building2 className="size-3.5 text-forest" />
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex min-w-0 items-center gap-1.5 rounded-xl bg-background px-2 py-2 ring-1 ring-line">
+                    <Star className="size-3.5 shrink-0 fill-terracotta text-terracotta" />
+                    <span className="font-bold">{Number(office.rating_avg ?? 0).toFixed(1)}</span>
+                    <span className="truncate text-muted-foreground">({office.reviews_count ?? 0} تقييم)</span>
+                  </div>
+                  <div className="flex min-w-0 items-center gap-1.5 rounded-xl bg-background px-2 py-2 ring-1 ring-line">
+                    <Building2 className="size-3.5 shrink-0 text-forest" />
+                    <span className="font-bold">{totalCount ?? 0}</span>
+                    <span className="truncate text-muted-foreground">عقار معروض</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2 py-2 ring-1 ring-line">
+                    <Building2 className="size-3.5 shrink-0 text-forest" />
                     <span className="font-bold">{office.experience_years ?? 0}</span>
                     <span className="text-muted-foreground">سنوات خبرة</span>
                   </div>
-                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                    <UserPlus className="size-3.5 text-forest" />
+                  <div className="flex items-center gap-1.5 rounded-xl bg-background px-2 py-2 ring-1 ring-line">
+                    <UserPlus className="size-3.5 shrink-0 text-forest" />
                     <span className="font-bold">{followersCount ?? 0}</span>
                     <span className="text-muted-foreground">متابع</span>
                   </div>
-                  <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                    <Clock className="size-3.5 text-forest" />
+                  <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2 py-2 ring-1 ring-line">
+                    <Clock className="size-3.5 shrink-0 text-forest" />
                     <span className="text-muted-foreground">آخر نشاط:</span>
                     <span className="font-bold">{lastActivityLabel}</span>
                   </div>
                   {(office.license_number || office.fal_license_number) && (
-                    <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2.5 py-2 ring-1 ring-line">
-                      <FileCheck2 className="size-3.5 text-forest" />
+                    <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-background px-2 py-2 ring-1 ring-line">
+                      <FileCheck2 className="size-3.5 shrink-0 text-forest" />
                       <span className="text-muted-foreground">رقم الترخيص:</span>
                       <span className="font-mono font-bold">
                         {office.fal_license_number || office.license_number}
@@ -371,12 +376,10 @@ function OfficePage() {
                     <Clock className="size-3.5" /> {office.working_hours}
                   </div>
                 )}
-                {(office.address || office.governorates) && (
+                {office.address && (
                   <div className="flex items-center gap-1">
                     <MapPin className="size-3.5" />
-                    {[(office.governorates as { name_ar: string } | null)?.name_ar, office.address]
-                      .filter(Boolean)
-                      .join(" · ")}
+                    {office.address}
                   </div>
                 )}
 
@@ -406,27 +409,7 @@ function OfficePage() {
                 )}
               </div>
 
-              <div className="mt-3 grid grid-cols-[40px_40px_40px_minmax(0,1fr)] items-center gap-2">
-                {office.phone ? (
-                  <a
-                    href={`tel:${office.phone}`}
-                    title="اتصال بالمكتب"
-                    aria-label="اتصال بالمكتب"
-                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest text-background transition hover:opacity-90"
-                  >
-                    <Phone className="size-5" />
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    title="رقم الهاتف غير متاح"
-                    aria-label="رقم الهاتف غير متاح"
-                    disabled
-                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-sand text-muted-foreground opacity-60"
-                  >
-                    <Phone className="size-5" />
-                  </button>
-                )}
+              <div className="mt-4 grid grid-cols-2 gap-2">
                 {(office.whatsapp || office.phone) ? (
                   <a
                     href={whatsappHref(
@@ -435,31 +418,31 @@ function OfficePage() {
                     )}
                     target="_blank"
                     rel="noreferrer"
-                    title="مراسلة واتساب"
-                    aria-label="مراسلة واتساب"
-                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-soft text-forest transition hover:opacity-90"
+                    aria-label="مراسلة المكتب"
+                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-forest px-2 text-xs font-bold text-background transition hover:opacity-90"
                   >
-                    <WhatsAppIcon className="size-5" />
+                    <WhatsAppIcon className="size-4 shrink-0" />
+                    <span>مراسلة</span>
                   </a>
                 ) : (
                   <button
                     type="button"
-                    title="واتساب غير متاح"
-                    aria-label="واتساب غير متاح"
                     disabled
-                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-sand text-muted-foreground opacity-60"
+                    aria-label="وسيلة المراسلة غير متاحة"
+                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-forest px-2 text-xs font-bold text-background opacity-60"
                   >
-                    <WhatsAppIcon className="size-5" />
+                    <WhatsAppIcon className="size-4 shrink-0" />
+                    <span>مراسلة</span>
                   </button>
                 )}
+
                 <button
                   type="button"
                   onClick={() => void onShare()}
-                  title="مشاركة ملف المكتب"
-                  aria-label="مشاركة ملف المكتب"
-                  className="grid size-10 shrink-0 place-items-center rounded-xl bg-sand text-foreground ring-1 ring-line transition hover:bg-background"
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-sand px-2 text-xs font-bold text-foreground transition hover:opacity-80"
                 >
-                  <Share2 className="size-5" />
+                  <Share2 className="size-4 shrink-0" />
+                  <span>مشاركة</span>
                 </button>
 
                 <button
@@ -468,24 +451,27 @@ function OfficePage() {
                   disabled={followLoading || toggleFollow.isPending || setNotify.isPending}
                   aria-pressed={!!isFollowing}
                   className={cn(
-                    "flex h-10 w-full min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold text-forest transition hover:bg-forest-soft disabled:opacity-60",
-                    isFollowing && "font-extrabold",
+                    "flex h-11 items-center justify-center gap-2 rounded-xl px-2 text-xs font-bold transition disabled:opacity-60",
+                    isFollowing ? "bg-forest-soft text-forest" : "bg-sand text-foreground",
                   )}
                 >
-                  {isFollowing ? (
-                    <>
-                      <Check className="size-4 shrink-0" />
-                      <span>متابَع</span>
-                      <Bell className="size-4 shrink-0" />
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="size-4 shrink-0" />
-                      <span>متابعة</span>
-                    </>
-                  )}
+                  {isFollowing ? <Check className="size-4 shrink-0" /> : <UserPlus className="size-4 shrink-0" />}
+                  <span>{isFollowing ? "متابَع" : "متابعة"}</span>
                 </button>
 
+                <button
+                  type="button"
+                  onClick={onToggleNotifications}
+                  disabled={followLoading || setNotify.isPending || toggleFollow.isPending}
+                  aria-pressed={!!notifyOn}
+                  className={cn(
+                    "flex h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold transition disabled:opacity-60",
+                    notifyOn ? "bg-forest-soft text-forest" : "bg-sand text-foreground",
+                  )}
+                >
+                  <Bell className="size-4 shrink-0" />
+                  <span>{notifyOn ? "الإشعارات مفعّلة" : "تفعيل الإشعارات"}</span>
+                </button>
               </div>
 
               
@@ -505,13 +491,14 @@ function OfficePage() {
                 ))}
               </div>
               {properties?.length ? (
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                   {properties.map((p) => (
                     <PropertyCard
                       key={p.id}
                       property={p}
                       isFavorite={favoriteIds.has(p.id)}
                       onToggleFavorite={toggleFavorite}
+                      compact
                     />
                   ))}
                 </div>
