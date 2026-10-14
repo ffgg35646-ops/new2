@@ -291,7 +291,55 @@ async function registerAndVerify(role, email, name, isOffice = false) {
 }
 async function signIn(role, email) {
   await goto(role === "office" ? "/auth/office" : "/auth/individual");
-  if (role === "office") await clickText("button", "لدي حساب بالفعل");
+
+  if (role === "office") {
+    // The office route intentionally opens in registration mode. On iOS the
+    // React state toggle can race with WebView hydration; verify login mode
+    // explicitly and reacquire the toggle before retrying.
+    let loginFormReady = false;
+    let lastToggleError;
+    for (let attempt = 1; attempt <= 4 && !loginFormReady; attempt++) {
+      const currentText = await bodyText();
+      if (currentText.includes("سجّل دخولك للمتابعة") && currentText.includes("تسجيل الدخول")) {
+        loginFormReady = true;
+        break;
+      }
+      try {
+        await driver.waitUntil(async () => {
+          const text = await bodyText();
+          return text.includes("لدي حساب بالفعل") ||
+            (text.includes("سجّل دخولك للمتابعة") && text.includes("تسجيل الدخول"));
+        }, {
+          timeout: 15000,
+          interval: 500,
+          timeoutMsg: "Office login/register toggle did not become ready",
+        });
+        const text = await bodyText();
+        if (text.includes("سجّل دخولك للمتابعة") && text.includes("تسجيل الدخول")) {
+          loginFormReady = true;
+          break;
+        }
+        const toggle = await driver.$('//button[normalize-space(.)="لدي حساب بالفعل"]');
+        await toggle.waitForDisplayed({ timeout: 10000 });
+        await toggle.scrollIntoView();
+        await toggle.click();
+        await waitForText("سجّل دخولك للمتابعة", 10000);
+        await waitForText("تسجيل الدخول", 10000);
+        loginFormReady = true;
+      } catch (error) {
+        lastToggleError = error;
+        log("Office login toggle attempt " + attempt + " did not complete; waiting for WebView/React to settle before retry");
+        await sleep(1500 * attempt);
+      }
+    }
+    if (!loginFormReady) {
+      throw new Error(
+        "Could not open office login after 4 reload-aware attempts. Last error: " +
+        String(lastToggleError?.message || lastToggleError || "login form heading not found")
+      );
+    }
+  }
+
   await fill('input[placeholder="you@example.com"]', email);
   await fill('input[type="password"]', password);
   await clickText("button", "تسجيل الدخول", true);
