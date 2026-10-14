@@ -1,5 +1,5 @@
 import { RoleGuard } from "@/lib/role-guard";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ChevronDown, Eye, EyeOff, Home, MoreHorizontal, QrCode, Search, Star, Trash2 } from "lucide-react";
@@ -221,72 +221,85 @@ function OfficeProperties() {
                       {formatPrice(p.price)} ر.س · {formatArea(p.area)}
                     </div>
                   </div>
+                </Link>
+              <div className="mt-0.5 text-xs font-bold text-forest">
+                      {formatPrice(p.price)} ر.س · {formatArea(p.area)}
+                    </div>
+                  </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex items-center gap-2 rounded-xl bg-background px-3 py-2 text-xs font-semibold text-muted-foreground ring-1 ring-line transition hover:text-foreground hover:ring-forest/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
-                        aria-label={`إدارة العقار: ${p.title}`}
-                      >
-                        <MoreHorizontal className="size-4" />
-                        إدارة العقار
-                        <ChevronDown className="size-3.5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" sideOffset={6} className="w-52">
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          if (!canFeature && !p.is_featured) {
-                            toast.error("التمييز ميزة احترافية — رقِّ باقتك لإبراز عقاراتك.");
-                            return;
-                          }
-                          toggleFeatured.mutate({ id: p.id, next: !p.is_featured });
-                        }}
-                        disabled={toggleFeatured.isPending}
-                      >
-                        <Star className={`size-4 ${p.is_featured ? "fill-current text-forest" : ""}`} />
-                        {p.is_featured ? "إلغاء التمييز" : "تمييز العرض"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => togglePublish.mutate({ id: p.id, next: !p.is_published })}
-                        disabled={togglePublish.isPending}
-                      >
-                        {p.is_published ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                        {p.is_published ? "إيقاف العقار" : "تفعيل العقار"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          if (!canFeature) {
-                            toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
-                            return;
-                          }
-                          if (!p.is_published) {
-                            toast.error("انشر العقار أولًا لإنشاء رمز QR صالح للمشاركة.");
-                            return;
-                          }
-                          const url = getPublicAppUrl(`/properties/${p.id}`);
-                          if (!url) {
-                            toast.error(PUBLIC_APP_URL_HELP);
-                            return;
-                          }
-                          setQrFor({ id: p.id, title: p.title, url });
-                        }}
-                      >
-                        <QrCode className="size-4" />
-                        رمز QR
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={() => setDeleteFor({ id: p.id, title: p.title })}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="size-4" />
-                        حذف العقار
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to="/properties/$propertyId"
+                      params={{ propertyId: p.id }}
+                      className="flex items-center gap-2 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-background transition hover:opacity-90"
+                    >
+                      <Eye className="size-4" />
+                      إدارة العقار
+                    </Link>
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <button
+                                            type="button"
+                                            className="grid size-9 place-items-center rounded-xl bg-background text-muted-foreground ring-1 ring-line transition hover:text-foreground hover:ring-forest/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+                                            aria-label={`خيارات العقار: ${p.title}`}
+                                          >
+                                            <MoreHorizontal className="size-4" />
+                                          </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="start" sideOffset={6} className="w-52">
+                                          <DropdownMenuItem
+                                            onSelect={() => {
+                                              if (!canFeature && !p.is_featured) {
+                                                toast.error("التمييز ميزة احترافية — رقِّ باقتك لإبراز عقاراتك.");
+                                                return;
+                                              }
+                                              toggleFeatured.mutate({ id: p.id, next: !p.is_featured });
+                                            }}
+                                            disabled={toggleFeatured.isPending}
+                                          >
+                                            <Star className={`size-4 ${p.is_featured ? "fill-current text-forest" : ""}`} />
+                                            {p.is_featured ? "إلغاء التمييز" : "تمييز العرض"}
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onSelect={() => togglePublish.mutate({ id: p.id, next: !p.is_published })}
+                                            disabled={togglePublish.isPending}
+                                          >
+                                            {p.is_published ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                            {p.is_published ? "إيقاف العقار" : "تفعيل العقار"}
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onSelect={() => {
+                                              if (!canFeature) {
+                                                toast.error("رمز QR ميزة احترافية — رقِّ باقتك.");
+                                                return;
+                                              }
+                                              if (!p.is_published) {
+                                                toast.error("انشر العقار أولًا لإنشاء رمز QR صالح للمشاركة.");
+                                                return;
+                                              }
+                                              const url = getPublicAppUrl(`/properties/${p.id}`);
+                                              if (!url) {
+                                                toast.error(PUBLIC_APP_URL_HELP);
+                                                return;
+                                              }
+                                              setQrFor({ id: p.id, title: p.title, url });
+                                            }}
+                                          >
+                                            <QrCode className="size-4" />
+                                            رمز QR
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            onSelect={() => setDeleteFor({ id: p.id, title: p.title })}
+                                            className="text-destructive focus:text-destructive"
+                                          >
+                                            <Trash2 className="size-4" />
+                                            حذف العقار
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                  </div>
                   <div className="flex items-center gap-1.5 text-xs font-semibold">
                     <span className={p.is_published ? "size-2.5 rounded-full bg-green-500" : "size-2.5 rounded-full bg-yellow-400"} />
                     <span>{p.is_published ? "مفعل" : "موقوف"}</span>
