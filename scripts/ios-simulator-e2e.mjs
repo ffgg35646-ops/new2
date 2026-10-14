@@ -311,17 +311,11 @@ async function signOutFromUi(role) {
   log("UI logout passed: " + role);
 }
 async function createRequest(description) {
-  // Navigate through the actual in-app bottom navigation. A hard WebView URL
-  // load can race with auth query hydration immediately after password login.
-  const requestLinks = await driver.$('a[href="/request"]');
-  let requestLink = null;
-  for (const candidate of requestLinks) {
-    if (await candidate.isDisplayed().catch(() => false)) {
-      requestLink = candidate;
-      break;
-    }
-  }
-  if (requestLink) {
+  // Use one unique XPath match. The request link appears both in the home CTA
+  // and bottom navigation, so a strict CSS selector without a positional path
+  // fails in WebdriverIO before it can navigate.
+  const requestLink = await driver.$('(//a[@href="/request"])[1]');
+  if (await requestLink.isDisplayed().catch(() => false)) {
     await requestLink.click();
     await waitForUrl("/request", 20000);
   } else {
