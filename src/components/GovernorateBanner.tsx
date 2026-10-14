@@ -14,7 +14,7 @@ export function GovernorateBanner({ governorate }: { governorate: Governorate | 
         alt={`عقار البطين — العقار في ${governorate.name_ar}`}
         loading="eager"
         decoding="async"
-        className="block h-auto w-full object-contain"
+        className="block h-64 w-full object-cover object-center"
       />
     </section>
   );
