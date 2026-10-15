@@ -305,15 +305,30 @@ function ChatsPage() {
                     <p className="mt-0.5 text-[11px] text-muted-foreground">محادثاتك في مكان واحد</p>
                   </div>
                 </div>
-                <span className="shrink-0 rounded-full bg-forest-soft px-3 py-1.5 text-xs font-bold text-forest">
-                  {activeConversations.length} محادثة
-                </span>
+                {chatSection === "conversations" ? (
+                  <button
+                    type="button"
+                    onClick={() => setListMode((mode) => mode === "offices" ? "conversations" : "offices")}
+                    aria-label={listMode === "offices" ? "عرض المحادثات الحالية" : "استكشف المكاتب العقارية"}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-forest-soft px-3 py-2 text-[11px] font-bold text-forest transition hover:bg-forest/10"
+                  >
+                    {listMode === "offices" ? <MessageSquare className="size-3.5" /> : <Building2 className="size-3.5" />}
+                    {listMode === "offices" ? "محادثات حالية" : "استكشف المكاتب"}
+                  </button>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-forest-soft px-3 py-1.5 text-xs font-bold text-forest">
+                    {activeConversations.length} محادثة
+                  </span>
+                )}
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-1 rounded-2xl bg-background p-1 ring-1 ring-line">
                 <button
                   type="button"
-                  onClick={() => setChatSection("conversations")}
+                  onClick={() => {
+                    setChatSection("conversations");
+                    setListMode("conversations");
+                  }}
                   className={"flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-bold transition " + (chatSection === "conversations" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
                 >
                   <span className="grid size-5 place-items-center rounded-full bg-background/20 text-[10px]">١</span>
@@ -330,25 +345,6 @@ function ChatsPage() {
                   <span className="rounded-full bg-terracotta px-1.5 py-0.5 text-[10px] text-background">{incomingRequestCount}</span>
                 </button>
               </div>
-
-              {chatSection === "conversations" && (
-                <div className="mt-2 grid grid-cols-2 gap-1 rounded-2xl bg-background p-1 ring-1 ring-line">
-                  <button
-                    type="button"
-                    onClick={() => setListMode("conversations")}
-                    className={"rounded-xl px-3 py-2.5 text-xs font-bold transition " + (listMode === "conversations" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
-                  >
-                    محادثاتي
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setListMode("offices")}
-                    className={"rounded-xl px-3 py-2.5 text-xs font-bold transition " + (listMode === "offices" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
-                  >
-                    ابدأ محادثة
-                  </button>
-                </div>
-              )}
 
               <div className="relative mt-3">
                 <Search className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
