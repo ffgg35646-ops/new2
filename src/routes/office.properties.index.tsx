@@ -114,29 +114,36 @@ function OfficeProperties() {
   const [showFilters, setShowFilters] = useState(false);
   const [featuredOnly, setFeaturedOnly] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["office-my-properties", userId, officeId],
     enabled: !!userId && !!officeId,
     queryFn: async () => {
-      const [propertiesResult, inquiriesResult] = await Promise.all([
-        supabase
-          .from("properties")
-          .select(
-            "id,property_number,title,price,area,kind,listing,state,neighborhood,cover_url,is_published,is_featured,created_at,images_count,rent_period,governorates(name_ar)",
-          )
-          .eq("office_id", officeId!)
-          .eq("is_deleted", false)
-          .order("created_at", { ascending: false }),
-        supabase
+      // The property list is the primary data. Do not let inquiry-count permissions
+      // (for example, an office staff account) prevent the properties from loading.
+      const propertiesResult = await supabase
+        .from("properties")
+        .select(
+          "id,property_number,title,price,area,kind,listing,state,neighborhood,cover_url,is_published,is_featured,created_at,images_count,rent_period,governorates(name_ar)",
+        )
+        .eq("office_id", officeId!)
+        // Legacy MongoDB documents may not have is_deleted; only exclude explicit deletions.
+        .neq("is_deleted", true)
+        .order("created_at", { ascending: false });
+      if (propertiesResult.error) throw propertiesResult.error;
+
+      let inquiryRows: Array<{ id: string; property_id: string | null }> = [];
+      try {
+        const inquiriesResult = await supabase
           .from("property_inquiries")
           .select("id,property_id")
-          .eq("office_id", officeId!),
-      ]);
-      if (propertiesResult.error) throw propertiesResult.error;
-      if (inquiriesResult.error) throw inquiriesResult.error;
+          .eq("office_id", officeId!);
+        if (!inquiriesResult.error) inquiryRows = inquiriesResult.data ?? [];
+      } catch {
+        // Inquiries only decorate the cards; a permission/network error must not hide properties.
+      }
 
       const offersByProperty = new Map<string, number>();
-      for (const inquiry of inquiriesResult.data ?? []) {
+      for (const inquiry of inquiryRows) {
         if (!inquiry.property_id) continue;
         offersByProperty.set(
           inquiry.property_id,
@@ -344,6 +351,10 @@ function OfficeProperties() {
         <section className="list">
           {isLoading ? (
             <ListSkeleton />
+          ) : error ? (
+            <p className="empty" role="alert">
+              تعذّر تحميل العقارات حاليًا. أعد فتح الصفحة للمحاولة مرة أخرى.
+            </p>
           ) : visibleProperties.length === 0 ? (
             <p className="empty">
               {searchText.trim() || activeTab !== "all" || featuredOnly ? "لا توجد عقارات مطابقة" : "لا توجد عقارات بعد"}
