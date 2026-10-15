@@ -15,7 +15,7 @@ export function GovernorateBanner({ governorate }: { governorate: Governorate | 
   return (
     <section
       aria-label={`بانر ${governorate.name_ar}`}
-      className="overflow-hidden rounded-3xl bg-surface ring-1 ring-line"
+      className="overflow-hidden bg-background"
     >
       <img
         key={bannerUrl}
@@ -23,7 +23,7 @@ export function GovernorateBanner({ governorate }: { governorate: Governorate | 
         alt={`عقار البطين — ${governorate.name_ar}`}
         loading="eager"
         decoding="async"
-        className="block h-64 w-full object-cover object-center"
+        className="block h-auto max-h-64 w-full object-contain object-center"
       />
     </section>
   );
