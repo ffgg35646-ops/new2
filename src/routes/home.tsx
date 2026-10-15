@@ -44,7 +44,7 @@ function HomePage() {
     governorateId,
     kind,
     listing,
-  });
+  }, 60);
 
   const { data: offices } = useQuery({
     queryKey: ["home-offices", governorateId],
@@ -149,9 +149,6 @@ function HomePage() {
             <h2 className="font-display text-lg font-extrabold">
               عقارات {governorate?.name_ar ?? ""}
             </h2>
-            <Link to="/properties" className="shrink-0 text-xs text-terracotta">
-              عرض الكل
-            </Link>
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-1">
