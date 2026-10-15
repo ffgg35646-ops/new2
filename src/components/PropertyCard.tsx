@@ -174,13 +174,13 @@ export function PropertyCard({
   );
 }
 
-export function PropertyCardSkeleton() {
+export function PropertyCardSkeleton({ compact = false }: { compact?: boolean } = {}) {
   return (
-    <div className="overflow-hidden rounded-3xl bg-surface ring-1 ring-line">
-      <div className="aspect-[16/10] w-full animate-shimmer bg-sand" />
-      <div className="space-y-2 p-3.5">
-        <div className="h-5 w-32 animate-shimmer rounded bg-sand" />
-        <div className="h-4 w-40 animate-shimmer rounded bg-sand" />
+    <div className={cn("overflow-hidden bg-surface ring-1 ring-line", compact ? "rounded-2xl" : "rounded-3xl")}>
+      <div className={cn("w-full animate-shimmer bg-sand", compact ? "aspect-[4/3]" : "aspect-[16/10]")} />
+      <div className={cn("space-y-2", compact ? "p-2" : "p-3.5")}>
+        <div className={cn("animate-shimmer rounded bg-sand", compact ? "h-4 w-3/4" : "h-5 w-32")} />
+        <div className={cn("animate-shimmer rounded bg-sand", compact ? "h-3 w-1/2" : "h-4 w-40")} />
       </div>
     </div>
   );
