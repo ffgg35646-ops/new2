@@ -91,6 +91,63 @@ export function usePropertyList(filters: PropertyFilters, limit = 30) {
   });
 }
 
+
+export function usePaginatedPropertyList(filters: PropertyFilters, page = 1, pageSize = 10) {
+  return useQuery({
+    queryKey: ["property-pages", filters, page, pageSize],
+    queryFn: async () => {
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize - 1;
+      let q = supabase
+        .from("properties")
+        .select(PROPERTY_SELECT, { count: "exact" })
+        .eq("is_published", true)
+        .eq("is_deleted", false);
+
+      if (filters.governorateId) q = q.eq("governorate_id", filters.governorateId);
+      if (filters.kind) q = q.eq("kind", filters.kind as never);
+      if (filters.listing) q = q.eq("listing", filters.listing as never);
+      if (filters.neighborhood) q = q.eq("neighborhood", filters.neighborhood);
+      if (filters.minPrice != null) q = q.gte("price", filters.minPrice);
+      if (filters.maxPrice != null) q = q.lte("price", filters.maxPrice);
+      if (filters.minArea != null) q = q.gte("area", filters.minArea);
+      if (filters.maxArea != null) q = q.lte("area", filters.maxArea);
+      if (filters.rooms != null) q = q.gte("rooms", filters.rooms);
+      if (filters.featuredOnly) q = q.eq("is_featured", true);
+      if (filters.search) {
+        q = q.or(
+          `title.ilike.%${filters.search}%,neighborhood.ilike.%${filters.search}%`,
+        );
+      }
+
+      if (filters.sort === "price_asc") {
+        q = q.order("price", { ascending: true });
+      } else if (filters.sort === "price_desc") {
+        q = q.order("price", { ascending: false });
+      } else if (filters.sort === "area_desc") {
+        q = q.order("area", { ascending: false });
+      } else {
+        q = q
+          .order("is_featured", { ascending: false })
+          .order("created_at", { ascending: false });
+      }
+
+      const { data, error, count } = await withQueryTimeout(q.range(start, end));
+      if (error) throw error;
+
+      const totalCount = count ?? 0;
+      return {
+        items: (data ?? []) as unknown as PropertyCardData[],
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+        page,
+        pageSize,
+      };
+    },
+    placeholderData: (previous) => previous,
+  });
+}
+
 export function useFavorites() {
   const { userId } = useAuth();
   const qc = useQueryClient();
