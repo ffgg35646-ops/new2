@@ -26,7 +26,6 @@ import {
   Tag,
   Trash2,
   Wallet,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -290,7 +289,7 @@ function OfficeProperties() {
             </button>
           </div>
 
-                    {isLoading ? (
+          {isLoading ? (
             <div className="mp-list"><ListSkeleton /></div>
           ) : visibleProperties.length ? (
             <section className="mp-list" aria-label="قائمة عقاراتي">
