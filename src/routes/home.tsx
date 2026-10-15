@@ -164,10 +164,10 @@ function HomePage() {
                 key={l.value}
                 onClick={() => setListing((current) => current === l.value ? null : l.value)}
                 className={
-                  "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 " +
+                  "shrink-0 rounded-full border border-black/30 px-3.5 py-1.5 text-xs font-semibold transition " +
                   (listing === l.value
-                    ? "bg-forest text-background ring-forest"
-                    : "bg-surface ring-line")
+                    ? "bg-forest text-background"
+                    : "bg-surface text-foreground hover:bg-sand")
                 }
               >
                 {l.label}
@@ -178,10 +178,10 @@ function HomePage() {
                 key={k.value}
                 onClick={() => setKind((current) => current === k.value ? null : k.value)}
                 className={
-                  "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 " +
+                  "shrink-0 rounded-full border border-black/30 px-3.5 py-1.5 text-xs font-semibold transition " +
                   (kind === k.value
-                    ? "bg-forest text-background ring-forest"
-                    : "bg-surface ring-line")
+                    ? "bg-forest text-background"
+                    : "bg-surface text-foreground hover:bg-sand")
                 }
               >
                 {k.label}
