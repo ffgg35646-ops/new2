@@ -197,7 +197,7 @@ function OfficeChatPage() {
   });
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col overflow-hidden bg-background">
+    <div className="mx-auto flex h-dvh min-h-0 w-full max-w-md flex-col overflow-hidden bg-background">
       <AppHeader showSearch={false} />
 
       <div className="mx-auto flex min-h-0 w-full flex-1 flex-col overflow-hidden px-4 py-4">
@@ -403,7 +403,7 @@ function OfficeChatPage() {
         )}
       </div>
 
-      {!activeId && <BottomNav variant="office" />}
+      <BottomNav variant="office" />
     </div>
   );
 }
