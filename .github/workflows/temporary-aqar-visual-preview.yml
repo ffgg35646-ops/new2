@@ -27,11 +27,11 @@ jobs:
           MONGODB_DB_NAME: aqar_albatin
           VITE_PUBLIC_APP_URL: https://new2-five-roan.vercel.app
         run: |
-          nohup npm run dev -- --host 0.0.0.0 --port 5173 </dev/null >/tmp/aqar-vite.log 2>&1 &
+          nohup npm run dev -- --host 0.0.0.0 --port 8080 </dev/null >/tmp/aqar-vite.log 2>&1 &
           echo $! > /tmp/aqar-vite.pid
           code=000
           for i in $(seq 1 60); do
-            code=$(curl --connect-timeout 1 --max-time 3 -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:5173/ || true)
+            code=$(curl --connect-timeout 1 --max-time 3 -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
             if [ -n "$code" ] && [ "$code" != "000" ]; then
               break
             fi
@@ -55,7 +55,7 @@ jobs:
           });
           page.on('pageerror', e => console.log('PAGE_ERROR:', e.message));
           page.on('console', m => { if (m.type() === 'error') console.log('CONSOLE_ERROR:', m.text()); });
-          await page.goto('http://127.0.0.1:5173/home', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(e => console.log('NAVIGATION:', e.message));
+          await page.goto('http://127.0.0.1:8080/home', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(e => console.log('NAVIGATION:', e.message));
           await page.waitForTimeout(12000);
           await page.screenshot({ path: 'aqar-homepage-viewport.png' });
           await page.screenshot({ path: 'aqar-homepage-full.png', fullPage: true });
