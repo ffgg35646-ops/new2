@@ -131,8 +131,8 @@ function HomePage() {
       <AppHeader seamless />
       <GovernorateBanner governorate={governorate} />
 
-      <main className="flex-1 space-y-5 overflow-x-clip px-4 pb-4 pt-0">
-        <section className="-mt-2 grid grid-cols-3 divide-x divide-x-reverse divide-line">
+      <main className="flex-1 space-y-5 overflow-x-clip px-4 pb-4 pt-3">
+        <section className="grid grid-cols-3 divide-x divide-x-reverse divide-line">
           <StatCard
             icon={Building2}
             label="مكاتب"
