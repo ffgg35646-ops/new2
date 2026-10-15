@@ -487,23 +487,14 @@ function PropertyDetail() {
           {data.street_width != null && (
             <Spec icon={Ruler} label="عرض الشارع" value={`${data.street_width} م`} />
           )}
-          {data.facing && <Spec icon={Compass} label="الواجهة" value={formatFacing(data.facing)} />}
-          {!isOffice && userId && (
-            <button
-              type="button"
-              onClick={() => startChat.mutate()}
-              disabled={startChat.isPending}
-              className="col-span-2 flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-terracotta p-2 text-center text-white disabled:opacity-60"
-            >
-              {startChat.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <MessageCircle className="size-4" />
-              )}
-              <span className="text-xs font-bold">الدردشة</span>
-            </button>
-          )}
-          {!isOffice && (
+        </div>
+
+        {!isOffice && (
+          <div className="grid grid-cols-3 gap-1.5">
+            <div className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-surface p-2 text-center ring-1 ring-line">
+              <Compass className="size-4 text-muted-foreground" />
+              <span className="text-xs font-bold">{data.facing ? formatFacing(data.facing) : "الواجهة غير محددة"}</span>
+            </div>
             <button
               type="button"
               onClick={() => toggleFavorite(data.id)}
@@ -517,21 +508,42 @@ function PropertyDetail() {
                 )}
               />
               <span className="text-xs font-bold">
-                {favoriteIds.has(data.id) ? "محفوظ" : "حفظ"}
+                {favoriteIds.has(data.id) ? "محفوظ" : "حفظ العقار"}
               </span>
             </button>
-          )}
-        </div>
+            {data.latitude != null && data.longitude != null ? (
+              <a
+                href={googleMapsUrl(data.latitude, data.longitude)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-forest-soft p-2 text-center font-display font-bold text-forest"
+              >
+                <MapPin className="size-4" />
+                <span className="text-xs">الموقع على الخريطة</span>
+              </a>
+            ) : (
+              <div className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-surface p-2 text-center text-muted-foreground ring-1 ring-line">
+                <MapPin className="size-4" />
+                <span className="text-xs">الموقع غير محدد</span>
+              </div>
+            )}
+          </div>
+        )}
 
-        {data.latitude != null && data.longitude != null && (
-          <a
-            href={googleMapsUrl(data.latitude, data.longitude)}
-            target="_blank"
-            rel="noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-soft py-3.5 font-display font-bold text-forest"
+        {!isOffice && userId && (
+          <button
+            type="button"
+            onClick={() => startChat.mutate()}
+            disabled={startChat.isPending}
+            className="flex min-h-[58px] w-full flex-col items-center justify-center gap-1 rounded-2xl bg-terracotta p-3 text-center text-white disabled:opacity-60"
           >
-            <MapPin className="size-4" /> الموقع على الخريطة
-          </a>
+            {startChat.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <MessageCircle className="size-4" />
+            )}
+            <span className="text-sm font-bold">الدردشة</span>
+          </button>
         )}
 
         {data.video_url && (
