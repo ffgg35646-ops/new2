@@ -25,6 +25,7 @@ jobs:
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           MONGODB_DB_NAME: aqar_albatin
+          VITE_VISUAL_PREVIEW: "true"
           VITE_PUBLIC_APP_URL: https://new2-five-roan.vercel.app
         run: |
           nohup npm run dev -- --host 0.0.0.0 --port 8080 </dev/null >/tmp/aqar-vite.log 2>&1 &
@@ -45,23 +46,31 @@ jobs:
           cat > /tmp/capture.mjs <<'EOF'
           import { chromium } from 'playwright';
           const browser = await chromium.launch({ headless: true });
-          const page = await browser.newPage({
-            viewport: { width: 390, height: 844 },
-            deviceScaleFactor: 1,
-            isMobile: true,
-            hasTouch: true,
-            locale: 'ar-SA',
-            timezoneId: 'Asia/Riyadh',
-          });
-          page.on('pageerror', e => console.log('PAGE_ERROR:', e.message));
-          page.on('console', m => { if (m.type() === 'error') console.log('CONSOLE_ERROR:', m.text()); });
-          await page.goto('http://127.0.0.1:8080/home', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(e => console.log('NAVIGATION:', e.message));
-          await page.waitForTimeout(12000);
-          await page.screenshot({ path: 'aqar-homepage-viewport.png' });
-          await page.screenshot({ path: 'aqar-homepage-full.png', fullPage: true });
-          console.log('PAGE_TITLE:', await page.title());
-          console.log('FINAL_URL:', page.url());
-          console.log('VISIBLE_TEXT:', (await page.locator('body').innerText().catch(() => '')).slice(0, 2000));
+          const variants = [
+            { id: 'preview-muzahmiyah', slug: 'muzahmiyah' },
+            { id: 'preview-dharma', slug: 'dharma' },
+          ];
+          for (const variant of variants) {
+            const context = await browser.newContext({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 1,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'ar-SA',
+              timezoneId: 'Asia/Riyadh',
+            });
+            await context.addInitScript((id) => localStorage.setItem('ofoq-governorate', id), variant.id);
+            const page = await context.newPage();
+            page.on('pageerror', e => console.log('PAGE_ERROR:', e.message));
+            page.on('console', m => { if (m.type() === 'error') console.log('CONSOLE_ERROR:', m.text()); });
+            await page.goto('http://127.0.0.1:8080/home', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(e => console.log('NAVIGATION:', e.message));
+            await page.waitForTimeout(8000);
+            await page.screenshot({ path: `aqar-homepage-${variant.slug}.png` });
+            await page.screenshot({ path: `aqar-homepage-${variant.slug}-full.png`, fullPage: true });
+            console.log('VARIANT:', variant.slug, 'TITLE:', await page.title(), 'URL:', page.url());
+            console.log('VISIBLE_TEXT:', (await page.locator('body').innerText().catch(() => '')).slice(0, 1600));
+            await context.close();
+          }
           await browser.close();
           EOF
           node /tmp/capture.mjs
@@ -70,7 +79,9 @@ jobs:
         with:
           name: aqar-homepage-screenshots
           path: |
-            aqar-homepage-viewport.png
-            aqar-homepage-full.png
+            aqar-homepage-muzahmiyah.png
+            aqar-homepage-muzahmiyah-full.png
+            aqar-homepage-dharma.png
+            aqar-homepage-dharma-full.png
           if-no-files-found: error
           retention-days: 2
