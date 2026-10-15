@@ -10,7 +10,7 @@ import { PropertyCard, PropertyCardSkeleton } from "@/components/PropertyCard";
 import { OfficeCard, type OfficeCardData } from "@/components/OfficeCard";
 import { EmptyState } from "@/components/EmptyState";
 import { GovernorateBanner } from "@/components/GovernorateBanner";
-import { QUICK_KINDS, LISTING_TYPES } from "@/lib/constants";
+import { LISTING_TYPES, PROPERTY_KINDS } from "@/lib/constants";
 import { useSelectedGovernorate } from "@/lib/governorate";
 import { useFavorites, usePropertyList } from "@/lib/properties";
 import { cn } from "@/lib/utils";
@@ -145,55 +145,68 @@ function HomePage() {
           />
         </section>
 
-        <section>
-          <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
-            <Chip active={!kind} onClick={() => setKind(null)} label="الكل" />
-            {QUICK_KINDS.map((k) => (
-              <Chip
-                key={k.value}
-                active={kind === k.value}
-                onClick={() => setKind(k.value)}
-                label={k.plural}
-              />
-            ))}
-          </div>
-          <div className="mt-2.5 flex gap-2">
-            <Chip active={!listing} onClick={() => setListing(null)} label="الكل" small />
-            {LISTING_TYPES.map((l) => (
-              <Chip
-                key={l.value}
-                active={listing === l.value}
-                onClick={() => setListing(l.value)}
-                label={l.label}
-                small
-              />
-            ))}
-          </div>
-        </section>
-
         <section className="space-y-3">
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline justify-between gap-2">
             <h2 className="font-display text-lg font-extrabold">
               عقارات {governorate?.name_ar ?? ""}
             </h2>
-            <Link to="/search" className="text-xs text-terracotta">
+            <Link to="/properties" className="shrink-0 text-xs text-terracotta">
+              عرض الكل
+            </Link>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {LISTING_TYPES.map((l) => (
+              <button
+                key={l.value}
+                onClick={() => setListing((current) => current === l.value ? null : l.value)}
+                className={
+                  "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 " +
+                  (listing === l.value
+                    ? "bg-forest text-background ring-forest"
+                    : "bg-surface ring-line")
+                }
+              >
+                {l.label}
+              </button>
+            ))}
+            {PROPERTY_KINDS.map((k) => (
+              <button
+                key={k.value}
+                onClick={() => setKind((current) => current === k.value ? null : k.value)}
+                className={
+                  "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 " +
+                  (kind === k.value
+                    ? "bg-forest text-background ring-forest"
+                    : "bg-surface ring-line")
+                }
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">{properties?.length ?? 0} عقار</span>
+            <Link to="/search" className="shrink-0 text-xs font-semibold text-terracotta">
               بحث متقدم
             </Link>
           </div>
 
           {isLoading ? (
-            <div className="space-y-3">
-              <PropertyCardSkeleton />
-              <PropertyCardSkeleton />
+            <div className="grid grid-cols-2 gap-3">
+              <PropertyCardSkeleton compact />
+              <PropertyCardSkeleton compact />
             </div>
           ) : properties?.length ? (
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               {properties.map((p) => (
                 <PropertyCard
                   key={p.id}
                   property={p}
                   isFavorite={favoriteIds.has(p.id)}
                   onToggleFavorite={toggleFavorite}
+                  compact
                 />
               ))}
             </div>
