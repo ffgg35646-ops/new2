@@ -1,14 +1,15 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SearchX, SlidersHorizontal, X } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { PropertyCard, PropertyCardSkeleton } from "@/components/PropertyCard";
+import { PropertyPagination } from "@/components/PropertyPagination";
 import { EmptyState } from "@/components/EmptyState";
 import { LISTING_TYPES, PROPERTY_KINDS } from "@/lib/constants";
 import { useNeighborhoods, useSelectedGovernorate } from "@/lib/governorate";
-import { useFavorites, usePropertyList } from "@/lib/properties";
+import { useFavorites, usePaginatedPropertyList } from "@/lib/properties";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/search")({
@@ -45,6 +46,11 @@ function SearchPage() {
   const [minArea, setMinArea] = useState("");
   const [maxArea, setMaxArea] = useState("");
   const [sort, setSort] = useState<"newest" | "price_asc" | "price_desc" | "area_desc">("newest");
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [governorateId, term, kind, listing, neighborhood, minPrice, maxPrice, minArea, maxArea, sort]);
 
   const hasActiveFilters =
     !!term ||
@@ -69,7 +75,7 @@ function SearchPage() {
     setSort("newest");
   }
 
-  const { data: results, isLoading } = usePropertyList({
+  const { data: resultPage, isLoading } = usePaginatedPropertyList({
     governorateId,
     kind,
     listing,
@@ -80,7 +86,8 @@ function SearchPage() {
     minArea: minArea ? Number(minArea) : null,
     maxArea: maxArea ? Number(maxArea) : null,
     sort,
-  });
+  }, page, 10);
+  const results = resultPage?.items ?? [];
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
@@ -175,7 +182,7 @@ function SearchPage() {
         )}
 
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{results?.length ?? 0} نتيجة</span>
+          <span className="text-xs text-muted-foreground">{resultPage?.totalCount ?? 0} نتيجة</span>
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
@@ -191,17 +198,24 @@ function SearchPage() {
             <PropertyCardSkeleton />
             <PropertyCardSkeleton />
           </div>
-        ) : results?.length ? (
-          <div className="space-y-3">
-            {results.map((p) => (
-              <PropertyCard
-                key={p.id}
-                property={p}
-                isFavorite={favoriteIds.has(p.id)}
-                onToggleFavorite={toggleFavorite}
-              />
-            ))}
-          </div>
+        ) : results.length ? (
+          <>
+            <div className="space-y-3">
+              {results.map((p) => (
+                <PropertyCard
+                  key={p.id}
+                  property={p}
+                  isFavorite={favoriteIds.has(p.id)}
+                  onToggleFavorite={toggleFavorite}
+                />
+              ))}
+            </div>
+            <PropertyPagination
+              page={page}
+              pageCount={resultPage?.totalPages ?? 0}
+              onPageChange={setPage}
+            />
+          </>
         ) : (
           <EmptyState
             icon={SearchX}
