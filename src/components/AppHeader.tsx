@@ -17,8 +17,10 @@ import {
 
 export function AppHeader({
   showSearch = true,
+  seamless = false,
 }: {
   showSearch?: boolean;
+  seamless?: boolean;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -127,7 +129,13 @@ export function AppHeader({
   }, [userId, qc]);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-background/95 backdrop-blur-sm">
+    <header
+      className={
+        seamless
+          ? "sticky top-0 z-30 bg-background/95 backdrop-blur-sm"
+          : "sticky top-0 z-30 border-b border-line bg-background/95 backdrop-blur-sm"
+      }
+    >
       <div className="flex items-center gap-2 px-4 app-safe-top-padding pb-2">
         <Link
           to={homeForRoles(roles)}

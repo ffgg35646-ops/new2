@@ -128,12 +128,11 @@ function HomePage() {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
-      <AppHeader />
+      <AppHeader seamless />
+      <GovernorateBanner governorate={governorate} />
 
-      <main className="flex-1 space-y-6 overflow-x-clip px-4 py-4">
-        <GovernorateBanner governorate={governorate} />
-
-        <section className="grid grid-cols-3 gap-2.5">
+      <main className="flex-1 space-y-5 overflow-x-clip px-4 pb-4 pt-0">
+        <section className="-mt-2 grid grid-cols-3 divide-x divide-x-reverse divide-line">
           <StatCard
             icon={Building2}
             label="مكاتب"
@@ -269,12 +268,10 @@ function StatCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl bg-surface px-2.5 py-3 text-center ring-1 ring-line">
-      <div className="mx-auto grid size-8 place-items-center rounded-xl bg-forest-soft text-forest">
-        <Icon className="size-4" />
-      </div>
-      <div className="mt-1.5 font-display text-base font-extrabold">{value}</div>
-      <div className="text-[10px] text-muted-foreground">{label}</div>
+    <div className="px-1 py-2 text-center">
+      <Icon className="mx-auto mb-1 size-5 text-forest" />
+      <div className="font-display text-base font-extrabold">{value}</div>
+      <div className="mt-0.5 text-[10px] text-muted-foreground">{label}</div>
     </div>
   );
 }

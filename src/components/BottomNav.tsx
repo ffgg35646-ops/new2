@@ -19,9 +19,9 @@ type Item = { to: string; label: string; icon: LucideIcon; primary?: boolean };
 
 const individualItems: Item[] = [
   { to: "/home", label: "الرئيسية", icon: Home },
+  { to: "/chats", label: "الدردشة", icon: MessageSquare },
   { to: "/request", label: "اطلب", icon: PlusCircle, primary: true },
   { to: "/requests", label: "طلباتي", icon: ClipboardList },
-  { to: "/chats", label: "الدردشة", icon: MessageSquare },
   { to: "/account", label: "حسابي", icon: User },
 ];
 
