@@ -111,7 +111,7 @@ function SearchPage() {
         </div>
 
         {showFilters && (
-          <div className="space-y-3 rounded-3xl bg-surface p-4 ring-1 ring-line">
+          <div className="space-y-3 rounded-2xl bg-surface p-3 ring-1 ring-line">
             <Group label="نوع العقار">
               <Pill active={!kind} onClick={() => setKind(null)} label="الكل" />
               {PROPERTY_KINDS.map((k) => (
@@ -194,19 +194,20 @@ function SearchPage() {
         </div>
 
         {isLoading ? (
-          <div className="space-y-3">
-            <PropertyCardSkeleton />
-            <PropertyCardSkeleton />
+          <div className="grid grid-cols-2 gap-3">
+            <PropertyCardSkeleton compact />
+            <PropertyCardSkeleton compact />
           </div>
         ) : results.length ? (
           <>
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               {results.map((p) => (
                 <PropertyCard
                   key={p.id}
                   property={p}
                   isFavorite={favoriteIds.has(p.id)}
                   onToggleFavorite={toggleFavorite}
+                  compact
                 />
               ))}
             </div>
@@ -243,8 +244,10 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
     <button
       onClick={onClick}
       className={cn(
-        "rounded-full px-3 py-1.5 text-xs font-semibold transition",
-        active ? "bg-forest text-background" : "bg-sand text-muted-foreground",
+        "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 transition",
+        active
+          ? "bg-forest text-background ring-forest"
+          : "bg-surface text-foreground ring-line",
       )}
     >
       {label}
