@@ -4,8 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   BedDouble,
-  Bath,
-  CalendarDays,
   Compass,
   Flag,
   Heart,
@@ -13,7 +11,6 @@ import {
   MapPin,
   Maximize,
   MessageCircle,
-  Ruler,
   Send,
   Share2,
   ShieldCheck,
@@ -54,7 +51,7 @@ export const Route = createFileRoute("/properties/$propertyId")({
       { title: "تفاصيل العقار | عقار البطين" },
       {
         name: "description",
-        content: "صور ومواصفات العقار وبيانات المكتب العقاري وحجز موعد معاينة.",
+        content: "صور ومواصفات العقار وبيانات المكتب العقاري وطرق التواصل.",
       },
       { property: "og:title", content: "تفاصيل العقار | عقار البطين" },
       { property: "og:description", content: "كل تفاصيل العرض في صفحة واحدة." },
@@ -77,7 +74,6 @@ function PropertyDetail() {
   const { favoriteIds, toggleFavorite } = useFavorites();
   const [inquiryType, setInquiryType] = useState<string>(INQUIRY_TYPES[0].value);
   const [inquiryMessage, setInquiryMessage] = useState("");
-  const [inquiryPhone, setInquiryPhone] = useState("");
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
@@ -226,63 +222,11 @@ function PropertyDetail() {
     }
   }, [data?.id, userId, isOffice, qc, propertyId]);
 
-  const book = useMutation({
-    mutationFn: async () => {
-      if (!userId) throw new Error("سجّل الدخول لطلب معاينة");
-
-      const sessionName =
-        typeof session?.user?.user_metadata?.full_name === "string"
-          ? session.user.user_metadata.full_name.trim()
-          : "";
-      const profileName = profile?.full_name?.trim() || "";
-      const contactName =
-        [profileName, sessionName].find(
-          (name) => !!name && !["عميل", "العميل"].includes(name),
-        ) || "عميل";
-
-      const { data: row, error } = await supabase
-        .from("property_inquiries")
-        .insert({
-          property_id: data!.id,
-          office_id: data!.office_id,
-          user_id: userId,
-          type: "viewing",
-          contact_name: contactName,
-          contact_phone: profile?.phone?.trim() || "",
-          message: "أرغب بمعاينة العقار، يرجى التواصل معي لتحديد الموعد.",
-          status: "new",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-
-      if (row) {
-        notifyWhatsApp("inquiry_created", row.id);
-        const { error: notifyError } = await supabase.rpc(
-          "notify_new_property_inquiry" as never,
-          { _inquiry_id: row.id } as never,
-        );
-        if (notifyError) {
-          console.warn("[property-detail] viewing inquiry notification failed", notifyError);
-        }
-      }
-    },
-    onSuccess: () => {
-      toast.success("تم إرسال طلب المعاينة للمكتب، وسيتم تنسيق الموعد عبر الدردشة");
-      void qc.invalidateQueries({ queryKey: ["office-inquiries"] });
-      void qc.invalidateQueries({ queryKey: ["office-inquiries-tab-count"] });
-      void qc.invalidateQueries({ queryKey: ["new-inquiries-count"] });
-      void qc.invalidateQueries({ queryKey: ["office-bottom-nav-request-count"] });
-      void qc.invalidateQueries({ queryKey: ["unread-notifications"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر إرسال طلب المعاينة"),
-  });
-
   const inquire = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("سجّل الدخول لإرسال الطلب");
-      const phone = (inquiryPhone || profile?.phone || "").trim();
-      if (!phone) throw new Error("أضف رقم جوال للتواصل");
+      const phone = (profile?.phone || "").trim();
+      if (!phone) throw new Error("أضف رقم الجوال إلى ملفك الشخصي قبل إرسال الطلب");
       const { data: row, error } = await supabase
         .from("property_inquiries")
         .insert({
@@ -318,7 +262,6 @@ function PropertyDetail() {
     onSuccess: () => {
       toast.success("تم قبول طلبك تلقائيًا، ويمكنك التواصل مع المكتب عبر الدردشة");
       setInquiryMessage("");
-      setInquiryPhone("");
       qc.invalidateQueries({ queryKey: ["office-inquiries"] });
       qc.invalidateQueries({ queryKey: ["new-inquiries-count"] });
     },
@@ -481,12 +424,6 @@ function PropertyDetail() {
           {["villa", "apartment"].includes(data.kind) && data.rooms != null && (
             <Spec icon={BedDouble} label="الغرف" value={String(data.rooms)} />
           )}
-          {["villa", "apartment"].includes(data.kind) && data.bathrooms != null && (
-            <Spec icon={Bath} label="دورات المياه" value={String(data.bathrooms)} />
-          )}
-          {data.street_width != null && (
-            <Spec icon={Ruler} label="عرض الشارع" value={`${data.street_width} م`} />
-          )}
         </div>
 
         {!isOffice && (
@@ -544,21 +481,6 @@ function PropertyDetail() {
             )}
             <span className="text-sm font-bold">الدردشة</span>
           </button>
-        )}
-
-        {data.video_url && (
-          <section className="space-y-2">
-            <h2 className="font-display text-base font-bold">فيديو العقار</h2>
-            <div className="overflow-hidden rounded-3xl bg-black ring-1 ring-line">
-              <video
-                src={data.video_url}
-                controls
-                playsInline
-                preload="metadata"
-                className="aspect-video w-full"
-              />
-            </div>
-          </section>
         )}
 
         {data.description && (
@@ -638,12 +560,6 @@ function PropertyDetail() {
               </button>
             ))}
           </div>
-          <input
-            value={inquiryPhone || profile?.phone || ""}
-            onChange={(e) => setInquiryPhone(e.target.value)}
-            placeholder="رقم الجوال للتواصل"
-            className="w-full rounded-2xl bg-sand px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-forest"
-          />
           <textarea
             rows={3}
             value={inquiryMessage}
@@ -657,24 +573,6 @@ function PropertyDetail() {
             className="w-full rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
           >
             إرسال الطلب
-          </button>
-        </section>
-
-        <section className="space-y-2.5 rounded-3xl bg-surface p-4 ring-1 ring-line">
-          <h2 className="flex items-center gap-2 font-display text-base font-bold">
-            <CalendarDays className="size-4 text-terracotta" /> حجز معاينة
-          </h2>
-          
-          <p className="text-xs leading-6 text-muted-foreground">
-            أرسل طلب المعاينة، وسيتم الاتفاق على التاريخ والوقت مع المكتب عبر الدردشة.
-          </p>
-          
-          <button
-            onClick={() => book.mutate()}
-            disabled={book.isPending}
-            className="w-full rounded-2xl bg-forest py-3.5 font-display font-bold text-background disabled:opacity-60"
-          >
-            {book.isPending ? <Loader2 className="mx-auto size-4 animate-spin" /> : "إرسال طلب المعاينة"}
           </button>
         </section>
 
