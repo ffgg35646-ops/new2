@@ -27,16 +27,18 @@ jobs:
           MONGODB_DB_NAME: aqar_albatin
           VITE_PUBLIC_APP_URL: https://new2-five-roan.vercel.app
         run: |
-          npm run dev -- --host 127.0.0.1 > /tmp/aqar-vite.log 2>&1 &
+          nohup npm run dev -- --host 0.0.0.0 --port 5173 </dev/null >/tmp/aqar-vite.log 2>&1 &
           echo $! > /tmp/aqar-vite.pid
-          for i in $(seq 1 45); do
-            if timeout 2 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/5173' 2>/dev/null; then
+          code=000
+          for i in $(seq 1 60); do
+            code=$(curl --connect-timeout 1 --max-time 3 -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:5173/ || true)
+            if [ -n "$code" ] && [ "$code" != "000" ]; then
               break
             fi
             sleep 1
           done
-          cat /tmp/aqar-vite.log
-          timeout 2 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/5173' 2>/dev/null
+          tail -n 80 /tmp/aqar-vite.log
+          test -n "$code" && test "$code" != "000"
       - name: Capture mobile rendering
         run: |
           npm install --no-save --no-audit --no-fund playwright@1.56.1
