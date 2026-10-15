@@ -103,16 +103,36 @@ function OfficeProperties() {
     queryKey: ["office-my-properties", userId, officeId],
     enabled: !!userId && !!officeId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("properties")
-        .select(
-          "id,property_number,title,price,area,kind,listing,state,neighborhood,cover_url,is_published,is_featured,views_count,created_at,images_count,rent_period,governorates(name_ar),property_inquiries(id)",
-        )
-        .eq("office_id", officeId!)
-        .eq("is_deleted", false)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      const [propertiesResult, inquiriesResult] = await Promise.all([
+        supabase
+          .from("properties")
+          .select(
+            "id,property_number,title,price,area,kind,listing,state,neighborhood,cover_url,is_published,is_featured,created_at,images_count,rent_period,governorates(name_ar)",
+          )
+          .eq("office_id", officeId!)
+          .eq("is_deleted", false)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("property_inquiries")
+          .select("id,property_id")
+          .eq("office_id", officeId!),
+      ]);
+      if (propertiesResult.error) throw propertiesResult.error;
+      if (inquiriesResult.error) throw inquiriesResult.error;
+
+      const offersByProperty = new Map<string, number>();
+      for (const inquiry of inquiriesResult.data ?? []) {
+        if (!inquiry.property_id) continue;
+        offersByProperty.set(
+          inquiry.property_id,
+          (offersByProperty.get(inquiry.property_id) ?? 0) + 1,
+        );
+      }
+
+      return (propertiesResult.data ?? []).map((property) => ({
+        ...property,
+        offers_count: offersByProperty.get(property.id) ?? 0,
+      }));
     },
   });
 
@@ -432,7 +452,7 @@ function OfficeProperties() {
                         <MessageSquare aria-hidden="true" />
                         <span className="mp-stat-text">
                           <small>العروض</small>
-                          <b>{p.property_inquiries?.length ?? 0}</b>
+                          <b>{p.offers_count ?? 0}</b>
                         </span>
                       </div>
                     </div>
