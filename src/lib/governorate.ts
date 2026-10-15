@@ -13,8 +13,26 @@ export type Governorate = {
 const STORAGE_KEY = "ofoq-governorate";
 
 export function useGovernorates() {
+  const visualPreview = import.meta.env.VITE_VISUAL_PREVIEW === "true";
+  const previewGovernorates: Governorate[] = [
+    {
+      id: "preview-muzahmiyah",
+      name_ar: "المزاحمية",
+      code: "muzahmiyah",
+      banner_url: "/5943001103257505505.jpg",
+    },
+    {
+      id: "preview-dharma",
+      name_ar: "ضرما",
+      code: "dharma",
+      banner_url: "/5943001103257505506.jpg",
+    },
+  ];
+
   return useQuery({
     queryKey: ["governorates"],
+    enabled: !visualPreview,
+    initialData: visualPreview ? previewGovernorates : undefined,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("governorates")
@@ -24,8 +42,8 @@ export function useGovernorates() {
       if (error) throw error;
       return (data ?? []) as Governorate[];
     },
-    staleTime: 10 * 60_000,
-    refetchOnMount: true,
+    staleTime: visualPreview ? Infinity : 10 * 60_000,
+    refetchOnMount: !visualPreview,
     retry: 2,
   });
 }

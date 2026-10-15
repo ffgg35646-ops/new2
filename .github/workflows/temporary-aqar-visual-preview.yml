@@ -1,0 +1,87 @@
+name: Temporary Aqar Visual Preview
+on:
+  push:
+    branches:
+      - "preview/aqar-homepage-visual-run-20261015"
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install app dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        run: npx --yes playwright@1.56.1 install --with-deps chromium
+      - name: Start the actual app code
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_DB_NAME: aqar_albatin
+          VITE_VISUAL_PREVIEW: "true"
+          VITE_PUBLIC_APP_URL: https://new2-five-roan.vercel.app
+        run: |
+          nohup npm run dev -- --host 0.0.0.0 --port 8080 </dev/null >/tmp/aqar-vite.log 2>&1 &
+          echo $! > /tmp/aqar-vite.pid
+          code=000
+          for i in $(seq 1 60); do
+            code=$(curl --connect-timeout 1 --max-time 3 -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
+            if [ -n "$code" ] && [ "$code" != "000" ]; then
+              break
+            fi
+            sleep 1
+          done
+          tail -n 80 /tmp/aqar-vite.log
+          test -n "$code" && test "$code" != "000"
+      - name: Capture mobile rendering
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.56.1
+          cat > /tmp/capture.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({ headless: true });
+          const variants = [
+            { id: 'preview-muzahmiyah', slug: 'muzahmiyah' },
+            { id: 'preview-dharma', slug: 'dharma' },
+          ];
+          for (const variant of variants) {
+            const context = await browser.newContext({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 1,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'ar-SA',
+              timezoneId: 'Asia/Riyadh',
+            });
+            await context.addInitScript((id) => localStorage.setItem('ofoq-governorate', id), variant.id);
+            const page = await context.newPage();
+            page.on('pageerror', e => console.log('PAGE_ERROR:', e.message));
+            page.on('console', m => { if (m.type() === 'error') console.log('CONSOLE_ERROR:', m.text()); });
+            await page.goto('http://127.0.0.1:8080/home', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(e => console.log('NAVIGATION:', e.message));
+            await page.waitForTimeout(8000);
+            await page.screenshot({ path: `aqar-homepage-${variant.slug}.png` });
+            await page.screenshot({ path: `aqar-homepage-${variant.slug}-full.png`, fullPage: true });
+            console.log('VARIANT:', variant.slug, 'TITLE:', await page.title(), 'URL:', page.url());
+            console.log('VISIBLE_TEXT:', (await page.locator('body').innerText().catch(() => '')).slice(0, 1600));
+            await context.close();
+          }
+          await browser.close();
+          EOF
+          node /tmp/capture.mjs
+      - name: Upload actual screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqar-homepage-screenshots
+          path: |
+            aqar-homepage-muzahmiyah.png
+            aqar-homepage-muzahmiyah-full.png
+            aqar-homepage-dharma.png
+            aqar-homepage-dharma-full.png
+          if-no-files-found: error
+          retention-days: 2
