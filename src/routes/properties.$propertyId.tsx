@@ -225,8 +225,6 @@ function PropertyDetail() {
   const inquire = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("سجّل الدخول لإرسال الطلب");
-      const phone = (profile?.phone || "").trim();
-      if (!phone) throw new Error("أضف رقم الجوال إلى ملفك الشخصي قبل إرسال الطلب");
       const { data: row, error } = await supabase
         .from("property_inquiries")
         .insert({
@@ -235,7 +233,7 @@ function PropertyDetail() {
           user_id: userId,
           type: inquiryType,
           contact_name: profile?.full_name || "عميل",
-          contact_phone: phone,
+          contact_phone: profile?.phone?.trim() || "",
           message: inquiryMessage.trim() || null,
           status: "new",
         })
