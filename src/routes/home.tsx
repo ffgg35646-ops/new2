@@ -1,18 +1,19 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Home as HomeIcon, ChevronLeft, Building2, House, KeyRound } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { PropertyCard, PropertyCardSkeleton } from "@/components/PropertyCard";
+import { PropertyPagination } from "@/components/PropertyPagination";
 import { OfficeCard, type OfficeCardData } from "@/components/OfficeCard";
 import { EmptyState } from "@/components/EmptyState";
 import { GovernorateBanner } from "@/components/GovernorateBanner";
 import { LISTING_TYPES, PROPERTY_KINDS } from "@/lib/constants";
 import { useSelectedGovernorate } from "@/lib/governorate";
-import { useFavorites, usePropertyList } from "@/lib/properties";
+import { useFavorites, usePaginatedPropertyList } from "@/lib/properties";
 import { parseDateValue } from "@/lib/format";
 
 export const Route = createFileRoute("/home")({
@@ -38,13 +39,19 @@ function HomePage() {
   const { governorateId, governorate } = useSelectedGovernorate();
   const [kind, setKind] = useState<string | null>(null);
   const [listing, setListing] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const { favoriteIds, toggleFavorite } = useFavorites();
 
-  const { data: properties, isLoading } = usePropertyList({
+  useEffect(() => {
+    setPage(1);
+  }, [governorateId, kind, listing]);
+
+  const { data: propertyPage, isLoading } = usePaginatedPropertyList({
     governorateId,
     kind,
     listing,
-  }, 60);
+  }, page, 10);
+  const properties = propertyPage?.items ?? [];
 
   const { data: offices } = useQuery({
     queryKey: ["home-offices", governorateId],
@@ -183,7 +190,7 @@ function HomePage() {
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">{properties?.length ?? 0} عقار</span>
+            <span className="text-xs text-muted-foreground">{propertyPage?.totalCount ?? 0} عقار</span>
             <Link to="/search" className="shrink-0 text-xs font-semibold text-terracotta">
               بحث متقدم
             </Link>
@@ -194,18 +201,25 @@ function HomePage() {
               <PropertyCardSkeleton compact />
               <PropertyCardSkeleton compact />
             </div>
-          ) : properties?.length ? (
-            <div className="grid grid-cols-2 gap-3">
-              {properties.map((p) => (
-                <PropertyCard
-                  key={p.id}
-                  property={p}
-                  isFavorite={favoriteIds.has(p.id)}
-                  onToggleFavorite={toggleFavorite}
-                  compact
-                />
-              ))}
-            </div>
+          ) : properties.length ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {properties.map((p) => (
+                  <PropertyCard
+                    key={p.id}
+                    property={p}
+                    isFavorite={favoriteIds.has(p.id)}
+                    onToggleFavorite={toggleFavorite}
+                    compact
+                  />
+                ))}
+              </div>
+              <PropertyPagination
+                page={page}
+                pageCount={propertyPage?.totalPages ?? 0}
+                onPageChange={setPage}
+              />
+            </>
           ) : (
             <EmptyState
               icon={HomeIcon}
