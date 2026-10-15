@@ -459,6 +459,26 @@ async function roleFor(userId: string) {
   return rows.some((row) => row.role === "office") ? "office" : "individual";
 }
 
+// Resolve the current office consistently for owners and active office staff.
+async function findOfficeForUser(userId: string) {
+  const offices = await getMongoCollection<Record<string, unknown>>("offices");
+  const ownedOffice = await offices.findOne({
+    owner_id: userId,
+    is_deleted: { $ne: true },
+  });
+  if (ownedOffice) return ownedOffice;
+
+  const staff = await (await getMongoCollection<Record<string, unknown>>("office_staff"))
+    .findOne({ user_id: userId, is_active: true });
+  const officeId = String(staff?.office_id ?? "");
+  if (!officeId) return null;
+
+  return offices.findOne({
+    id: officeId,
+    is_deleted: { $ne: true },
+  });
+}
+
 async function authorize(input: DbInput) {
   const userId = getSessionUserId();
 
@@ -612,14 +632,10 @@ async function enforceOfficePropertyLimit(
     throw new Error("فقط المكتب العقاري يمكنه إضافة العقارات.");
   }
 
-  const offices = await getMongoCollection<Record<string, unknown>>("offices");
-  const office = await offices.findOne({
-    owner_id: userId,
-    is_deleted: { $ne: true },
-  });
+  const office = await findOfficeForUser(userId);
   if (!office) throw new Error("office_not_found");
 
-  const officeId = String(office.id ?? "");
+  const officeId = String(office.id ?? office._id ?? "");
   if (!officeId) throw new Error("office_not_found");
   for (const doc of docs) doc.office_id = officeId;
 
@@ -763,16 +779,30 @@ async function runDb(input: DbInput) {
     if (input.operation === "update") {
       const payload = (input.payload ?? {}) as Record<string, unknown>;
       const forbidden = new Set([
-        "id", "_id", "office_id", "owner_id", "is_deleted", "is_featured", "created_at",
+        "id", "_id", "office_id", "owner_id", "created_at",
         "views_count", "favorites_count", "updated_at",
       ]);
       if (Object.keys(payload).some((key) => forbidden.has(key))) {
         throw new Error("تحتوي بيانات العقار على حقول محمية.");
       }
-      const ownOffice = await (await getMongoCollection<Record<string, unknown>>("offices"))
-        .findOne({ owner_id: userId, is_deleted: { $ne: true } });
+      if (
+        Object.prototype.hasOwnProperty.call(payload, "is_deleted") &&
+        payload.is_deleted !== true
+      ) {
+        throw new Error("عملية حذف العقار غير صالحة.");
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(payload, "is_featured") &&
+        typeof payload.is_featured !== "boolean"
+      ) {
+        throw new Error("حالة تمييز العقار غير صالحة.");
+      }
+      const ownOffice = await findOfficeForUser(userId);
       if (!ownOffice) throw new Error("office_not_found");
-      input.filters = [...(input.filters ?? []), { field: "office_id", op: "eq", value: String(ownOffice.id ?? "") }];
+      input.filters = [
+        ...(input.filters ?? []),
+        { field: "office_id", op: "eq", value: String(ownOffice.id ?? ownOffice._id ?? "") },
+      ];
     }
   }
 
@@ -946,17 +976,14 @@ async function runDb(input: DbInput) {
   }
 
   if (input.collection === "properties" && input.operation === "select" && role !== "admin") {
-    let ownOffice = null;
+    const ownOffice =
+      role === "office" && userId ? await findOfficeForUser(userId) : null;
+    const requestedOfficeId = String(
+      filters.find((filter) => filter.field === "office_id")?.value ?? "",
+    );
+    const ownOfficeId = String(ownOffice?.id ?? ownOffice?._id ?? "");
 
-    if (role === "office" && userId) {
-      ownOffice = await (await getMongoDb())
-        .collection("offices")
-        .findOne({ owner_id: userId, is_deleted: { $ne: true } });
-    }
-
-    const officeId = filters.find((filter) => filter.field === "office_id")?.value;
-
-    if (!ownOffice || officeId !== ownOffice.id) {
+    if (!ownOfficeId || requestedOfficeId !== ownOfficeId) {
       filters.push({ field: "is_published", op: "eq", value: true });
       filters.push({ field: "is_deleted", op: "neq", value: true });
     }
@@ -1365,11 +1392,10 @@ async function runDb(input: DbInput) {
     if (input.collection === "properties") {
       if (role !== "admin") {
         if (role !== "office" || !userId) throw new Error("تسجيل العقارات متاح للمكتب فقط.");
-        const ownOffice = await (await getMongoCollection<Record<string, unknown>>("offices"))
-          .findOne({ owner_id: userId, is_deleted: { $ne: true } });
+        const ownOffice = await findOfficeForUser(userId);
         if (!ownOffice) throw new Error("office_not_found");
         for (const doc of docs) {
-          doc.office_id = String(ownOffice.id ?? "");
+          doc.office_id = String(ownOffice.id ?? ownOffice._id ?? "");
           doc.is_featured = false;
           doc.is_deleted = false;
           doc.views_count = 0;
@@ -1923,18 +1949,14 @@ async function runDb(input: DbInput) {
         throw new Error("تعديل العقارات متاح للمكتب العقاري فقط.");
       }
 
-      const offices = await getMongoCollection<Record<string, unknown>>("offices");
-      const office = await offices.findOne({
-        owner_id: userId,
-        is_deleted: { $ne: true },
-      });
+      const office = await findOfficeForUser(userId);
       if (!office) throw new Error("office_not_found");
 
       const targetRows = await collection
         .find(mongoQuery)
         .project({ _id: 1, id: 1, office_id: 1, is_featured: 1, is_deleted: 1 })
         .toArray();
-      const officeId = String(office.id ?? "");
+      const officeId = String(office.id ?? office._id ?? "");
       if (targetRows.some((row) => String(row.office_id ?? "") !== officeId)) {
         throw new Error("لا يمكنك تعديل عقار تابع لمكتب آخر.");
       }
