@@ -71,20 +71,18 @@ export const Route = createFileRoute("/office/properties/")({
 
 type PropertiesTab = "all" | "sale" | "rent" | "paused";
 
-function timeAgo(value: string | null | undefined) {
-  if (!value) return "";
-  const timestamp = new Date(value).getTime();
+function timeAgo(iso: string | null | undefined) {
+  if (!iso) return "";
+  const timestamp = new Date(iso).getTime();
   if (!Number.isFinite(timestamp)) return "";
-  const days = Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000));
-  if (days === 0) return "اليوم";
-  if (days === 1) return "منذ يوم";
-  if (days < 7) return "منذ " + days + " أيام";
-  const weeks = Math.floor(days / 7);
-  if (weeks === 1) return "منذ أسبوع";
-  if (weeks < 5) return "منذ " + weeks + " أسابيع";
-  const months = Math.floor(days / 30);
-  if (months <= 1) return "منذ شهر";
-  return "منذ " + months + " أشهر";
+  const days = Math.floor((Date.now() - timestamp) / 86400000);
+  if (days <= 0) return "اليوم";
+  if (days === 1) return "قبل يوم";
+  if (days === 2) return "قبل يومين";
+  if (days <= 10) return "قبل " + days + " أيام";
+  if (days < 14) return "قبل أسبوع";
+  if (days < 21) return "قبل أسبوعين";
+  return "قبل " + Math.floor(days / 7) + " أسابيع";
 }
 
 function OfficeProperties() {
@@ -113,6 +111,8 @@ function OfficeProperties() {
   const [searchText, setSearchText] = useState("");
   const [activeTab, setActiveTab] = useState<PropertiesTab>("all");
   const [newestFirst, setNewestFirst] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [featuredOnly, setFeaturedOnly] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["office-my-properties", userId, officeId],
@@ -179,7 +179,7 @@ function OfficeProperties() {
         (activeTab === "rent" && property.listing === "rent") ||
         (activeTab === "paused" && !property.is_published);
 
-      return matchesSearch && matchesTab;
+      return matchesSearch && matchesTab && (!featuredOnly || property.is_featured);
     })
     .sort((a, b) => {
       const aTime = new Date(a.created_at ?? 0).getTime() || 0;
