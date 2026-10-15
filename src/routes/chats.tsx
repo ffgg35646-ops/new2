@@ -251,7 +251,7 @@ function ChatsPage() {
   return (
     <div
       className={
-        "mx-auto flex min-h-screen w-full flex-col overflow-hidden bg-background " +
+        "mx-auto flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-background " +
         (isAdmin ? "max-w-6xl" : "max-w-md")
       }
     >
@@ -570,7 +570,7 @@ function ChatsPage() {
           </section>
         )}
       </main>
-      {!isAdmin && !activeId && <BottomNav variant="individual" />}
+      {!isAdmin && <BottomNav variant="individual" />}
     </div>
   );
 }
