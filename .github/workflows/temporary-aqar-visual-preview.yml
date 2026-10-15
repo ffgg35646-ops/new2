@@ -1,0 +1,72 @@
+name: Temporary Aqar Visual Preview
+on:
+  push:
+    branches:
+      - "preview/aqar-homepage-visual-run-20261015"
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install app dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        run: npx --yes playwright@1.56.1 install --with-deps chromium
+      - name: Start the actual app code
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_DB_NAME: aqar_albatin
+          VITE_PUBLIC_APP_URL: https://new2-five-roan.vercel.app
+        run: |
+          npm run dev -- --host 127.0.0.1 > /tmp/aqar-vite.log 2>&1 &
+          echo $! > /tmp/aqar-vite.pid
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5173/home -o /dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          cat /tmp/aqar-vite.log
+          curl -fsS http://127.0.0.1:5173/home -o /dev/null
+      - name: Capture mobile rendering
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.56.1
+          cat > /tmp/capture.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({
+            viewport: { width: 390, height: 844 },
+            deviceScaleFactor: 1,
+            isMobile: true,
+            hasTouch: true,
+            locale: 'ar-SA',
+            timezoneId: 'Asia/Riyadh',
+          });
+          page.on('pageerror', e => console.log('PAGE_ERROR:', e.message));
+          page.on('console', m => { if (m.type() === 'error') console.log('CONSOLE_ERROR:', m.text()); });
+          await page.goto('http://127.0.0.1:5173/home', { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(e => console.log('NAVIGATION:', e.message));
+          await page.waitForTimeout(12000);
+          await page.screenshot({ path: 'aqar-homepage-viewport.png' });
+          await page.screenshot({ path: 'aqar-homepage-full.png', fullPage: true });
+          console.log('PAGE_TITLE:', await page.title());
+          console.log('FINAL_URL:', page.url());
+          console.log('VISIBLE_TEXT:', (await page.locator('body').innerText().catch(() => '')).slice(0, 2000));
+          await browser.close();
+          EOF
+          node /tmp/capture.mjs
+      - name: Upload actual screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqar-homepage-screenshots
+          path: |
+            aqar-homepage-viewport.png
+            aqar-homepage-full.png
+          if-no-files-found: error
+          retention-days: 2
