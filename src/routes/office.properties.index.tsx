@@ -87,7 +87,7 @@ function timeAgo(iso: string | null | undefined) {
 
 function OfficeProperties() {
   const { userId } = useAuth();
-  const { data: membership } = useMyOffice();
+  const { data: membership, isLoading: officeLoading, error: officeError } = useMyOffice();
   const qc = useQueryClient();
   const { featuredLimit } = useMyPlan();
   const officeId = membership?.office?.id ?? null;
@@ -118,8 +118,6 @@ function OfficeProperties() {
     queryKey: ["office-my-properties", userId, officeId],
     enabled: !!userId && !!officeId,
     queryFn: async () => {
-      // The property list is the primary data. Do not let inquiry-count permissions
-      // (for example, an office staff account) prevent the properties from loading.
       const propertiesResult = await supabase
         .from("properties")
         .select(
@@ -130,35 +128,40 @@ function OfficeProperties() {
         .neq("is_deleted", true)
         .order("created_at", { ascending: false });
       if (propertiesResult.error) throw propertiesResult.error;
+      return propertiesResult.data ?? [];
+    },
+  });
 
-      let inquiryRows: Array<{ id: string; property_id: string | null }> = [];
+  // Inquiry counts are supplemental. Fetch them separately so they never delay or block the property list.
+  const { data: inquiryRows = [] } = useQuery({
+    queryKey: ["office-my-properties-inquiries", officeId],
+    enabled: !!officeId,
+    queryFn: async () => {
       try {
         const inquiriesResult = await supabase
           .from("property_inquiries")
           .select("id,property_id")
           .eq("office_id", officeId!);
-        if (!inquiriesResult.error) inquiryRows = inquiriesResult.data ?? [];
+        return inquiriesResult.error ? [] : inquiriesResult.data ?? [];
       } catch {
-        // Inquiries only decorate the cards; a permission/network error must not hide properties.
+        return [];
       }
-
-      const offersByProperty = new Map<string, number>();
-      for (const inquiry of inquiryRows) {
-        if (!inquiry.property_id) continue;
-        offersByProperty.set(
-          inquiry.property_id,
-          (offersByProperty.get(inquiry.property_id) ?? 0) + 1,
-        );
-      }
-
-      return (propertiesResult.data ?? []).map((property) => ({
-        ...property,
-        offers_count: offersByProperty.get(property.id) ?? 0,
-      }));
     },
   });
 
-  const properties = data ?? [];
+  const offersByProperty = new Map<string, number>();
+  for (const inquiry of inquiryRows) {
+    if (!inquiry.property_id) continue;
+    offersByProperty.set(
+      inquiry.property_id,
+      (offersByProperty.get(inquiry.property_id) ?? 0) + 1,
+    );
+  }
+
+  const properties = (data ?? []).map((property) => ({
+    ...property,
+    offers_count: offersByProperty.get(property.id) ?? 0,
+  }));
   const counts = {
     all: properties.length,
     sale: properties.filter((p) => p.listing === "sale").length,
@@ -349,8 +352,16 @@ function OfficeProperties() {
         )}
 
         <section className="list">
-          {isLoading ? (
+          {officeLoading || isLoading || (!!userId && membership === undefined && !officeError) ? (
             <ListSkeleton />
+          ) : officeError ? (
+            <p className="empty" role="alert">
+              تعذّر تحميل بيانات المكتب. أعد فتح الصفحة للمحاولة مرة أخرى.
+            </p>
+          ) : !officeId ? (
+            <p className="empty" role="alert">
+              لم يتم العثور على بيانات المكتب المرتبطة بهذا الحساب.
+            </p>
           ) : error ? (
             <p className="empty" role="alert">
               تعذّر تحميل العقارات حاليًا. أعد فتح الصفحة للمحاولة مرة أخرى.
