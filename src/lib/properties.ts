@@ -144,7 +144,6 @@ export function usePaginatedPropertyList(filters: PropertyFilters, page = 1, pag
         pageSize,
       };
     },
-    placeholderData: (previous) => previous,
   });
 }
 
