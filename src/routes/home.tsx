@@ -13,7 +13,6 @@ import { GovernorateBanner } from "@/components/GovernorateBanner";
 import { LISTING_TYPES, PROPERTY_KINDS } from "@/lib/constants";
 import { useSelectedGovernorate } from "@/lib/governorate";
 import { useFavorites, usePropertyList } from "@/lib/properties";
-import { cn } from "@/lib/utils";
 import { parseDateValue } from "@/lib/format";
 
 export const Route = createFileRoute("/home")({
@@ -269,29 +268,3 @@ function StatCard({
   );
 }
 
-function Chip({
-  label,
-  active,
-  onClick,
-  small,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  small?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "shrink-0 rounded-full border border-transparent px-4 font-semibold transition",
-        small ? "py-1.5 text-xs" : "py-2 text-sm",
-        active
-          ? "bg-forest text-background"
-          : "border-line bg-surface text-muted-foreground",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
