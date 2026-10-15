@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - "preview/aqar-homepage-visual-run-20261015"
+  pull_request:
+    branches: [main]
 permissions:
   contents: read
 jobs:
