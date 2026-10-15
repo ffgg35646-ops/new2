@@ -130,7 +130,7 @@ function HomePage() {
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
       <AppHeader />
 
-      <main className="flex-1 space-y-6 overflow-x-clip px-4 py-4">
+      <main className="flex-1 space-y-4 overflow-x-clip px-4 py-3">
         <GovernorateBanner governorate={governorate} />
 
         <section className="grid grid-cols-3 gap-2.5">
