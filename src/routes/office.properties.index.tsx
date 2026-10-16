@@ -468,7 +468,7 @@ function OfficeProperties() {
                 </div>
 
                 <div className="foot">
-                  <Link to="/properties/$propertyId" params={{ propertyId: p.id }} className="manage">
+                  <Link to="/office/properties/$propertyId/edit" params={{ propertyId: p.id }} className="manage">
                     <Icon name="edit" />إدارة العقار
                   </Link>
                   <span className="ago"><Icon name="clock" />{timeAgo(p.created_at)}</span>
