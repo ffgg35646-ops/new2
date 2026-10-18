@@ -1,4 +1,4 @@
-import { access, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -9,10 +9,10 @@ const files = [
     path: "ios/App/Podfile",
     patch(content) {
       const updated = content.replace(
-        /^platform :ios,\\s*['"][^'"]+['"]/m,
+        /^platform :ios,\s*['"][^'"]+['"]/m,
         "platform :ios, '15.0'",
       );
-      if (!/^platform :ios,\\s*['"]15\\.0['"]/m.test(updated)) {
+      if (!/^platform :ios,\s*['"]15\.0['"]/m.test(updated)) {
         throw new Error("Could not locate the iOS platform version in ios/App/Podfile.");
       }
       return updated;
@@ -37,7 +37,7 @@ let changed = 0;
 for (const file of files) {
   let original;
   try {
-    original = await (await import("node:fs/promises")).readFile(file.path, "utf8");
+    original = await readFile(file.path, "utf8");
   } catch {
     console.error("iOS native project is missing. Run: npm run cap:ios:add");
     process.exitCode = 1;
@@ -88,7 +88,7 @@ async function prepareAppIcon() {
         },
       ],
       info: { author: "xcode", version: 1 },
-    }, null, 2) + "\\n",
+    }, null, 2) + "\n",
     "utf8",
   );
 
