@@ -63,7 +63,7 @@ function OfficeDashboard() {
           .eq("is_deleted", false),
         supabase
           .from("viewing_bookings")
-          .select("id,visit_date,visit_time,status,properties(title)")
+          .select("id,visit_date,visit_time,status,properties(title,cover_url)")
           .eq("office_id", office!.id)
           .order("visit_date", { ascending: false })
           .limit(5),
@@ -277,22 +277,41 @@ function OfficeDashboard() {
           <h2 className="font-display text-lg font-extrabold">آخر حجوزات المعاينة</h2>
           {stats?.bookings.length ? (
             <div className="space-y-2.5">
-              {stats.bookings.map((b) => (
-                <div key={b.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
-                  <div className="flex items-center justify-between">
-                    <span className="truncate text-sm font-bold">
-                      {(b.properties as { title: string } | null)?.title}
-                    </span>
-                    <span className="shrink-0 rounded-full bg-forest-soft px-2 py-0.5 text-[10px] font-semibold text-forest">
-                      {BOOKING_STATUS[b.status]}
-                    </span>
+              {stats.bookings.map((b) => {
+                const property = b.properties as { title: string; cover_url: string | null } | null;
+                return (
+                  <div key={b.id} className="rounded-2xl bg-surface p-3.5 ring-1 ring-line">
+                    <div className="flex items-start gap-3">
+                      {property?.cover_url ? (
+                        <img
+                          src={property.cover_url}
+                          alt={property.title || "صورة العقار"}
+                          loading="lazy"
+                          className="size-16 shrink-0 rounded-xl object-cover"
+                        />
+                      ) : (
+                        <div className="grid size-16 shrink-0 place-items-center rounded-xl bg-sand px-1 text-center text-[10px] text-muted-foreground">
+                          لا توجد صورة
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="min-w-0 flex-1 text-sm font-bold">
+                            {property?.title || "عقار"}
+                          </span>
+                          <span className="shrink-0 rounded-full bg-forest-soft px-2 py-0.5 text-[10px] font-semibold text-forest">
+                            {BOOKING_STATUS[b.status] ?? "بانتظار الموافقة"}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                          <CalendarDays className="size-3.5 shrink-0" /> {formatDate(b.visit_date)} ·{" "}
+                          {String(b.visit_time).slice(0, 5)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                    <CalendarDays className="size-3.5" /> {formatDate(b.visit_date)} ·{" "}
-                    {String(b.visit_time).slice(0, 5)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">لا توجد حجوزات بعد.</p>
