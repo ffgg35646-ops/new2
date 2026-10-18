@@ -1,4 +1,5 @@
 import { RoleGuard } from "@/lib/role-guard";
+import { supabase } from "@/integrations/supabase/client";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
@@ -7,7 +8,9 @@ import {
   CalendarDays,
   ChevronLeft,
   Heart,
+  Loader2,
   LogOut,
+  Trash2,
   Moon,
   ShieldCheck,
   User,
@@ -44,6 +47,7 @@ function AccountPage() {
   const [dark, setDark] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const profileName =
     profile?.full_name ||
@@ -70,6 +74,26 @@ function AccountPage() {
     setDark(saved);
     document.documentElement.classList.toggle("dark", saved);
   }, []);
+
+  async function deleteAccount() {
+    const confirmed = window.confirm(
+      "هل أنت متأكد من حذف حسابك نهائيًا؟ سيُحذف الملف الشخصي والمحادثات والبيانات المرتبطة بالحساب. وإذا كنت صاحب مكتب، فسيتم حذف المكتب وعقاراته المنشورة أيضًا. ستُحتفظ فقط بسجلات المعاملات المالية التي يلزم الاحتفاظ بها للتدقيق."
+    );
+    if (!confirmed) return;
+
+    setDeletingAccount(true);
+    try {
+      const { error } = await supabase.rpc("delete_my_account");
+      if (error) throw error;
+      await signOut();
+      toast.success("تم حذف الحساب والبيانات المرتبطة به.");
+      await navigate({ to: "/", replace: true });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر حذف الحساب. حاول مجددًا.");
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
 
   function toggleTheme() {
     const next = !dark;
@@ -168,6 +192,18 @@ function AccountPage() {
                 {dark ? "مفعّل" : "معطّل"}
               </span>
             </button>
+
+            {!isAdmin && (
+              <button
+                type="button"
+                onClick={() => void deleteAccount()}
+                disabled={deletingAccount}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-surface py-3.5 text-sm font-bold text-destructive disabled:opacity-50"
+              >
+                {deletingAccount ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                {deletingAccount ? "جارٍ حذف الحساب..." : "حذف الحساب نهائيًا"}
+              </button>
+            )}
 
             <button
               onClick={async () => {
