@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
-  BedDouble,
   Compass,
   Flag,
   Heart,
@@ -416,52 +415,58 @@ function PropertyDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-1.5">
-          <Spec icon={Maximize} label="المساحة" value={formatArea(data.area)} />
-          <Spec icon={Compass} label="نوع العقار" value={kindLabel(data.kind)} />
-          {["villa", "apartment"].includes(data.kind) && data.rooms != null && (
-            <Spec icon={BedDouble} label="الغرف" value={String(data.rooms)} />
-          )}
-        </div>
-
-        {!isOffice && (
-          <div className="grid grid-cols-3 gap-1.5">
-            <div className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-surface p-2 text-center ring-1 ring-line">
-              <Compass className="size-4 text-muted-foreground" />
-              <span className="text-xs font-bold">{data.facing ? formatFacing(data.facing) : "الواجهة غير محددة"}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => toggleFavorite(data.id)}
-              aria-label={favoriteIds.has(data.id) ? "إزالة من المحفوظات" : "حفظ العقار"}
-              className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-surface p-2 text-center ring-1 ring-line"
-            >
-              <Heart
-                className={cn(
-                  "size-4",
-                  favoriteIds.has(data.id) ? "fill-terracotta text-terracotta" : "text-muted-foreground",
-                )}
+        {!isOffice ? (
+          <>
+            <div className="grid grid-cols-3 gap-1.5">
+              <Spec
+                icon={Compass}
+                label="الواجهة"
+                value={data.facing ? formatFacing(data.facing) : "الواجهة غير محددة"}
               />
-              <span className="text-xs font-bold">
-                {favoriteIds.has(data.id) ? "محفوظ" : "حفظ العقار"}
-              </span>
-            </button>
-            {data.latitude != null && data.longitude != null ? (
-              <a
-                href={googleMapsUrl(data.latitude, data.longitude)}
-                target="_blank"
-                rel="noreferrer"
-                className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-forest-soft p-2 text-center font-display font-bold text-forest"
+              <Spec icon={Maximize} label="المساحة" value={formatArea(data.area)} />
+              <Spec icon={Compass} label="نوع العقار" value={kindLabel(data.kind)} />
+            </div>
+
+            <div className="flex justify-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => toggleFavorite(data.id)}
+                aria-label={favoriteIds.has(data.id) ? "إزالة من المحفوظات" : "حفظ العقار"}
+                className="flex min-h-[58px] w-[calc(33.333%_-_0.25rem)] shrink-0 flex-col items-center justify-center gap-1 rounded-xl bg-surface p-2 text-center ring-1 ring-line"
               >
-                <MapPin className="size-4" />
-                <span className="text-xs">الموقع على الخريطة</span>
-              </a>
-            ) : (
-              <div className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl bg-surface p-2 text-center text-muted-foreground ring-1 ring-line">
-                <MapPin className="size-4" />
-                <span className="text-xs">الموقع غير محدد</span>
-              </div>
-            )}
+                <Heart
+                  className={cn(
+                    "size-4",
+                    favoriteIds.has(data.id) ? "fill-terracotta text-terracotta" : "text-muted-foreground",
+                  )}
+                />
+                <span className="text-xs font-bold">
+                  {favoriteIds.has(data.id) ? "محفوظ" : "حفظ العقار"}
+                </span>
+              </button>
+
+              {data.latitude != null && data.longitude != null ? (
+                <a
+                  href={googleMapsUrl(data.latitude, data.longitude)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-h-[58px] w-[calc(33.333%_-_0.25rem)] shrink-0 flex-col items-center justify-center gap-1 rounded-xl bg-forest-soft p-2 text-center font-display font-bold text-forest"
+                >
+                  <MapPin className="size-4" />
+                  <span className="text-xs">الموقع على الخريطة</span>
+                </a>
+              ) : (
+                <div className="flex min-h-[58px] w-[calc(33.333%_-_0.25rem)] shrink-0 flex-col items-center justify-center gap-1 rounded-xl bg-surface p-2 text-center text-muted-foreground ring-1 ring-line">
+                  <MapPin className="size-4" />
+                  <span className="text-xs">الموقع غير محدد</span>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="grid grid-cols-2 gap-1.5">
+            <Spec icon={Maximize} label="المساحة" value={formatArea(data.area)} />
+            <Spec icon={Compass} label="نوع العقار" value={kindLabel(data.kind)} />
           </div>
         )}
 
@@ -777,7 +782,7 @@ function Spec({
   value: string;
 }) {
   return (
-    <div className="rounded-xl bg-surface p-2 text-center ring-1 ring-line">
+    <div className="min-h-[58px] rounded-xl bg-surface p-2 text-center ring-1 ring-line">
       <div className="flex items-center justify-center gap-1 text-[9px] font-semibold text-muted-foreground">
         <Icon className="size-3 shrink-0 text-terracotta" />
         <span>{label}</span>
