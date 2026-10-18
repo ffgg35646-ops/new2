@@ -1,6 +1,6 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Building2, Crown, Loader2 } from "lucide-react";
+import { BadgeCheck, Building2, Crown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -183,14 +183,25 @@ function Subscription() {
                     )}
 
                     <ul className="mt-3 space-y-1">
-                      {pkg.features.map((f) => (
-                        <li
-                          key={f}
-                          className="text-[12px] text-muted-foreground"
-                        >
-                          ✓ {f}
-                        </li>
-                      ))}
+                      {pkg.features.map((f) => {
+                        const isVerificationFeature = /توثيق المكتب/.test(f);
+                        const label = isVerificationFeature
+                          ? f.replace(/\s*[✓✔✅]\s*$/u, "").trim()
+                          : f;
+                        return (
+                          <li
+                            key={f}
+                            className="flex items-start gap-2 text-[12px] text-muted-foreground"
+                          >
+                            {isVerificationFeature ? (
+                              <BadgeCheck className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" aria-label="مكتب موثق" />
+                            ) : (
+                              <span aria-hidden="true">✓</span>
+                            )}
+                            <span>{label}</span>
+                          </li>
+                        );
+                      })}
                     </ul>
 
                     <button
