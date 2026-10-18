@@ -13,6 +13,7 @@ import {
   Moon,
   Pencil,
   ShieldCheck,
+  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -83,6 +84,7 @@ function OfficeProfile() {
   const [openSection, setOpenSection] = useState("basic");
   const [dark, setDark] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const supportTicketId =
     typeof window !== "undefined"
@@ -116,6 +118,26 @@ function OfficeProfile() {
     setDark(saved);
     document.documentElement.classList.toggle("dark", saved);
   }, []);
+
+  async function deleteAccount() {
+    const confirmed = window.confirm(
+      "هل أنت متأكد من حذف حسابك نهائيًا؟ إذا كنت صاحب المكتب، فسيتم حذف المكتب وعقاراته المنشورة والمحادثات المرتبطة به. ستُحتفظ فقط بسجلات المعاملات المالية التي يلزم الاحتفاظ بها للتدقيق."
+    );
+    if (!confirmed) return;
+
+    setDeletingAccount(true);
+    try {
+      const { error } = await supabase.rpc("delete_my_account");
+      if (error) throw error;
+      await signOut();
+      toast.success("تم حذف الحساب والبيانات المرتبطة به.");
+      await navigate({ to: "/", replace: true });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر حذف الحساب. حاول مجددًا.");
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
 
   function toggleTheme() {
     const next = !dark;
@@ -614,6 +636,16 @@ function OfficeProfile() {
             <span className="text-xs text-muted-foreground">{dark ? "مفعّل" : "معطّل"}</span>
           </button>
         </section>
+
+        <button
+          type="button"
+          onClick={() => void deleteAccount()}
+          disabled={deletingAccount}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-surface p-4 text-sm font-semibold text-destructive disabled:opacity-50"
+        >
+          {deletingAccount ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+          {deletingAccount ? "جارٍ حذف الحساب..." : "حذف الحساب نهائيًا"}
+        </button>
 
         <button
           onClick={async () => {
