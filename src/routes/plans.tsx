@@ -64,7 +64,7 @@ function PlansPage() {
               const displayedFeatures = [
                 ...(pkg.features ?? [])
                   .filter((feature) => !/دردشة|الدردشة/.test(feature))
-                  .map((feature) => /تمييز حتى 3 عقارات/.test(feature) ? pinnedPropertyFeature : feature.trim().startsWith("توثيق المكتب") ? "توثيق المكتب علامة التوثيق ✓" : feature),
+                  .map((feature) => /تمييز حتى 3 عقارات/.test(feature) ? pinnedPropertyFeature : feature.trim().startsWith("توثيق المكتب") ? "توثيق المكتب بعلامة التوثيق ✓" : feature),
                 ...(isProPackage ? [pinnedPropertyFeature, repostFeature] : []),
                 ...(!packageIsPaid ? ["دردشة مجانية مع العملاء"] : []),
               ].filter((feature, index, all) => all.indexOf(feature) === index);
