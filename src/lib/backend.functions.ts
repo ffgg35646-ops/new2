@@ -4822,6 +4822,153 @@ export const rpcRequest = createServerFn({ method: "POST" })
         };
       }
 
+      if (data.name === "delete_my_account") {
+        if (!userId) throw new Error("يجب تسجيل الدخول لحذف الحساب.");
+        if (role === "admin") throw new Error("لا يمكن حذف حساب الإدارة من هذه الصفحة.");
+
+        const users = await getMongoCollection<Record<string, unknown>>("users");
+        const user = await users.findOne({ _id: userId }, { projection: { _id: 1 } });
+        if (!user) throw new Error("الحساب غير موجود.");
+
+        const now = new Date();
+        const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const ownedOffices = await offices.find({ owner_id: userId }).project({ id: 1, _id: 1 }).toArray();
+        const officeIds = [...new Set(ownedOffices.map((office) => String(office.id ?? office._id ?? "")).filter(Boolean))];
+
+        const properties = await getMongoCollection<Record<string, unknown>>("properties");
+        const ownedProperties = officeIds.length
+          ? await properties.find({ office_id: { $in: officeIds } }).project({ id: 1, _id: 1 }).toArray()
+          : [];
+        const propertyIds = [...new Set(ownedProperties.map((property) => String(property.id ?? property._id ?? "")).filter(Boolean))];
+
+        const conversations = await getMongoCollection<Record<string, unknown>>("conversations");
+        const conversationFilter: Record<string, unknown>[] = [{ user_id: userId }];
+        if (officeIds.length) conversationFilter.push({ office_id: { $in: officeIds } });
+        const ownedConversations = await conversations.find({ $or: conversationFilter }).project({ id: 1, _id: 1 }).toArray();
+        const conversationIds = [...new Set(ownedConversations.map((conversation) => String(conversation.id ?? conversation._id ?? "")).filter(Boolean))];
+
+        const supportTickets = await getMongoCollection<Record<string, unknown>>("support_tickets");
+        const ownedTickets = await supportTickets.find({ user_id: userId }).project({ id: 1, _id: 1 }).toArray();
+        const ticketIds = [...new Set(ownedTickets.map((ticket) => String(ticket.id ?? ticket._id ?? "")).filter(Boolean))];
+
+        // Remove the account owner's uploaded media before changing the account records.
+        // If the private Blob credentials are missing, stop rather than falsely report deletion.
+        const db = await getMongoDb();
+        const ownedMedia = await db.collection("media_objects").find({ owner_id: userId }).project({ id: 1 }).toArray();
+        for (const media of ownedMedia) {
+          if (typeof media.id === "string" && media.id) {
+            const removed = await deleteMedia(media.id, userId);
+            if (!removed) throw new Error("تعذر حذف أحد الملفات التابعة للحساب. لم يكتمل حذف الحساب؛ حاول لاحقًا.");
+          }
+        }
+        const legacyMedia = await db.collection("media.files").find({ "metadata.ownerId": userId }).project({ _id: 1 }).toArray();
+        for (const media of legacyMedia) {
+          const id = String(media._id ?? "");
+          if (id) {
+            const removed = await deleteMedia(id, userId);
+            if (!removed) throw new Error("تعذر حذف أحد الملفات القديمة التابعة للحساب. لم يكتمل حذف الحساب؛ حاول لاحقًا.");
+          }
+        }
+
+        const messagesFilter: Record<string, unknown>[] = [{ sender_id: userId }];
+        if (conversationIds.length) messagesFilter.push({ conversation_id: { $in: conversationIds } });
+        await (await getMongoCollection("messages")).deleteMany({ $or: messagesFilter });
+        const supportMessagesFilter: Record<string, unknown>[] = [{ sender_id: userId }];
+        if (ticketIds.length) supportMessagesFilter.push({ ticket_id: { $in: ticketIds } });
+        await (await getMongoCollection("support_messages")).deleteMany({ $or: supportMessagesFilter });
+
+        const userScopedCollections = [
+          "user_roles",
+          "favorites",
+          "follows",
+          "notifications",
+          "device_tokens",
+          "saved_searches",
+          "property_requests",
+          "property_request_views",
+          "property_inquiries",
+          "reports",
+          "support_tickets",
+        ];
+        for (const collection of userScopedCollections) {
+          await (await getMongoCollection(collection)).deleteMany({
+            $or: [
+              { user_id: userId },
+              { owner_id: userId },
+              { reporter_id: userId },
+            ],
+          });
+        }
+
+        await (await getMongoCollection("profiles")).deleteMany({ $or: [{ id: userId }, { _id: userId }] });
+        await (await getMongoCollection("conversations")).deleteMany({ $or: conversationFilter });
+        await (await getMongoCollection("viewing_bookings")).deleteMany({
+          $or: [
+            { user_id: userId },
+            ...(officeIds.length ? [{ office_id: { $in: officeIds } }] : []),
+            ...(propertyIds.length ? [{ property_id: { $in: propertyIds } }] : []),
+          ],
+        });
+        await (await getMongoCollection("office_offers")).deleteMany({
+          $or: [
+            { user_id: userId },
+            ...(officeIds.length ? [{ office_id: { $in: officeIds } }] : []),
+            ...(propertyIds.length ? [{ property_id: { $in: propertyIds } }] : []),
+          ],
+        });
+        await (await getMongoCollection("office_reviews")).deleteMany({
+          $or: [
+            { user_id: userId },
+            ...(officeIds.length ? [{ office_id: { $in: officeIds } }] : []),
+          ],
+        });
+        await (await getMongoCollection("office_staff")).deleteMany({
+          $or: [
+            { user_id: userId },
+            ...(officeIds.length ? [{ office_id: { $in: officeIds } }] : []),
+          ],
+        });
+        await (await getMongoCollection("office_plan_events")).deleteMany({
+          ...(officeIds.length ? { office_id: { $in: officeIds } } : { office_id: "__no_owned_office__" }),
+        });
+
+        if (propertyIds.length) {
+          await (await getMongoCollection("property_images")).deleteMany({ property_id: { $in: propertyIds } });
+          await (await getMongoCollection("favorites")).deleteMany({ property_id: { $in: propertyIds } });
+          await (await getMongoCollection("property_requests")).deleteMany({ property_id: { $in: propertyIds } });
+          await (await getMongoCollection("property_request_views")).deleteMany({ property_id: { $in: propertyIds } });
+          await (await getMongoCollection("property_inquiries")).deleteMany({ property_id: { $in: propertyIds } });
+          await properties.deleteMany({ office_id: { $in: officeIds } });
+        }
+
+        if (officeIds.length) {
+          await (await getMongoCollection("follows")).deleteMany({ office_id: { $in: officeIds } });
+          await (await getMongoCollection("notifications")).deleteMany({ office_id: { $in: officeIds } });
+          await offices.deleteMany({ owner_id: userId });
+        }
+
+        // Keep the minimum transaction audit trail, but detach it from the deleted account
+        // and remove obvious direct customer identifiers from retained payment records.
+        const transactions = await getMongoCollection<Record<string, unknown>>("payment_transactions");
+        await transactions.updateMany(
+          { user_id: userId },
+          {
+            $set: { user_id: null, account_deleted: true, account_deleted_at: now },
+            $unset: {
+              email: "",
+              user_email: "",
+              customer_email: "",
+              customer_name: "",
+              customer_phone: "",
+            },
+          },
+        );
+
+        await users.deleteOne({ _id: userId });
+        clearSession();
+        return { data: { success: true }, error: null };
+      }
+
       if (data.name === "admin_delete_user") {
         if (role !== "admin") throw new Error("not_admin");
 
