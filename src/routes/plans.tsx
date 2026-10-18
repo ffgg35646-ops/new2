@@ -145,7 +145,7 @@ function PlansPage() {
                               <span>
                                 {/^توثيق المكتب(?:\s*✓)?$/.test(f.trim()) ? (
                                   <>
-                                    توثيق المكتب{" "}
+                                    توثيق المكتب ✓{" "}
                                     <BadgeCheck
                                       className="inline size-4 align-[-3px] text-blue-600"
                                       aria-label="علامة توثيق المكتب"
