@@ -1,0 +1,61 @@
+name: Publish App Store Privacy and Support Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_confirmed:
+        description: "Confirm the privacy and support page text was reviewed and approved for public publishing"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages-legal
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    if: ${{ inputs.publish_confirmed }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Prepare only the privacy and support pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp public/privacy.html _site/privacy.html
+          cp public/support.html _site/support.html
+          cat > _site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="ar" dir="rtl">
+          <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>عقار البطين — معلومات المتجر</title></head>
+          <body style="font-family:system-ui;max-width:760px;margin:3rem auto;padding:0 1rem;line-height:1.8">
+            <h1>عقار البطين</h1>
+            <p><a href="./privacy.html">سياسة الخصوصية</a></p>
+            <p><a href="./support.html">الدعم والمساعدة</a></p>
+          </body>
+          </html>
+          HTML
+
+      - name: Upload static pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
