@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, Sparkles } from "lucide-react";
+import { BadgeCheck, Check, Sparkles } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { ProLockDialog } from "@/components/ProLock";
@@ -133,12 +133,22 @@ function PlansPage() {
                       </div>
                       {displayedFeatures.length > 0 && (
                         <ul className="space-y-2">
-                          {displayedFeatures.map((f) => (
-                            <li key={f} className="flex items-start gap-2 rounded-xl bg-surface px-2.5 py-2 text-xs leading-5">
-                              <Check className="mt-0.5 size-3.5 shrink-0 text-forest" />
-                              <span>{f}</span>
-                            </li>
-                          ))}
+                          {displayedFeatures.map((f) => {
+                            const isVerificationFeature = /توثيق المكتب/.test(f);
+                            const label = isVerificationFeature
+                              ? f.replace(/\s*[✓✔✅]\s*$/u, "").trim()
+                              : f;
+                            return (
+                              <li key={f} className="flex items-start gap-2 rounded-xl bg-surface px-2.5 py-2 text-xs leading-5">
+                                {isVerificationFeature ? (
+                                  <BadgeCheck className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" aria-label="مكتب موثق" />
+                                ) : (
+                                  <Check className="mt-0.5 size-3.5 shrink-0 text-forest" />
+                                )}
+                                <span>{label}</span>
+                              </li>
+                            );
+                          })}
                         </ul>
                       )}
                     </div>
