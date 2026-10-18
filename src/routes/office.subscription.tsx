@@ -1,6 +1,6 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Building2, Crown, Loader2 } from "lucide-react";
+import { BadgeCheck, Building2, Crown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -197,7 +197,17 @@ function Subscription() {
                           key={f}
                           className="text-[12px] text-muted-foreground"
                         >
-                          ✓ {f}
+                          {/^توثيق المكتب(?:\s*✓)?$/.test(f.trim()) ? (
+                            <>
+                              ✓ توثيق المكتب{" "}
+                              <BadgeCheck
+                                className="inline size-4 align-[-3px] text-blue-600"
+                                aria-label="علامة توثيق المكتب"
+                              />
+                            </>
+                          ) : (
+                            <>✓ {f}</>
+                          )}
                         </li>
                       ))}
                     </ul>
