@@ -233,7 +233,6 @@ function OfficeChatPage() {
                   onClick={() => setChatSection("conversations")}
                   className={"flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-bold transition " + (chatSection === "conversations" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
                 >
-                  <span className="grid size-5 place-items-center rounded-full bg-background/20 text-[10px]">١</span>
                   <span>محادثات حالية</span>
                   <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px]">{activeConversations.length}</span>
                 </button>
@@ -242,7 +241,6 @@ function OfficeChatPage() {
                   onClick={() => setChatSection("requests")}
                   className={"flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-bold transition " + (chatSection === "requests" ? "bg-forest text-background shadow-sm" : "text-muted-foreground")}
                 >
-                  <span className="grid size-5 place-items-center rounded-full bg-background/20 text-[10px]">٢</span>
                   <span>طلبات المراسلة</span>
                   <span className="rounded-full bg-terracotta px-1.5 py-0.5 text-[10px] text-background">{incomingRequestCount}</span>
                 </button>
