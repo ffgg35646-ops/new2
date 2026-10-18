@@ -1,6 +1,9 @@
 name: iOS Signed Release and TestFlight
 
 on:
+  push:
+    paths:
+      - ".github/workflows/ios-testflight-release.yml"
   workflow_dispatch:
     inputs:
       server_url:
@@ -22,7 +25,22 @@ permissions:
   contents: read
 
 jobs:
+  validate-release-workflow:
+    if: github.event_name == 'push'
+    name: Validate TestFlight workflow syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Run actionlint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@latest .github/workflows/ios-testflight-release.yml
+
   signed-ios-release:
+    if: github.event_name == 'workflow_dispatch'
     name: Archive, sign, and optionally upload to TestFlight
     runs-on: macos-26
     timeout-minutes: 90
