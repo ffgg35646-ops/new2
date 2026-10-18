@@ -16,7 +16,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { registerPush } from "@/lib/push";
+import { registerPush, unregisterPush } from "@/lib/push";
 import { ensureDeviceCookie } from "@/lib/device";
 import { syncServerClock } from "@/lib/clock";
 
@@ -131,7 +131,11 @@ function RootShell({ children }: { children: ReactNode }) {
 function PushRegistrar() {
   const { userId } = useAuth();
   useEffect(() => {
-    if (userId) void registerPush(userId);
+    if (!userId) return;
+    void registerPush(userId);
+    return () => {
+      void unregisterPush(userId);
+    };
   }, [userId]);
   return null;
 }
