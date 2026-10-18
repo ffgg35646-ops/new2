@@ -1,6 +1,6 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BadgeCheck, Building2, Crown, Loader2 } from "lucide-react";
+import { Building2, Crown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -147,6 +147,15 @@ function Subscription() {
             <div className="space-y-3">
               {packages.map((pkg) => {
                 const current = currentPackage?.id === pkg.id;
+                const isProPackage = pkg.code === "pro";
+                const pinnedPropertyFeature = "تثبيت العقارات: تثبيت حتى 3 عقارات في أعلى صفحة المكتب";
+                const repostFeature = "إعادة نشر العقارات: تحديث تاريخ الإعلان لإعادة إبرازه كل ٢٤ ساعة";
+                const displayedFeatures = [
+                  ...(pkg.features ?? []).map((feature) =>
+                    /تمييز حتى 3 عقارات/.test(feature) ? pinnedPropertyFeature : feature
+                  ),
+                  ...(isProPackage ? [pinnedPropertyFeature, repostFeature] : []),
+                ].filter((feature, index, all) => all.indexOf(feature) === index);
 
                 return (
                   <section
@@ -183,25 +192,14 @@ function Subscription() {
                     )}
 
                     <ul className="mt-3 space-y-1">
-                      {pkg.features.map((f) => {
-                        const isVerificationFeature = /توثيق المكتب/.test(f);
-                        const label = isVerificationFeature
-                          ? f.replace(/\s*[✓✔✅]\s*$/u, "").trim()
-                          : f;
-                        return (
-                          <li
-                            key={f}
-                            className="flex items-start gap-2 text-[12px] text-muted-foreground"
-                          >
-                            {isVerificationFeature ? (
-                              <BadgeCheck className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" aria-label="مكتب موثق" />
-                            ) : (
-                              <span aria-hidden="true">✓</span>
-                            )}
-                            <span>{label}</span>
-                          </li>
-                        );
-                      })}
+                      {displayedFeatures.map((f) => (
+                        <li
+                          key={f}
+                          className="text-[12px] text-muted-foreground"
+                        >
+                          ✓ {f}
+                        </li>
+                      ))}
                     </ul>
 
                     <button
