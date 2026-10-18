@@ -13,7 +13,7 @@ import {
   updateCurrentUser,
   verifyEmailCode,
 } from "./auth.server";
-import { getSessionUserId } from "./session.server";
+import { clearSession, getSessionUserId } from "./session.server";
 import { saudiAppointmentDateTime, saudiDateKey } from "@/lib/saudi-time";
 
 type Filter = { field: string; op: string; value: unknown };
