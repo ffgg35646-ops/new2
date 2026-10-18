@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BadgeCheck, Check, Sparkles } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { ProLockDialog } from "@/components/ProLock";
@@ -64,7 +64,7 @@ function PlansPage() {
               const displayedFeatures = [
                 ...(pkg.features ?? [])
                   .filter((feature) => !/دردشة|الدردشة/.test(feature))
-                  .map((feature) => /تمييز حتى 3 عقارات/.test(feature) ? pinnedPropertyFeature : feature),
+                  .map((feature) => /تمييز حتى 3 عقارات/.test(feature) ? pinnedPropertyFeature : /^توثيق المكتب(?:\\s*✓)?$/.test(feature.trim()) ? "توثيق المكتب علامة التوثيق ✓" : feature),
                 ...(isProPackage ? [pinnedPropertyFeature, repostFeature] : []),
                 ...(!packageIsPaid ? ["دردشة مجانية مع العملاء"] : []),
               ].filter((feature, index, all) => all.indexOf(feature) === index);
@@ -142,17 +142,7 @@ function PlansPage() {
                           {displayedFeatures.map((f) => (
                             <li key={f} className="flex items-start gap-2 rounded-xl bg-surface px-2.5 py-2 text-xs leading-5">
                               <Check className="mt-0.5 size-3.5 shrink-0 text-forest" />
-                              <span>
-                                {/^توثيق المكتب(?:\s*✓)?$/.test(f.trim()) ? (
-                                  <>
-                                    توثيق المكتب{" "}
-                                    <BadgeCheck
-                                      className="inline size-4 align-[-3px] text-blue-600"
-                                      aria-label="علامة توثيق المكتب"
-                                    />{" "}✓
-                                  </>
-                                ) : f}
-                              </span>
+                              <span>{f}</span>
                             </li>
                           ))}
                         </ul>
