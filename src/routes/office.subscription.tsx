@@ -152,7 +152,7 @@ function Subscription() {
                 const repostFeature = "إعادة نشر العقارات: تحديث تاريخ الإعلان لإعادة إبرازه كل ٢٤ ساعة";
                 const displayedFeatures = [
                   ...(pkg.features ?? []).map((feature) =>
-                    /تمييز حتى 3 عقارات/.test(feature) ? pinnedPropertyFeature : feature.trim().startsWith("توثيق المكتب") ? "توثيق المكتب علامة التوثيق ✓" : feature
+                    /تمييز حتى 3 عقارات/.test(feature) ? pinnedPropertyFeature : feature.trim().startsWith("توثيق المكتب") ? "توثيق المكتب بعلامة التوثيق ✓" : feature
                   ),
                   ...(isProPackage ? [pinnedPropertyFeature, repostFeature] : []),
                 ].filter((feature, index, all) => all.indexOf(feature) === index);
