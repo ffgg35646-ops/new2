@@ -1,0 +1,139 @@
+name: iOS Simulator Build Check
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "capacitor.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/prepare-ios.mjs"
+      - "src/**/*.ts"
+      - "src/**/*.tsx"
+      - "src/styles.css"
+      - "www/**"
+      - ".github/workflows/ios-simulator-build.yml"
+  pull_request:
+    paths:
+      - "capacitor.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/prepare-ios.mjs"
+      - "src/**/*.ts"
+      - "src/**/*.tsx"
+      - "src/styles.css"
+      - "www/**"
+      - ".github/workflows/ios-simulator-build.yml"
+
+jobs:
+  ios-simulator:
+    name: Build and launch on iOS Simulator
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL || vars.VITE_PUBLIC_APP_URL || 'https://new2-five-roan.vercel.app' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Regenerate lockfile from package.json
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Commit synchronized lockfile on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore: synchronize npm lockfile [skip ci]"
+            git push
+          fi
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate configured application URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${CAPACITOR_SERVER_URL:-}" =~ ^https:// ]]; then
+            echo "::error::Set the GitHub Actions variable CAPACITOR_SERVER_URL to the accessible HTTPS application URL before testing. The bundled www page is only a placeholder."
+            exit 1
+          fi
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --output /dev/null "$CAPACITOR_SERVER_URL"
+
+      - name: Generate native iOS project
+        run: npm run cap:ios:add
+
+      - name: Set minimum iOS deployment target to 15
+        run: npm run cap:ios:prepare
+
+      - name: Sync Capacitor
+        run: npm run cap:ios:sync
+
+      - name: Build for iOS Simulator
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ios-build" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Launch the app in an iPhone simulator
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "Available iPhone simulators:"
+          xcrun simctl list devices available | grep "iPhone" || true
+          DEVICE_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone 16e/ {print $2; exit}')"
+          if [ -z "$DEVICE_ID" ]; then
+            echo "iPhone 16e profile not available; using the first available iPhone."
+            DEVICE_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
+          fi
+          if [ -z "$DEVICE_ID" ]; then
+            echo "No available iPhone simulator was found."
+            exit 1
+          fi
+          echo "Selected simulator: $DEVICE_ID"
+          xcrun simctl list devices available | grep -F "$DEVICE_ID" || true
+          echo "Booting simulator..."
+          xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
+          echo "Waiting for simulator startup..."
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          echo "Installing app..."
+          APP_PATH="$RUNNER_TEMP/ios-build/Build/Products/Debug-iphonesimulator/App.app"
+          test -d "$APP_PATH"
+          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+          echo "Launching app..."
+          xcrun simctl launch "$DEVICE_ID" cloud.baytialkhass.app
+          echo "Testing app close/reopen cycle..."
+          xcrun simctl terminate "$DEVICE_ID" cloud.baytialkhass.app
+          sleep 2
+          xcrun simctl launch "$DEVICE_ID" cloud.baytialkhass.app
+          sleep 5
+          echo "Capturing simulator screenshot after relaunch..."
+          xcrun simctl io "$DEVICE_ID" screenshot "$RUNNER_TEMP/aqar-iphone-simulator.png"
+
+      - name: Upload simulator screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqar-iphone-simulator-screenshot
+          path: ${{ runner.temp }}/aqar-iphone-simulator.png
+          if-no-files-found: ignore
+          retention-days: 3
