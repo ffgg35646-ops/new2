@@ -32,7 +32,7 @@ on:
 jobs:
   ios-simulator:
     name: Build and launch on iOS Simulator
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
     env:
       CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL || vars.VITE_PUBLIC_APP_URL || 'https://new2-five-roan.vercel.app' }}
