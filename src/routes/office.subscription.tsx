@@ -1,6 +1,6 @@
 import { RoleGuard } from "@/lib/role-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BadgeCheck, Building2, Crown, Loader2 } from "lucide-react";
+import { Building2, Crown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -152,7 +152,7 @@ function Subscription() {
                 const repostFeature = "إعادة نشر العقارات: تحديث تاريخ الإعلان لإعادة إبرازه كل ٢٤ ساعة";
                 const displayedFeatures = [
                   ...(pkg.features ?? []).map((feature) =>
-                    /تمييز حتى 3 عقارات/.test(feature) ? pinnedPropertyFeature : feature
+                    /تمييز حتى 3 عقارات/.test(feature) ? pinnedPropertyFeature : /^توثيق المكتب(?:\\s*✓)?$/.test(feature.trim()) ? "توثيق المكتب علامة التوثيق ✓" : feature
                   ),
                   ...(isProPackage ? [pinnedPropertyFeature, repostFeature] : []),
                 ].filter((feature, index, all) => all.indexOf(feature) === index);
@@ -197,17 +197,7 @@ function Subscription() {
                           key={f}
                           className="text-[12px] text-muted-foreground"
                         >
-                          {/^توثيق المكتب(?:\s*✓)?$/.test(f.trim()) ? (
-                            <>
-                              ✓ توثيق المكتب{" "}
-                              <BadgeCheck
-                                className="inline size-4 align-[-3px] text-blue-600"
-                                aria-label="علامة توثيق المكتب"
-                              />{" "}✓
-                            </>
-                          ) : (
-                            <>✓ {f}</>
-                          )}
+                          ✓ {f}
                         </li>
                       ))}
                     </ul>
