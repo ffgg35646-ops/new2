@@ -70,14 +70,31 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: Add client handoff notes and create ZIP
+      - name: Stage project safely and create ZIP
         shell: bash
         run: |
           set -euo pipefail
-          cat > CLIENT-IOS-HANDOFF.md <<'EOF'
+          STAGING="$RUNNER_TEMP/aqar-staging"
+          ARCHIVE="$RUNNER_TEMP/AqarAlBatin-iOS-Xcode-Project.zip"
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+
+          rsync -a --delete \
+            --exclude='/.git/' \
+            --exclude='/node_modules/' \
+            --exclude='/.env' \
+            --exclude='/.env.*' \
+            --exclude='/android/' \
+            --exclude='/.vercel/' \
+            --exclude='/dist/' \
+            --exclude='/.output/' \
+            --exclude='/build/' \
+            "$GITHUB_WORKSPACE/" "$STAGING/"
+
+          cat > "$STAGING/CLIENT-IOS-HANDOFF.md" <<'EOF'
           عقار البطين — مشروع iOS للتسليم
 
-          تم توليد مشروع Xcode من مصدر GitHub وتجميعه بنجاح لهدف iOS Simulator.
+          تم توليد مشروع Xcode والتحقق من بنائه بنجاح لهدف iOS Simulator.
 
           افتح على جهاز Mac:
             ios/App/App.xcworkspace
@@ -85,24 +102,26 @@ jobs:
           قبل الرفع:
           1. في Xcode افتح Target "App" ثم Signing & Capabilities.
           2. اختر فريق Apple Developer الخاص بالجهة التي سترفع التطبيق.
-          3. تحقق أن Bundle Identifier cloud.baytialkhass.app مسجل ومتاح ضمن حساب الجهة؛ إن لم يكن، يلزم اعتماد المعرّف المناسب وتحديثه في Xcode.
+          3. تحقق أن Bundle Identifier cloud.baytialkhass.app مسجل ضمن حساب الجهة.
           4. جرّب التطبيق على جهاز iPhone حقيقي، ثم Product > Archive > Distribute App.
 
-          التطبيق يتصل بعنوان HTTPS الموجود في إعداد CAPACITOR_SERVER_URL وقت بناء الحزمة.
-          نتيجة بناء المحاكي لا تعني ضمان قبول App Review؛ قرار القبول النهائي لدى Apple.
+          التطبيق يتصل بعنوان HTTPS المستخدم عند بناء الحزمة.
+          نجاح بناء المحاكي لا يضمن قبول App Review؛ القرار النهائي لدى Apple.
           لا تضع ملفات .env أو أسرار الخادم في الحزمة.
           EOF
-          mkdir -p "$RUNNER_TEMP/aqar-handoff"
-          zip -qr "$RUNNER_TEMP/aqar-handoff/AqarAlBatin-iOS-Xcode-Project.zip" . \
-            -x "./.git/*" "./node_modules/*" "./.env" "./.env.*" "./android/*" \
-               "./.vercel/*" "./dist/*" "./.output/*" "./ios/App/Pods/*" "./ios/Pods/*" \
-               "./$RUNNER_TEMP/*"
-          test -s "$RUNNER_TEMP/aqar-handoff/AqarAlBatin-iOS-Xcode-Project.zip"
+
+          ditto -c -k --sequesterRsrc --keepParent "$STAGING" "$ARCHIVE"
+          test -s "$ARCHIVE"
+          unzip -tqq "$ARCHIVE"
+          zipinfo -1 "$ARCHIVE" | grep -Eq '(^|/)ios/App/App.xcworkspace/contents.xcworkspacedata$'
+          zipinfo -1 "$ARCHIVE" | grep -Eq '(^|/)ios/App/App.xcodeproj/project.pbxproj$'
+          zipinfo -1 "$ARCHIVE" | grep -Eq '(^|/)ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon.png$'
+          ls -lh "$ARCHIVE"
 
       - name: Upload client handoff package
         uses: actions/upload-artifact@v4
         with:
           name: aqar-ios-xcode-client-handoff
-          path: ${{ runner.temp }}/aqar-handoff/AqarAlBatin-iOS-Xcode-Project.zip
+          path: ${{ runner.temp }}/AqarAlBatin-iOS-Xcode-Project.zip
           if-no-files-found: error
           retention-days: 14
