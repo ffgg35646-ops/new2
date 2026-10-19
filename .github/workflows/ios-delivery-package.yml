@@ -1,0 +1,123 @@
+name: Prepare Aqar iOS Delivery Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ios-delivery-package.yml"
+      - "capacitor.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/prepare-ios.mjs"
+      - "public/logo.jpg"
+      - "src/**"
+      - "www/**"
+
+permissions:
+  contents: read
+
+jobs:
+  ios-delivery:
+    name: Generate Xcode project and delivery ZIP
+    runs-on: macos-26
+    timeout-minutes: 35
+    env:
+      CAPACITOR_SERVER_URL: https://new2-five-roan.vercel.app
+    steps:
+      - name: Check out Aqar Al-Batin
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Synchronize npm lockfile if required
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify hosted app URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CAPACITOR_SERVER_URL" =~ ^https:// ]] || { echo "::error::CAPACITOR_SERVER_URL must use HTTPS"; exit 1; }
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --output /dev/null "$CAPACITOR_SERVER_URL"
+
+      - name: Generate native iOS project
+        run: npm run cap:ios:add
+
+      - name: Prepare iOS project
+        run: npm run cap:ios:prepare
+
+      - name: Sync Capacitor with hosted app
+        run: npm run cap:ios:sync
+
+      - name: Build for iPhone simulator
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ios-build" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Create client handoff instructions
+        run: |
+          cat > IOS-CLIENT-HANDOFF.md <<'EOF'
+          # Aqar Al-Batin — iOS / Xcode handoff
+
+          This package contains the generated Capacitor iOS project and the app source needed to open and test it in Xcode.
+
+          ## Default app URL
+          https://new2-five-roan.vercel.app
+
+          The native wrapper is configured to load the hosted application so login and server/API calls use the deployed site.
+
+          ## Open and test
+          1. Install a current compatible version of Xcode on a Mac.
+          2. Unzip this package and open `ios/App/App.xcworkspace` (not the .xcodeproj).
+          3. In Xcode, select the App target and set the client's Apple Developer Team and a unique Bundle Identifier if required.
+          4. Connect an iPhone, choose it as the run destination, and press Run.
+          5. Test registration/login and the app's main functions against the hosted service.
+
+          ## Archive and submit
+          1. Select a real iPhone device as the destination.
+          2. Choose Product > Archive.
+          3. Resolve signing/provisioning under the client's Apple Developer account.
+          4. Validate and upload the archive to App Store Connect, then complete the App Store listing and review submission.
+
+          ## Important
+          This package is simulator-build-verified by the workflow. It is not a signed IPA and does not guarantee App Store approval. The client must test on a real iPhone and use their own Apple Developer signing credentials. The hosted site and backend must remain available for the app to work.
+          EOF
+
+      - name: Assemble Xcode handoff ZIP
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aqar-ios-package"
+          rsync -a ./ "$RUNNER_TEMP/aqar-ios-package/Aqar-Al-Batin-iOS/" \
+            --exclude='.git/' \
+            --exclude='node_modules/' \
+            --exclude='dist/' \
+            --exclude='.vercel/' \
+            --exclude='coverage/' \
+            --exclude='ios/App/Pods/'
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$RUNNER_TEMP/aqar-ios-package/Aqar-Al-Batin-iOS" \
+            "$RUNNER_TEMP/Aqar-Al-Batin-iOS-Xcode-Project.zip"
+          shasum -a 256 "$RUNNER_TEMP/Aqar-Al-Batin-iOS-Xcode-Project.zip" > "$RUNNER_TEMP/Aqar-Al-Batin-iOS-Xcode-Project.zip.sha256"
+
+      - name: Upload client delivery package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aqar-Al-Batin-iOS-Xcode-Project
+          path: |
+            ${{ runner.temp }}/Aqar-Al-Batin-iOS-Xcode-Project.zip
+            ${{ runner.temp }}/Aqar-Al-Batin-iOS-Xcode-Project.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
