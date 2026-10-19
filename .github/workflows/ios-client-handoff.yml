@@ -1,0 +1,108 @@
+name: Prepare iOS Xcode Client Handoff
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ios-client-handoff.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-client-package:
+    name: Build and package the Xcode project
+    runs-on: macos-26
+    timeout-minutes: 35
+    env:
+      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL || vars.VITE_PUBLIC_APP_URL || 'https://new2-five-roan.vercel.app' }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify the existing app server responds over HTTPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$CAPACITOR_SERVER_URL" =~ ^https:// ]]; then
+            echo "::error::The configured runtime URL must use HTTPS."
+            exit 1
+          fi
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --max-time 45 --output /dev/null "$CAPACITOR_SERVER_URL"
+          echo "Existing runtime URL responds: $CAPACITOR_SERVER_URL"
+
+      - name: Synchronize npm lockfile and install dependencies
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci
+
+      - name: Generate and prepare iOS project
+        run: |
+          npm run cap:ios:add
+          npm run cap:ios:prepare
+          npm run cap:ios:sync
+
+      - name: Verify Xcode project identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s ios/App/App.xcodeproj/project.pbxproj
+          test -s ios/App/App.xcworkspace/contents.xcworkspacedata
+          grep -q 'PRODUCT_BUNDLE_IDENTIFIER = cloud.baytialkhass.app;' ios/App/App.xcodeproj/project.pbxproj
+          grep -q 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;' ios/App/App.xcodeproj/project.pbxproj
+          test -s ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+
+      - name: Build on iOS Simulator
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ios-build" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Add client handoff notes and create ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > CLIENT-IOS-HANDOFF.md <<'EOF'
+          عقار البطين — مشروع iOS للتسليم
+
+          تم توليد مشروع Xcode من مصدر GitHub وتجميعه بنجاح لهدف iOS Simulator.
+
+          افتح على جهاز Mac:
+            ios/App/App.xcworkspace
+
+          قبل الرفع:
+          1. في Xcode افتح Target "App" ثم Signing & Capabilities.
+          2. اختر فريق Apple Developer الخاص بالجهة التي سترفع التطبيق.
+          3. تحقق أن Bundle Identifier cloud.baytialkhass.app مسجل ومتاح ضمن حساب الجهة؛ إن لم يكن، يلزم اعتماد المعرّف المناسب وتحديثه في Xcode.
+          4. جرّب التطبيق على جهاز iPhone حقيقي، ثم Product > Archive > Distribute App.
+
+          التطبيق يتصل بعنوان HTTPS الموجود في إعداد CAPACITOR_SERVER_URL وقت بناء الحزمة.
+          نتيجة بناء المحاكي لا تعني ضمان قبول App Review؛ قرار القبول النهائي لدى Apple.
+          لا تضع ملفات .env أو أسرار الخادم في الحزمة.
+          EOF
+          mkdir -p "$RUNNER_TEMP/aqar-handoff"
+          zip -qr "$RUNNER_TEMP/aqar-handoff/AqarAlBatin-iOS-Xcode-Project.zip" . \
+            -x "./.git/*" "./node_modules/*" "./.env" "./.env.*" "./android/*" \
+               "./.vercel/*" "./dist/*" "./.output/*" "./ios/App/Pods/*" "./ios/Pods/*" \
+               "./$RUNNER_TEMP/*"
+          test -s "$RUNNER_TEMP/aqar-handoff/AqarAlBatin-iOS-Xcode-Project.zip"
+
+      - name: Upload client handoff package
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqar-ios-xcode-client-handoff
+          path: ${{ runner.temp }}/aqar-handoff/AqarAlBatin-iOS-Xcode-Project.zip
+          if-no-files-found: error
+          retention-days: 14
