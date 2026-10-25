@@ -73,14 +73,9 @@ export async function ensureMongoIndexes() {
   await createMongoIndexes(db);
 }
 
-function getBlobReadWriteToken() {
-  const token = process.env["BLOB_READ_WRITE_TOKEN"];
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is missing. Connect a private Vercel Blob store to this project and pull its environment variables locally.",
-    );
-  }
-  return token;
+function getBlobReadWriteToken(): string | null {
+  const token = process.env["BLOB_READ_WRITE_TOKEN"]?.trim();
+  return token || null;
 }
 
 function isAllowedMediaContentType(value: unknown): value is string {
@@ -132,8 +127,9 @@ async function resolveMediaAccess(
 }
 
 /**
- * Store new media in Vercel Blob. MongoDB keeps metadata only; the media endpoint
- * preserves existing URLs and applies the application's access checks before reading a blob.
+ * Store media in private Vercel Blob when its token is configured; otherwise use
+ * MongoDB GridFS. Both providers are served through the existing /api/media/:id route.
+ * The GridFS fallback keeps uploads working in local/test deployments without Blob secrets.
  */
 export async function storeMedia(
   fileName: string,
@@ -143,6 +139,28 @@ export async function storeMedia(
   visibility: "public" | "private" = "public",
 ): Promise<{ id: string; url: string }> {
   const token = getBlobReadWriteToken();
+
+  if (!token) {
+    const db = await getMongoDb();
+    const bucket = new GridFSBucket(db, { bucketName: "media" });
+    const upload = bucket.openUploadStream(fileName, {
+      metadata: {
+        ownerId,
+        visibility,
+        contentType: mimeType,
+      },
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      upload.once("error", reject);
+      upload.once("finish", resolve);
+      upload.end(bytes);
+    });
+
+    const id = String(upload.id);
+    return { id, url: "/api/media/" + encodeURIComponent(id) };
+  }
+
   const id = randomUUID();
   const safeName =
     fileName
@@ -205,9 +223,17 @@ export async function readMedia(id: string, viewerId: string | null = null) {
     );
     if (!access.allowed) return null;
 
+    const token = getBlobReadWriteToken();
+    // Existing Blob-backed files still require their original private-store token.
+    // New uploads automatically fall back to GridFS when that token is absent.
+    if (!token) {
+      console.error("[Vercel Blob] cannot read legacy Blob media: BLOB_READ_WRITE_TOKEN is missing", { id });
+      return null;
+    }
+
     const result = await getBlob(String(stored.blob_url), {
       access: "private",
-      token: getBlobReadWriteToken(),
+      token,
     });
     if (!result || result.statusCode !== 200 || !result.stream) return null;
 
@@ -271,7 +297,11 @@ export async function deleteMedia(id: string, ownerId: string) {
 
   if (stored) {
     if (String(stored.owner_id ?? "") !== ownerId) return false;
-    await deleteBlob(String(stored.blob_url), { token: getBlobReadWriteToken() });
+    const token = getBlobReadWriteToken();
+    if (!token) {
+      throw new Error("Cannot delete this older Blob-backed file because BLOB_READ_WRITE_TOKEN is missing.");
+    }
+    await deleteBlob(String(stored.blob_url), { token });
     await db.collection("media_objects").deleteOne({ id, owner_id: ownerId });
     return true;
   }
