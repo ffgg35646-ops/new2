@@ -5458,7 +5458,7 @@ export const uploadMedia = createServerFn({ method: "POST", strict: { input: fal
     }
 
     const folder = data.get("folder");
-    if (typeof folder !== "string" || !["properties", "requests", "licenses", "support"].includes(folder)) {
+    if (typeof folder !== "string" || !["properties", "requests", "licenses", "support", "chat"].includes(folder)) {
       throw new Error("نوع مجلد الرفع غير مدعوم.");
     }
 
