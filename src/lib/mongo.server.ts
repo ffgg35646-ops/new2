@@ -224,28 +224,28 @@ export async function readMedia(id: string, viewerId: string | null = null) {
     if (!access.allowed) return null;
 
     const token = getBlobReadWriteToken();
-    // Existing Blob-backed files still require their original private-store token.
-    // New uploads automatically fall back to GridFS when that token is absent.
-    if (!token) {
-      console.error("[Vercel Blob] cannot read legacy Blob media: BLOB_READ_WRITE_TOKEN is missing", { id });
-      return null;
+    if (token) {
+      const result = await getBlob(String(stored.blob_url), {
+        access: "private",
+        token,
+      });
+
+      if (result?.statusCode === 200 && result.stream) {
+        const body = Buffer.from(await new Response(result.stream).arrayBuffer());
+        return {
+          body,
+          contentType: isAllowedMediaContentType(stored.content_type)
+            ? stored.content_type
+            : "application/octet-stream",
+          fileName: typeof stored.original_name === "string" ? stored.original_name : "file",
+          isPrivate: access.isPrivate,
+        };
+      }
     }
 
-    const result = await getBlob(String(stored.blob_url), {
-      access: "private",
-      token,
-    });
-    if (!result || result.statusCode !== 200 || !result.stream) return null;
-
-    const body = Buffer.from(await new Response(result.stream).arrayBuffer());
-    return {
-      body,
-      contentType: isAllowedMediaContentType(stored.content_type)
-        ? stored.content_type
-        : "application/octet-stream",
-      fileName: typeof stored.original_name === "string" ? stored.original_name : "file",
-      isPrivate: access.isPrivate,
-    };
+    // If no Blob token is configured (or this Blob copy is unavailable), try
+    // the same ID in GridFS. This also preserves legacy files whose GridFS
+    // originals were intentionally retained during the migration.
   }
 
   // Backward compatibility for files uploaded before the Vercel Blob migration.
