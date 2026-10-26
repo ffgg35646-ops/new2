@@ -185,7 +185,7 @@
 /* Desktop chat uses the available viewport; mobile naturally remains full-width. */
 .chat-responsive-shell {
   width: 100%;
-  max-width: none;
+  max-width: min(100%, 56rem);
   min-width: 0;
   margin-inline: auto;
 }
