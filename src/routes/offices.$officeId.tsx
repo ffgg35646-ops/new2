@@ -226,7 +226,7 @@ function OfficePage() {
         following: !!isFollowing,
       });
 
-      toast.success(nowFollowing ? "تمت متابعة المكتب" : "تم إلغاء المتابعة");
+      toast.success(nowFollowing ? "تمت متابعة المكتب وتفعيل إشعارات العقارات الجديدة" : "تم إلغاء المتابعة");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذرت متابعة المكتب");
     }

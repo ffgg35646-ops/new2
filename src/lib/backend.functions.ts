@@ -1799,7 +1799,7 @@ async function runDb(input: DbInput) {
             if (!office) continue;
 
             const followerRows = await follows
-              .find({ office_id: officeId, notify: true })
+              .find({ office_id: officeId }) // Following OR enabling alerts creates a follow row; notify flag must not suppress new-property notices.
               .project({ user_id: 1 })
               .toArray();
             const recipients = [
@@ -1816,19 +1816,22 @@ async function runDb(input: DbInput) {
             const createdAt = new Date();
 
             await notifications.insertMany(
-              recipients.map((recipientId) => ({
-                id: randomUUID(),
-                _id: randomUUID(),
-                user_id: recipientId,
-                title: `عرض جديد من مكتب ${officeName}`,
-                body: `نشر مكتب ${officeName} عرضًا جديدًا: ${propertyTitle}`,
-                type: "office_property",
-                link: `/properties/${encodeURIComponent(propertyId)}`,
-                is_read: false,
-                created_at: createdAt,
-                office_id: officeId,
-                property_id: propertyId,
-              })),
+              recipients.map((recipientId) => {
+                const notificationId = randomUUID();
+                return {
+                  id: notificationId,
+                  _id: notificationId,
+                  user_id: recipientId,
+                  title: `عرض جديد من مكتب ${officeName}`,
+                  body: `نشر مكتب ${officeName} عرضًا جديدًا: ${propertyTitle}`,
+                  type: "office_property",
+                  link: `/properties/${encodeURIComponent(propertyId)}`,
+                  is_read: false,
+                  created_at: createdAt,
+                  office_id: officeId,
+                  property_id: propertyId,
+                };
+              }),
             );
           }
         }
@@ -5397,16 +5400,26 @@ export const rpcRequest = createServerFn({ method: "POST" })
 
           if (existing.length === 0) {
             const id = randomUUID();
+            const now = new Date();
 
             await follows.insertOne({
               id,
               _id: id,
               office_id: officeId,
               user_id: userId,
-              notify: false,
-              created_at: new Date(),
-              updated_at: new Date(),
+              // Following a business opts in to new-listing alerts by default.
+              // The bell control can still turn these notifications off later.
+              notify: true,
+              created_at: now,
+              updated_at: now,
             });
+          } else {
+            // If a follow row already exists (for example after a stale client state),
+            // make the explicit follow action restore the default notification setting.
+            await follows.updateOne(
+              { _id: existing[0]._id },
+              { $set: { notify: true, updated_at: new Date() } },
+            );
           }
         } else if (existing.length) {
           await follows.deleteMany({
