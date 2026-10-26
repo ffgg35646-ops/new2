@@ -1799,7 +1799,7 @@ async function runDb(input: DbInput) {
             if (!office) continue;
 
             const followerRows = await follows
-              .find({ office_id: officeId, notify: true })
+              .find({ office_id: officeId }) // Following OR enabling alerts creates a follow row; notify flag must not suppress new-property notices.
               .project({ user_id: 1 })
               .toArray();
             const recipients = [
