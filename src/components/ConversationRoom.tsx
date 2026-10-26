@@ -503,8 +503,8 @@ export function ConversationRoom({
   }
 
   return (
-    <section className={"flex min-h-0 max-h-full w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl bg-background " + (readOnly ? "max-w-6xl" : "max-w-md min-[2400px]:max-w-5xl")}>
-      <div className={"mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-surface p-2 sm:p-3 " + (readOnly ? "max-w-6xl" : "max-w-md min-[2400px]:max-w-5xl")}>
+    <section className={"flex min-h-0 max-h-full w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl bg-background " + (readOnly ? "max-w-6xl" : "chat-responsive-shell")}>
+      <div className={"mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-surface p-2 sm:p-3 " + (readOnly ? "max-w-6xl" : "chat-responsive-shell")}>
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line pb-3">
         <div className="min-w-0 flex-1">
           <button
@@ -591,7 +591,7 @@ export function ConversationRoom({
               <div
                 key={message.id}
                 className={
-                  "w-fit min-w-0 max-w-[94%] min-[2400px]:max-w-[78%] overflow-hidden rounded-2xl text-[14px] leading-6 shadow-md " +
+                  "chat-message-bubble w-fit min-w-0 max-w-[94%] overflow-hidden rounded-2xl text-[14px] leading-6 shadow-md " +
                   (primaryBubble
                     ? "ms-auto rounded-br-md bg-forest text-white ring-1 ring-forest/10"
                     : "me-auto rounded-bl-md bg-slate-50 text-slate-800 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700")
