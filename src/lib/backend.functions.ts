@@ -76,49 +76,71 @@ function likePattern(value: unknown) {
     .join(".*");
 }
 function buildFilter(filters: Filter[] = []) {
-  const query: Record<string, unknown> = {};
+  const grouped = new Map<string, unknown[]>();
 
   for (const filter of filters) {
+    let condition: unknown;
     switch (filter.op) {
       case "eq":
-        query[filter.field] = filter.value;
+        condition = filter.value;
         break;
       case "neq":
-        query[filter.field] = { $ne: filter.value };
+        condition = { $ne: filter.value };
         break;
       case "gt":
-        query[filter.field] = { $gt: filter.value };
+        condition = { $gt: filter.value };
         break;
       case "gte":
-        query[filter.field] = { $gte: filter.value };
+        condition = { $gte: filter.value };
         break;
       case "lt":
-        query[filter.field] = { $lt: filter.value };
+        condition = { $lt: filter.value };
         break;
       case "lte":
-        query[filter.field] = { $lte: filter.value };
+        condition = { $lte: filter.value };
         break;
       case "in":
-        query[filter.field] = { $in: Array.isArray(filter.value) ? filter.value : [] };
+        condition = { $in: Array.isArray(filter.value) ? filter.value : [] };
         break;
       case "ilike":
       case "like":
-        query[filter.field] = {
+        condition = {
           $regex: likePattern(filter.value),
           $options: "i",
         };
         break;
       case "contains":
-        query[filter.field] = {
+        condition = {
           $all: Array.isArray(filter.value) ? filter.value : [filter.value],
         };
         break;
       default:
-        query[filter.field] = filter.value;
+        condition = filter.value;
     }
+
+    const conditions = grouped.get(filter.field);
+    if (conditions) conditions.push(condition);
+    else grouped.set(filter.field, [condition]);
   }
 
-  return query;
+  const entries = [...grouped.entries()];
+  const hasDuplicateField = entries.some(([, conditions]) => conditions.length > 1);
+
+  if (!hasDuplicateField) {
+    const query: Record<string, unknown> = {};
+    for (const [field, conditions] of entries) {
+      query[field] = conditions[0];
+    }
+    return query;
+  }
+
+  // MongoDB ANDs these clauses, so a caller's exact ticket_id filter remains
+  // active alongside the backend's allowed-ticket list instead of being replaced.
+  return {
+    $and: entries.flatMap(([field, conditions]) =>
+      conditions.map((condition) => ({ [field]: condition })),
+    ),
+  };
 }
 
 function parseOr(value: string | null | undefined) {
