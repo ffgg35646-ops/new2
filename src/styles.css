@@ -182,6 +182,17 @@
   padding-bottom: max(0.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
 }
 
+/* Fluid chat layout: fills available space while staying readable at browser zoom. */
+.chat-responsive-shell {
+  width: 100%;
+  max-width: min(100%, clamp(28rem, 82vw, 76rem));
+  margin-inline: auto;
+}
+
+.chat-message-bubble {
+  max-width: min(94%, 44rem);
+}
+
 @layer base {
   * {
     border-color: var(--line);
