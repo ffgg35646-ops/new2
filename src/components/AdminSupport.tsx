@@ -249,6 +249,7 @@ export function AdminSupport() {
 
         <div className="min-h-[60vh] overflow-hidden rounded-3xl ring-1 ring-line">
           <SupportChat
+            key={selected.id}
             ticket={selected}
             onBack={() =>
               setActiveId(null)
