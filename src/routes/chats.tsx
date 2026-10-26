@@ -249,7 +249,7 @@ function ChatsPage() {
     <div
       className={
         "mx-auto flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-background " +
-        (isAdmin ? "max-w-6xl" : "chat-responsive-shell")
+        (isAdmin ? "max-w-6xl" : "max-w-md")
       }
     >
       <AppHeader showSearch={false} />
