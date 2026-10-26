@@ -1,6 +1,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { randomUUID } from "node:crypto";
+import { ObjectId } from "mongodb";
 import { getMongoCollection, getMongoDb, storeMedia, deleteMedia } from "./mongo.server";
 import {
   currentUser,
@@ -384,9 +385,26 @@ async function enrichRows(
           row[relation.output] = mapped;
         }
       } else {
-        const related = await relatedCollection.findOne({
+        let related = await relatedCollection.findOne({
           [rule.foreignField]: localValue,
         });
+
+        // Older Mongo records may use ObjectId _id values without a separate id field.
+        // Resolve those records as well so property inquiries still show their linked property.
+        if (!related && (relation.collection === "properties" || relation.collection === "offices")) {
+          const relatedId = String(localValue ?? "");
+          const lookups: Record<string, unknown>[] = [
+            { id: relatedId },
+            { _id: relatedId },
+          ];
+          if (relation.collection === "properties") {
+            lookups.push({ property_number: relatedId });
+          }
+          if (ObjectId.isValid(relatedId)) {
+            lookups.push({ _id: new ObjectId(relatedId) });
+          }
+          related = await relatedCollection.findOne({ $or: lookups });
+        }
 
         if (related && relation.collection === "offices") {
           const relatedId = String(related.id ?? related._id ?? "");
@@ -1465,12 +1483,60 @@ async function runDb(input: DbInput) {
         doc.user_id = userId;
 
         if (input.collection === "property_inquiries") {
-          const propertyId = String(doc.property_id ?? "");
-          const inquiryType = String(doc.type ?? "");
+          const requestedPropertyId = String(doc.property_id ?? "").trim();
+          const inquiryType = String(doc.type ?? "").trim();
 
-          if (!propertyId || !inquiryType) {
-            throw new Error("inquiry_invalid");
+          if (!requestedPropertyId || !inquiryType) {
+            throw new Error("بيانات العقار أو نوع الطلب غير مكتملة.");
           }
+
+          // Resolve by id, Mongo _id (string/ObjectId), or property number.
+          // Some older records do not have a separate string id field.
+          const properties = await getMongoCollection<Record<string, unknown>>("properties");
+          const propertyLookups: Record<string, unknown>[] = [
+            { id: requestedPropertyId },
+            { _id: requestedPropertyId },
+            { property_number: requestedPropertyId },
+          ];
+          if (ObjectId.isValid(requestedPropertyId)) {
+            propertyLookups.push({ _id: new ObjectId(requestedPropertyId) });
+          }
+          const property = await properties.findOne({
+            $or: propertyLookups,
+            is_deleted: { $ne: true },
+          });
+
+          if (!property) {
+            throw new Error("العقار غير موجود أو لم يعد متاحًا.");
+          }
+
+          const propertyId = String(
+            property.id ?? property._id ?? "",
+          );
+          const requestedOfficeId = String(property.office_id ?? doc.office_id ?? "").trim();
+          if (!propertyId || !requestedOfficeId) {
+            throw new Error("تعذّر تحديد العقار أو المكتب المرتبط به.");
+          }
+
+          // Resolve the owning office without trusting an office id supplied by the browser.
+          const offices = await getMongoCollection<Record<string, unknown>>("offices");
+          const officeLookups: Record<string, unknown>[] = [
+            { id: requestedOfficeId },
+            { _id: requestedOfficeId },
+          ];
+          if (ObjectId.isValid(requestedOfficeId)) {
+            officeLookups.push({ _id: new ObjectId(requestedOfficeId) });
+          }
+          const office = await offices.findOne({
+            $or: officeLookups,
+            is_deleted: { $ne: true },
+          });
+          if (!office) {
+            throw new Error("المكتب المرتبط بالعقار غير موجود أو غير متاح.");
+          }
+
+          doc.property_id = propertyId;
+          doc.office_id = String(office.id ?? office._id ?? requestedOfficeId);
 
           // Contact requests are accepted immediately; customers and offices continue in chat.
           doc.status = "accepted";
@@ -3989,8 +4055,16 @@ export const rpcRequest = createServerFn({ method: "POST" })
         if (!inquiry) throw new Error("inquiry_not_found");
 
         const offices = await getMongoCollection<Record<string, unknown>>("offices");
+        const inquiryOfficeId = String(inquiry.office_id ?? "");
+        const officeLookups: Record<string, unknown>[] = [
+          { id: inquiryOfficeId },
+          { _id: inquiryOfficeId },
+        ];
+        if (ObjectId.isValid(inquiryOfficeId)) {
+          officeLookups.push({ _id: new ObjectId(inquiryOfficeId) });
+        }
         const office = await offices.findOne({
-          id: inquiry.office_id,
+          $or: officeLookups,
           is_deleted: { $ne: true },
         });
 
@@ -3999,7 +4073,16 @@ export const rpcRequest = createServerFn({ method: "POST" })
         }
 
         const properties = await getMongoCollection<Record<string, unknown>>("properties");
-        const property = await properties.findOne({ id: inquiry.property_id });
+        const inquiryPropertyId = String(inquiry.property_id ?? "");
+        const propertyLookups: Record<string, unknown>[] = [
+          { id: inquiryPropertyId },
+          { _id: inquiryPropertyId },
+          { property_number: inquiryPropertyId },
+        ];
+        if (ObjectId.isValid(inquiryPropertyId)) {
+          propertyLookups.push({ _id: new ObjectId(inquiryPropertyId) });
+        }
+        const property = await properties.findOne({ $or: propertyLookups });
 
         const typeLabel: Record<string, string> = {
           viewing: "معاينة",
