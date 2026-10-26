@@ -34,11 +34,13 @@ type MessageRow = {
   read_at: string | null;
 };
 
-function formatSaudiMessageTime(value: string) {
+function formatSaudiMessageDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
 
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat("ar-SA-u-ca-gregory", {
+    day: "2-digit",
+    month: "short",
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
@@ -501,8 +503,8 @@ export function ConversationRoom({
   }
 
   return (
-    <section className={"flex min-h-0 max-h-full w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl bg-background " + (readOnly ? "max-w-6xl" : "max-w-md")}>
-      <div className={"mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-surface p-2 sm:p-3 " + (readOnly ? "max-w-6xl" : "max-w-md")}>
+    <section className={"flex min-h-0 max-h-full w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl bg-background " + (readOnly ? "max-w-6xl" : "max-w-md min-[2400px]:max-w-5xl")}>
+      <div className={"mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-surface p-2 sm:p-3 " + (readOnly ? "max-w-6xl" : "max-w-md min-[2400px]:max-w-5xl")}>
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line pb-3">
         <div className="min-w-0 flex-1">
           <button
@@ -589,7 +591,7 @@ export function ConversationRoom({
               <div
                 key={message.id}
                 className={
-                  "max-w-[86%] overflow-hidden rounded-2xl text-[14px] leading-6 shadow-md sm:max-w-[78%] " +
+                  "w-fit min-w-0 max-w-[94%] min-[2400px]:max-w-[78%] overflow-hidden rounded-2xl text-[14px] leading-6 shadow-md " +
                   (primaryBubble
                     ? "ms-auto rounded-br-md bg-forest text-white ring-1 ring-forest/10"
                     : "me-auto rounded-bl-md bg-slate-50 text-slate-800 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700")
@@ -611,15 +613,15 @@ export function ConversationRoom({
                 )}
 
                 {message.body && (
-                  <div className="whitespace-pre-wrap break-words px-3.5 py-2.5 leading-6">
+                  <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] px-3.5 py-2.5 leading-6">
                     {message.body}
                   </div>
                 )}
 
-                <div className="flex min-h-6 items-center justify-between gap-2 px-3 pb-1.5">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 px-3 pb-2">
                   <span
                     className={
-                      "text-[10px] font-medium leading-none " +
+                      "min-w-0 text-[10px] font-medium leading-4 " +
                       (primaryBubble
                         ? "text-white/85"
                         : "text-slate-500 dark:text-slate-400")
@@ -634,16 +636,16 @@ export function ConversationRoom({
 
                   <span
                     className={
-                      "inline-flex shrink-0 items-center rounded-full px-1.5 py-1 text-[10px] font-semibold leading-none tabular-nums whitespace-nowrap " +
+                      "inline-flex min-w-0 max-w-full flex-wrap items-center rounded-full px-1.5 py-1 text-[10px] font-semibold leading-4 tabular-nums whitespace-normal break-words " +
                       (primaryBubble
                         ? "bg-white/15 text-white"
                         : "bg-slate-200/80 text-slate-700 dark:bg-slate-700 dark:text-slate-100")
                     }
                     dir="rtl"
                     title="بتوقيت السعودية"
-                    aria-label={`وقت الرسالة بتوقيت السعودية: ${formatSaudiMessageTime(message.created_at)}`}
+                    aria-label={`تاريخ ووقت الرسالة بتوقيت السعودية: ${formatSaudiMessageDateTime(message.created_at)}`}
                   >
-                    {formatSaudiMessageTime(message.created_at)}
+                    {formatSaudiMessageDateTime(message.created_at)}
                   </span>
 
                   {!mine && !readOnly && (
