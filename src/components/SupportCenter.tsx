@@ -80,6 +80,21 @@ export function SupportChat({
     },
   });
 
+  // Guard against stale persisted-cache entries containing another ticket's messages.
+  const ticketMessages = useMemo(
+    () =>
+      (messages.data ?? []).filter(
+        (message) => message.ticket_id === ticket.id,
+      ),
+    [messages.data, ticket.id],
+  );
+
+  useEffect(() => {
+    setText("");
+    setFile(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }, [ticket.id]);
+
   useEffect(() => {
     if (!userId) return;
 
@@ -115,9 +130,9 @@ export function SupportChat({
   }, [ticket.id, userId, qc]);
 
   useEffect(() => {
-    if (!userId || !messages.data?.length) return;
+    if (!userId || !ticketMessages.length) return;
 
-    const unread = messages.data
+    const unread = ticketMessages
       .filter(
         (message) =>
           message.sender_id !== userId && !message.read_at,
@@ -132,14 +147,14 @@ export function SupportChat({
         read_at: new Date().toISOString(),
       })
       .in("id", unread);
-  }, [messages.data, userId]);
+  }, [ticketMessages, userId]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "end",
     });
-  }, [messages.data?.length]);
+  }, [ticket.id, ticketMessages.length]);
 
   const send = useMutation({
     mutationFn: async () => {
@@ -236,8 +251,8 @@ export function SupportChat({
             <div className="grid place-items-center py-16">
               <Loader2 className="size-5 animate-spin text-forest" />
             </div>
-          ) : messages.data?.length ? (
-            messages.data.map((message) => {
+          ) : ticketMessages.length ? (
+            ticketMessages.map((message) => {
               const mine = message.sender_id === userId;
 
               return (
@@ -557,6 +572,7 @@ export function SupportCenter({
 
       {selectedTicket ? (
         <SupportChat
+          key={selectedTicket.id}
           ticket={selectedTicket}
           onBack={() => setActiveId(null)}
         />
