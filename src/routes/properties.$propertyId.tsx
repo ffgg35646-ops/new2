@@ -227,7 +227,9 @@ function PropertyDetail() {
       const { data: row, error } = await supabase
         .from("property_inquiries")
         .insert({
-          property_id: data!.id,
+          // Fall back to the route key for legacy property rows that only have a property number.
+          // The server resolves this to the canonical database id before saving the inquiry.
+          property_id: data!.id ?? propertyId,
           office_id: data!.office_id,
           user_id: userId,
           type: inquiryType,
@@ -262,7 +264,18 @@ function PropertyDetail() {
       qc.invalidateQueries({ queryKey: ["office-inquiries"] });
       qc.invalidateQueries({ queryKey: ["new-inquiries-count"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "تعذّر إرسال الطلب"),
+    onError: (e) => {
+      const message =
+        e instanceof Error
+          ? e.message
+          : typeof e === "object" &&
+              e !== null &&
+              "message" in e &&
+              typeof e.message === "string"
+            ? e.message
+            : "تعذّر إرسال الطلب";
+      toast.error(message);
+    },
   });
 
   const startChat = useMutation({
