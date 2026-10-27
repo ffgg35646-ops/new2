@@ -89,16 +89,15 @@ export function PropertyCard({
           )}
         </Link>
 
-        <div className="absolute top-3 right-3 flex items-center gap-1.5">
-          <span className="rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-semibold text-background">
-            {listingLabel(property.listing)}
+        {property.is_featured && (
+          <span className="absolute top-3 right-3 rounded-full bg-forest px-2.5 py-1 text-[10px] font-semibold text-background">
+            مميز
           </span>
-          {property.is_featured && (
-            <span className="rounded-full bg-forest px-2.5 py-1 text-[10px] font-semibold text-background">
-              مميز
-            </span>
-          )}
-        </div>
+        )}
+
+        <span className="absolute bottom-3 left-3 rounded-full bg-background/85 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+          {formatArea(property.area)}
+        </span>
 
         {!!photos && (
           <span className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
@@ -127,7 +126,17 @@ export function PropertyCard({
         params={{ propertyId: property.id }}
         className={cn("block", compact ? "p-2" : "p-3.5")}
       >
-        <div className="flex items-start justify-between gap-2">
+        <div className="mb-1">
+          <span className="inline-flex rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-semibold text-background">
+            {listingLabel(property.listing)}
+          </span>
+        </div>
+
+        <div className={cn("font-semibold leading-tight", compact ? "text-xs" : "text-base")}>
+          {property.title}
+        </div>
+
+        <div className="mt-1 flex items-start justify-between gap-2">
           <PriceLine
             price={property.price}
             listing={property.listing}
@@ -144,7 +153,6 @@ export function PropertyCard({
         </div>
 
         <div className={cn("mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground", compact ? "text-[10px]" : "text-xs")}>
-          <span>{formatArea(property.area)}</span>
           {property.created_at && <span>· {timeAgo(property.created_at)}</span>}
           {officeIsVerified && (
             <span className="flex items-center gap-1 text-forest">
