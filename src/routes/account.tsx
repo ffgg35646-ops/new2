@@ -103,7 +103,7 @@ function AccountPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background md:max-w-2xl lg:max-w-3xl">
       <AppHeader showSearch={false} />
       <main className="flex-1 space-y-5 px-4 py-4">
         {!userId ? (

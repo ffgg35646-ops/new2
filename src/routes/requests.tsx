@@ -308,7 +308,7 @@ function RequestsPage() {
   });
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background md:max-w-3xl lg:max-w-4xl">
       <AppHeader showSearch={false} />
       <main className="flex-1 space-y-4 px-4 py-4">
         <div>
@@ -433,7 +433,7 @@ function RequestsPage() {
           aria-label="اختيار المكتب الذي اكتمل الطلب معه" onClick={() => {
             if (!completeRequest.isPending) { setCompletionRequestId(null); setSelectedCompletionOfferId(null); }
           }}>
-          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-surface p-4 shadow-2xl ring-1 ring-line"
+          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-surface p-4 shadow-2xl ring-1 ring-line md:max-w-xl"
             onClick={(event) => event.stopPropagation()} dir="rtl">
             <h2 className="font-display text-lg font-extrabold">الطلب مكتمل</h2>
             

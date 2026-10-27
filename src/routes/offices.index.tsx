@@ -60,14 +60,14 @@ function OfficesPage() {
   });
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background md:max-w-3xl lg:max-w-5xl">
       <AppHeader />
       <main className="flex-1 space-y-4 px-4 py-4">
         <h1 className="font-display text-xl font-extrabold">المكاتب العقارية</h1>
         {isLoading ? (
           <ListSkeleton />
         ) : data?.length ? (
-          <div className="space-y-2.5">
+          <div className="grid gap-3 md:grid-cols-2">
             {data.map((o) => (
               <OfficeCard key={o.id} office={o} />
             ))}

@@ -90,7 +90,7 @@ function SearchPage() {
   const results = resultPage?.items ?? [];
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background md:max-w-3xl lg:max-w-5xl">
       <AppHeader showSearch={false} />
 
       <main className="flex-1 space-y-4 px-4 py-4">
@@ -194,13 +194,13 @@ function SearchPage() {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
             <PropertyCardSkeleton compact />
             <PropertyCardSkeleton compact />
           </div>
         ) : results.length ? (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
               {results.map((p) => (
                 <PropertyCard
                   key={p.id}

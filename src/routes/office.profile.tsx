@@ -278,7 +278,7 @@ function OfficeProfile() {
   ];
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background md:max-w-3xl lg:max-w-4xl">
       <AppHeader showSearch={false} />
       <main className="flex-1 space-y-4 px-4 py-4">
         <div className="rounded-2xl bg-surface p-4 ring-1 ring-line">

@@ -3,7 +3,7 @@ name: Prepare Aqar iOS Delivery Package
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, fix/apple-review-ipad-20261027]
     paths:
       - ".github/workflows/ios-delivery-package.yml"
       - "capacitor.config.ts"

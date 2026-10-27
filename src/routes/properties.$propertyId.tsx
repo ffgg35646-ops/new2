@@ -329,7 +329,7 @@ function PropertyDetail() {
   });
 
   if (isLoading) {
-    return <div className="mx-auto h-screen w-full max-w-md animate-shimmer bg-sand" />;
+    return <div className="mx-auto h-screen w-full max-w-md animate-shimmer bg-sand md:max-w-5xl" />;
   }
   if (propertyError) {
     return (
@@ -367,7 +367,7 @@ function PropertyDetail() {
   } | null;
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background pb-28">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background pb-28 md:max-w-5xl">
       <AppHeader showSearch={false} />
       <div className="relative">
         <div className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto">
@@ -738,7 +738,7 @@ function PropertyDetail() {
       )}
 
       {!isOffice && (
-        <div className="fixed bottom-0 z-30 mx-auto flex w-full max-w-md gap-2 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur">
+        <div className="fixed bottom-0 z-30 mx-auto flex w-full max-w-md gap-2 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:max-w-5xl md:rounded-t-2xl md:border-x">
           {userId ? (
             <button
               type="button"

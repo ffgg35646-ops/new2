@@ -31,6 +31,62 @@ const files = [
       return updated;
     },
   },
+
+  {
+    path: "ios/App/App/Info.plist",
+    patch(content) {
+      const descriptions = [
+        [
+          "NSCameraUsageDescription",
+          "نستخدم الكاميرا لالتقاط صور العقارات وإرفاقها بالإعلانات أو المحادثات.",
+        ],
+        [
+          "NSPhotoLibraryUsageDescription",
+          "نستخدم مكتبة الصور لاختيار صور العقارات وإرفاقها بالإعلانات أو المحادثات.",
+        ],
+        [
+          "NSPhotoLibraryAddUsageDescription",
+          "نحتاج إذنًا لحفظ الصور في مكتبة الصور عند طلب المستخدم ذلك.",
+        ],
+      ];
+
+      let updated = content;
+      for (const [key, description] of descriptions) {
+        const keyTag = `<key>${key}</key>`;
+        const keyValuePattern = new RegExp(
+          `^[\\t ]*<key>${key}</key>\\s*<string>[\\s\\S]*?</string>`,
+          "m",
+        );
+        const entry = `        <key>${key}</key>\\n        <string>${description}</string>`;
+
+        if (keyValuePattern.test(updated)) {
+          updated = updated.replace(keyValuePattern, entry);
+          continue;
+        }
+
+        if (updated.includes(keyTag)) {
+          throw new Error(`The ${key} entry exists without a string value.`);
+        }
+
+        const rootClose = updated.lastIndexOf("</dict>");
+        if (rootClose < 0 || !updated.includes("</plist>")) {
+          throw new Error("Could not locate the root dictionary in ios/App/App/Info.plist.");
+        }
+        updated = `${updated.slice(0, rootClose)}${entry}\\n${updated.slice(rootClose)}`;
+      }
+
+      for (const key of [
+        "NSCameraUsageDescription",
+        "NSPhotoLibraryUsageDescription",
+        "NSPhotoLibraryAddUsageDescription",
+      ]) {
+        if (!updated.includes(`<key>${key}</key>`)) {
+          throw new Error(`Failed to add ${key} to Info.plist.`);
+        }
+      }
+      return updated;
+    },
+  },
 ];
 
 let changed = 0;

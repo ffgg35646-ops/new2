@@ -127,7 +127,7 @@ function HomePage() {
   });
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background md:max-w-3xl lg:max-w-5xl">
       <AppHeader seamless />
       <GovernorateBanner governorate={governorate} />
 
@@ -196,13 +196,13 @@ function HomePage() {
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
               <PropertyCardSkeleton compact />
               <PropertyCardSkeleton compact />
             </div>
           ) : properties.length ? (
             <>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
                 {properties.map((p) => (
                   <PropertyCard
                     key={p.id}

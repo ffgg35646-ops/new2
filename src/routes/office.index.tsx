@@ -103,7 +103,7 @@ function OfficeDashboard() {
 
   if (membership && !office) {
     return (
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background md:max-w-3xl lg:max-w-5xl">
         <AppHeader showSearch={false} />
         <main className="flex-1 px-4 py-10">
           <EmptyState
@@ -125,7 +125,7 @@ function OfficeDashboard() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background md:max-w-3xl lg:max-w-5xl">
       <AppHeader showSearch={false} />
       <main className="flex-1 space-y-5 px-4 py-4">
         <section className="relative isolate min-h-[164px] overflow-hidden rounded-3xl p-5 text-white" style={{ backgroundColor: "#17633F", color: "#FFFFFF" }}>
@@ -321,7 +321,7 @@ function OfficeDashboard() {
 
       {showViews && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="presentation" onClick={() => setShowViews(false)}>
-          <section className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl ring-1 ring-line" role="dialog" aria-modal="true" aria-label="تفاصيل مشاهدات العقارات" dir="rtl" onClick={(event) => event.stopPropagation()}>
+          <section className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl ring-1 ring-line md:max-w-xl" role="dialog" aria-modal="true" aria-label="تفاصيل مشاهدات العقارات" dir="rtl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-3 border-b border-line p-4">
               <div><h2 className="font-display text-base font-extrabold">مشاهدات كل عقار</h2><p className="mt-1 text-xs text-muted-foreground">مرتبة من الأكثر مشاهدة إلى الأقل</p></div>
               <button type="button" onClick={() => setShowViews(false)} aria-label="إغلاق" className="grid size-9 place-items-center rounded-full bg-background ring-1 ring-line"><X className="size-4" /></button>
@@ -345,7 +345,7 @@ function OfficeDashboard() {
 
       {showRequests && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="presentation" onClick={() => setShowRequests(false)}>
-          <section className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl ring-1 ring-line" role="dialog" aria-modal="true" aria-label="تفاصيل طلبات المكتب" dir="rtl" onClick={(event) => event.stopPropagation()}>
+          <section className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl ring-1 ring-line md:max-w-xl" role="dialog" aria-modal="true" aria-label="تفاصيل طلبات المكتب" dir="rtl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-3 border-b border-line p-4">
               <div><h2 className="font-display text-base font-extrabold">تفاصيل الطلبات</h2><p className="mt-1 text-xs text-muted-foreground">عدد الطلبات المستلمة والمقبولة: {newRequests}</p></div>
               <button type="button" onClick={() => setShowRequests(false)} aria-label="إغلاق" className="grid size-9 place-items-center rounded-full bg-background ring-1 ring-line"><X className="size-4" /></button>
@@ -377,7 +377,7 @@ function OfficeDashboard() {
           onClick={() => setShowFavorites(false)}
         >
           <section
-            className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl ring-1 ring-line"
+            className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-surface shadow-2xl ring-1 ring-line md:max-w-xl"
             role="dialog"
             aria-modal="true"
             aria-label="الأشخاص الذين حفظوا عروض المكتب"

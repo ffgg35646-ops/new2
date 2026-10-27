@@ -267,7 +267,7 @@ function OfficePage() {
   const lastActivityLabel = lastActivity ? formatDateTime(lastActivity) : "—";
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background md:max-w-5xl">
       <header className="sticky top-0 z-20 flex items-center gap-2 bg-background/95 px-4 py-3 backdrop-blur">
         <Link to="/offices" className="grid size-9 place-items-center rounded-full bg-sand">
           <ArrowRight className="size-4" />
@@ -483,7 +483,7 @@ function OfficePage() {
                 ))}
               </div>
               {properties?.length ? (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
                   {properties.map((p) => (
                     <PropertyCard
                       key={p.id}
