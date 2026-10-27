@@ -98,7 +98,7 @@ const files = [
 
       let updated = content;
       if (!updated.includes("import WebKit")) {
-        updated = updated.replace("import Capacitor", "import Capacitor\\nimport WebKit");
+        updated = updated.replace("import Capacitor", "import Capacitor\nimport WebKit");
       }
 
       const bridgeClass = `
@@ -137,7 +137,7 @@ final class AqarBridgeViewController: CAPBridgeViewController {
         '  div.fixed.bottom-0.max-w-md { max-width: min(100%, 72rem) !important; }',
         '  .grid.grid-cols-2.gap-3 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }',
         '}'
-      ].join('\\n');
+      ].join('\n');
 
       (document.head || document.documentElement).appendChild(style);
     })();
@@ -146,7 +146,7 @@ final class AqarBridgeViewController: CAPBridgeViewController {
 `;
 
       if (!updated.includes("final class AqarBridgeViewController: CAPBridgeViewController")) {
-        updated = updated.trimEnd() + "\\n\\n" + bridgeClass + "\\n";
+        updated = updated.trimEnd() + "\n\n" + bridgeClass + "\n";
       }
       return updated;
     },
