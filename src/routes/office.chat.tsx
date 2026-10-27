@@ -198,9 +198,15 @@ function OfficeChatPage() {
 
   return (
     <div className="mx-auto flex h-dvh min-h-0 w-full max-w-md min-w-0 flex-col overflow-hidden bg-background">
-      <AppHeader showSearch={false} />
+      {!activeId && <AppHeader showSearch={false} />}
 
-      <div className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-4 py-4">
+      <div
+        className={
+          activeId
+            ? "mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden p-0"
+            : "mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-4 py-4"
+        }
+      >
         {activeId ? (
           <ConversationRoom
             conversationId={activeId}
@@ -401,7 +407,7 @@ function OfficeChatPage() {
         )}
       </div>
 
-      <BottomNav variant="office" />
+      {!activeId && <BottomNav variant="office" />}
     </div>
   );
 }
