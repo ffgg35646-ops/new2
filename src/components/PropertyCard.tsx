@@ -90,9 +90,11 @@ export function PropertyCard({
         </Link>
 
         <div className="absolute top-3 right-3 flex items-center gap-1.5">
-          <span className="rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-semibold text-background">
-            {listingLabel(property.listing)}
-          </span>
+          {!compact && (
+            <span className="rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-semibold text-background">
+              {listingLabel(property.listing)}
+            </span>
+          )}
           {property.is_featured && (
             <span className="rounded-full bg-forest px-2.5 py-1 text-[10px] font-semibold text-background">
               مميز
@@ -122,30 +124,60 @@ export function PropertyCard({
         )}
       </div>
 
+      {compact && (
+        <div className="px-2 pt-1 text-left text-[9px] leading-none text-muted-foreground">
+          {formatArea(property.area)}
+        </div>
+      )}
+
       <Link
         to="/properties/$propertyId"
         params={{ propertyId: property.id }}
         className={cn("block", compact ? "p-2" : "p-3.5")}
       >
-        <div className="flex items-start justify-between gap-2">
-          <PriceLine
-            price={property.price}
-            listing={property.listing}
-            rentPeriod={property.rent_period}
-            className={cn("font-display leading-tight font-extrabold", compact ? "text-sm" : "text-lg")}
-          />
-          <span className={cn("shrink-0 rounded-full bg-sand px-2 py-0.5 font-semibold text-muted-foreground", compact ? "text-[9px]" : "text-[10px]")}>
-            {kindLabel(property.kind)}
-          </span>
-        </div>
+        {compact ? (
+          <>
+            <span className="inline-flex rounded-full bg-terracotta px-2.5 py-1 text-[10px] font-semibold text-background">
+              {listingLabel(property.listing)}
+            </span>
+            <div className="mt-1 line-clamp-2 text-xs font-bold leading-snug">
+              {property.title || kindLabel(property.kind)}
+            </div>
+            <div className="mt-1 text-[10px] leading-snug text-muted-foreground">
+              {property.neighborhood} · {property.governorates?.name_ar ?? ""}
+            </div>
+            <PriceLine
+              price={property.price}
+              listing={property.listing}
+              rentPeriod={property.rent_period}
+              className="mt-2 block font-display text-sm font-extrabold leading-tight"
+            />
+          </>
+        ) : (
+          <>
+            <div className="flex items-start justify-between gap-2">
+              <PriceLine
+                price={property.price}
+                listing={property.listing}
+                rentPeriod={property.rent_period}
+                className="font-display text-lg font-extrabold leading-tight"
+              />
+              <span className="shrink-0 rounded-full bg-sand px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                {kindLabel(property.kind)}
+              </span>
+            </div>
 
-        <div className={cn("mt-1", compact ? "text-xs" : "text-sm")}>
-          {property.neighborhood} · {property.governorates?.name_ar ?? ""}
-        </div>
+            <div className="mt-1 text-sm">
+              {property.neighborhood} · {property.governorates?.name_ar ?? ""}
+            </div>
+          </>
+        )}
 
         <div className={cn("mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground", compact ? "text-[10px]" : "text-xs")}>
-          <span>{formatArea(property.area)}</span>
-          {property.created_at && <span>· {timeAgo(property.created_at)}</span>}
+          {!compact && <span>{formatArea(property.area)}</span>}
+          {property.created_at && (
+            <span>{!compact ? "· " : ""}{timeAgo(property.created_at)}</span>
+          )}
           {officeIsVerified && (
             <span className="flex items-center gap-1 text-forest">
               <ShieldCheck className="size-3.5" /> مكتب موثق
