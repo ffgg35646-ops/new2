@@ -252,9 +252,15 @@ function ChatsPage() {
         (isAdmin ? "max-w-6xl" : "max-w-md")
       }
     >
-      <AppHeader showSearch={false} />
+      {!activeId && <AppHeader showSearch={false} />}
 
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 py-4">
+      <main
+        className={
+          activeId
+            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0"
+            : "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 py-4"
+        }
+      >
         {activeId ? (
           <ConversationRoom
             conversationId={activeId}
@@ -563,7 +569,7 @@ function ChatsPage() {
           </section>
         )}
       </main>
-      {!isAdmin && <BottomNav variant="individual" />}
+      {!isAdmin && !activeId && <BottomNav variant="individual" />}
     </div>
   );
 }
