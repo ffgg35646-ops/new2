@@ -4,5 +4,10 @@
       "path": "/api/cron/plan-expiry",
       "schedule": "0 2 * * *"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "chat-zoom-fix-20261027": false
+    }
+  }
 }
