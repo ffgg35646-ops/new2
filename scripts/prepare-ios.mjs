@@ -116,32 +116,17 @@ final class AqarBridgeViewController: CAPBridgeViewController {
         webView?.configuration.userContentController.addUserScript(script)
     }
 
-    private static let iPadLayoutScript = """
-    (() => {
-      if (!window.matchMedia || !window.matchMedia('(min-width: 768px)').matches) return;
-
-      const styleId = 'aqar-native-ipad-layout-fix';
-      if (document.getElementById(styleId)) return;
-
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.textContent = [
-        '@media (min-width: 768px) {',
-        '  div.mx-auto.max-w-md.min-h-screen, div.mx-auto.max-w-md.h-dvh { max-width: min(100%, 56rem) !important; }',
-        '  div.fixed.bottom-0.max-w-md { max-width: min(100%, 56rem) !important; }',
-        '  .grid.grid-cols-2.gap-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }',
-        '  main { min-width: 0; }',
-        '}',
-        '@media (min-width: 1100px) {',
-        '  div.mx-auto.max-w-md.min-h-screen, div.mx-auto.max-w-md.h-dvh { max-width: min(100%, 72rem) !important; }',
-        '  div.fixed.bottom-0.max-w-md { max-width: min(100%, 72rem) !important; }',
-        '  .grid.grid-cols-2.gap-3 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }',
-        '}'
-      ].join('\n');
-
-      (document.head || document.documentElement).appendChild(style);
-    })();
-    """
+    private static let iPadLayoutScript = [
+        "(() => {",
+        "  if (!window.matchMedia || !window.matchMedia('(min-width: 768px)').matches) return;",
+        "  const styleId = 'aqar-native-ipad-layout-fix';",
+        "  if (document.getElementById(styleId)) return;",
+        "  const style = document.createElement('style');",
+        "  style.id = styleId;",
+        "  style.textContent = '@media (min-width: 768px) { div.mx-auto.max-w-md.min-h-screen, div.mx-auto.max-w-md.h-dvh { max-width: min(100%, 56rem) !important; } div.fixed.bottom-0.max-w-md { max-width: min(100%, 56rem) !important; } .grid.grid-cols-2.gap-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } main { min-width: 0; } } @media (min-width: 1100px) { div.mx-auto.max-w-md.min-h-screen, div.mx-auto.max-w-md.h-dvh { max-width: min(100%, 72rem) !important; } div.fixed.bottom-0.max-w-md { max-width: min(100%, 72rem) !important; } .grid.grid-cols-2.gap-3 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; } }';",
+        "  (document.head || document.documentElement).appendChild(style);",
+        "})();"
+    ].joined(separator: " ")    """
 }
 `;
 
