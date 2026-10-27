@@ -57,7 +57,7 @@ const files = [
           `^[\\t ]*<key>${key}</key>\\s*<string>[\\s\\S]*?</string>`,
           "m",
         );
-        const entry = `        <key>${key}</key>\\n        <string>${description}</string>`;
+        const entry = `        <key>${key}</key>\n        <string>${description}</string>`;
 
         if (keyValuePattern.test(updated)) {
           updated = updated.replace(keyValuePattern, entry);
@@ -72,7 +72,7 @@ const files = [
         if (rootClose < 0 || !updated.includes("</plist>")) {
           throw new Error("Could not locate the root dictionary in ios/App/App/Info.plist.");
         }
-        updated = `${updated.slice(0, rootClose)}${entry}\\n${updated.slice(rootClose)}`;
+        updated = `${updated.slice(0, rootClose)}${entry}\n${updated.slice(rootClose)}`;
       }
 
       for (const key of [
