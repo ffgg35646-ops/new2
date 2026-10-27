@@ -503,7 +503,7 @@ export function ConversationRoom({
   }
 
   return (
-    <section className={"mx-auto flex min-h-0 max-h-full w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl bg-background " + (readOnly ? "max-w-6xl" : "max-w-md")}>
+    <section className={"mx-auto flex min-h-0 max-h-full w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl bg-background " + (readOnly ? "max-w-6xl" : "max-w-none")}>
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-surface p-2 sm:p-3">
       <header className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
         <div className="min-w-0 flex-1">
@@ -636,7 +636,7 @@ export function ConversationRoom({
 
                   <span
                     className={
-                      "inline-flex min-w-0 max-w-full flex-wrap items-center rounded-full px-1.5 py-1 text-[10px] font-semibold leading-4 tabular-nums whitespace-normal break-words " +
+                      "inline-block min-w-0 max-w-full rounded-full px-1.5 py-1 text-[10px] font-semibold leading-4 tabular-nums whitespace-normal break-words [overflow-wrap:anywhere] " +
                       (primaryBubble
                         ? "bg-white/15 text-white"
                         : "bg-slate-200/80 text-slate-700 dark:bg-slate-700 dark:text-slate-100")
