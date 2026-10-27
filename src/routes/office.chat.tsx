@@ -197,7 +197,7 @@ function OfficeChatPage() {
   });
 
   return (
-    <div className="mx-auto flex h-dvh min-h-0 w-full max-w-md min-w-0 flex-col overflow-hidden bg-background">
+    <div className={"mx-auto flex h-dvh min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background " + (activeId ? "max-w-none" : "max-w-md")}>
       {!activeId && <AppHeader showSearch={false} />}
 
       <div
