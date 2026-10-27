@@ -591,7 +591,7 @@ export function ConversationRoom({
               <div
                 key={message.id}
                 className={
-                  "w-fit min-w-0 max-w-[94%] overflow-hidden rounded-2xl text-[14px] leading-6 shadow-md " +
+                  "shrink-0 w-fit min-w-0 max-w-[94%] overflow-hidden rounded-2xl text-[14px] leading-6 shadow-md " +
                   (primaryBubble
                     ? "ms-auto rounded-br-md bg-forest text-white ring-1 ring-forest/10"
                     : "me-auto rounded-bl-md bg-slate-50 text-slate-800 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700")
@@ -602,12 +602,13 @@ export function ConversationRoom({
                     href={message.image_url}
                     target="_blank"
                     rel="noreferrer"
+                    className="block max-w-full"
                   >
                     <img
                       src={message.image_url}
                       alt="صورة"
                       loading="lazy"
-                      className="max-h-64 w-full object-cover"
+                      className="block max-h-64 max-w-full w-auto object-contain"
                     />
                   </a>
                 )}
@@ -618,7 +619,7 @@ export function ConversationRoom({
                   </div>
                 )}
 
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 px-3 pb-2">
+                <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 px-3 pb-2">
                   <span
                     className={
                       "min-w-0 text-[10px] font-medium leading-4 " +
@@ -636,7 +637,7 @@ export function ConversationRoom({
 
                   <span
                     className={
-                      "inline-flex min-w-0 max-w-full flex-wrap items-center rounded-full px-1.5 py-1 text-[10px] font-semibold leading-4 tabular-nums whitespace-normal break-words " +
+                      "inline-flex w-fit min-w-0 max-w-full flex-wrap items-center rounded-full px-1.5 py-1 text-[10px] font-semibold leading-4 tabular-nums whitespace-normal break-words [overflow-wrap:anywhere] " +
                       (primaryBubble
                         ? "bg-white/15 text-white"
                         : "bg-slate-200/80 text-slate-700 dark:bg-slate-700 dark:text-slate-100")
