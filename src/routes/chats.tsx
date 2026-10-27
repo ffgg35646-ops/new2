@@ -248,8 +248,8 @@ function ChatsPage() {
   return (
     <div
       className={
-        "mx-auto flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-background " +
-        (isAdmin ? "max-w-6xl" : "max-w-md")
+        "mx-auto flex h-dvh min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background " +
+        (isAdmin ? "max-w-6xl" : activeId ? "max-w-none" : "max-w-md")
       }
     >
       {!activeId && <AppHeader showSearch={false} />}
