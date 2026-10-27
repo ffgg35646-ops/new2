@@ -591,7 +591,7 @@ export function ConversationRoom({
               <div
                 key={message.id}
                 className={
-                  "w-fit min-w-0 max-w-[94%] overflow-hidden rounded-2xl text-[14px] leading-6 shadow-md " +
+                  "w-fit min-w-[min(14rem,100%)] max-w-[94%] overflow-hidden rounded-2xl text-[14px] leading-6 shadow-md " +
                   (primaryBubble
                     ? "ms-auto rounded-br-md bg-forest text-white ring-1 ring-forest/10"
                     : "me-auto rounded-bl-md bg-slate-50 text-slate-800 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700")
@@ -602,6 +602,7 @@ export function ConversationRoom({
                     href={message.image_url}
                     target="_blank"
                     rel="noreferrer"
+                    className="block w-full"
                   >
                     <img
                       src={message.image_url}
