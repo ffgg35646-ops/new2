@@ -87,6 +87,85 @@ const files = [
       return updated;
     },
   },
+
+
+  {
+    path: "ios/App/App/AppDelegate.swift",
+    patch(content) {
+      if (!content.includes("import Capacitor")) {
+        throw new Error("Could not locate the Capacitor import in AppDelegate.swift.");
+      }
+
+      let updated = content;
+      if (!updated.includes("import WebKit")) {
+        updated = updated.replace("import Capacitor", "import Capacitor\\nimport WebKit");
+      }
+
+      const bridgeClass = `
+final class AqarBridgeViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+
+        // This script lives in the native Xcode project, so tablet layout fixes
+        // work even while the WebView loads the existing hosted application.
+        let script = WKUserScript(
+            source: Self.iPadLayoutScript,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        webView?.configuration.userContentController.addUserScript(script)
+    }
+
+    private static let iPadLayoutScript = """
+    (() => {
+      if (!window.matchMedia || !window.matchMedia('(min-width: 768px)').matches) return;
+
+      const styleId = 'aqar-native-ipad-layout-fix';
+      if (document.getElementById(styleId)) return;
+
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = [
+        '@media (min-width: 768px) {',
+        '  div.mx-auto.max-w-md.min-h-screen, div.mx-auto.max-w-md.h-dvh { max-width: min(100%, 56rem) !important; }',
+        '  div.fixed.bottom-0.max-w-md { max-width: min(100%, 56rem) !important; }',
+        '  .grid.grid-cols-2.gap-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }',
+        '  main { min-width: 0; }',
+        '}',
+        '@media (min-width: 1100px) {',
+        '  div.mx-auto.max-w-md.min-h-screen, div.mx-auto.max-w-md.h-dvh { max-width: min(100%, 72rem) !important; }',
+        '  div.fixed.bottom-0.max-w-md { max-width: min(100%, 72rem) !important; }',
+        '  .grid.grid-cols-2.gap-3 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }',
+        '}'
+      ].join('\\n');
+
+      (document.head || document.documentElement).appendChild(style);
+    })();
+    """
+}
+`;
+
+      if (!updated.includes("final class AqarBridgeViewController: CAPBridgeViewController")) {
+        updated = updated.trimEnd() + "\\n\\n" + bridgeClass + "\\n";
+      }
+      return updated;
+    },
+  },
+  {
+    path: "ios/App/App/Base.lproj/Main.storyboard",
+    patch(content) {
+      const oldClass = 'customClass="CAPBridgeViewController" customModule="Capacitor"';
+      const newClass = 'customClass="AqarBridgeViewController" customModule="App" customModuleProvider="target"';
+
+      if (content.includes(newClass)) return content;
+
+      const count = content.split(oldClass).length - 1;
+      if (count !== 1) {
+        throw new Error("Could not uniquely locate CAPBridgeViewController in Main.storyboard.");
+      }
+      return content.replace(oldClass, newClass);
+    },
+  },
 ];
 
 let changed = 0;
