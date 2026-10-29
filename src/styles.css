@@ -191,6 +191,26 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Keep responsive content within the WebView without disabling pinch zoom. */
+  html, body {
+    width: 100%;
+    min-width: 0;
+  }
+
+  img, video, canvas, svg {
+    max-width: 100%;
+  }
+
+  input, select, textarea {
+    min-width: 0;
+  }
+
+  @media (max-width: 640px) {
+    input, select, textarea {
+      font-size: max(16px, 1em);
+    }
+  }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
