@@ -205,12 +205,6 @@
     min-width: 0;
   }
 
-  @media (max-width: 640px) {
-    input, select, textarea {
-      font-size: max(16px, 1em);
-    }
-  }
-
   body {
     background-color: var(--background);
     color: var(--foreground);
@@ -223,5 +217,17 @@
   h3,
   .font-display {
     font-family: var(--font-display);
+  }
+}
+
+/* Prevent iOS from auto-zooming when a form field receives focus.
+   Keep pinch-to-zoom for accessibility; only normalize control text size. */
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea,
+  [contenteditable="true"],
+  [role="textbox"] {
+    font-size: 16px !important;
   }
 }
