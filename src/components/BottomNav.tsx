@@ -215,7 +215,7 @@ export function BottomNav({
     <nav
       className={
         fixed
-          ? "fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-md auto-cols-fr grid-flow-col gap-1 border-t border-line bg-surface/95 px-2 pt-2 app-safe-bottom-padding backdrop-blur"
+          ? "fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-md auto-cols-fr grid-flow-col gap-0.5 border-t border-line bg-surface/95 px-2 pt-2 app-safe-bottom-padding backdrop-blur"
           : "sticky bottom-0 z-30 shrink-0 grid auto-cols-fr grid-flow-col gap-1 border-t border-line bg-surface/95 px-2 pt-2 app-safe-bottom-padding backdrop-blur"
       }
     >
@@ -226,12 +226,12 @@ export function BottomNav({
             <Link
               key={item.to}
               to={item.to}
-              className="flex flex-col items-center gap-1 py-1.5 -mt-4"
+              className="flex min-w-0 min-h-11 flex-col items-center justify-center gap-1 py-1.5 -mt-4"
             >
               <span className="grid size-12 place-items-center rounded-2xl bg-terracotta text-background ring-4 ring-background">
                 <Icon className="size-6" />
               </span>
-              <span className="text-[11px] font-semibold text-terracotta">{item.label}</span>
+              <span className="max-w-full text-center text-[11px] leading-tight font-semibold text-terracotta">{item.label}</span>
             </Link>
           );
         }
@@ -239,7 +239,7 @@ export function BottomNav({
           <Link
             key={item.to}
             to={item.to}
-            className="flex flex-col items-center gap-1 py-1.5 text-muted-foreground"
+            className="flex min-w-0 min-h-11 flex-col items-center justify-center gap-1 py-1.5 text-muted-foreground"
             activeProps={{ className: "text-forest [&_span]:font-semibold" }}
             activeOptions={{ exact: item.to === "/office" || item.to === "/home" }}
           >
@@ -266,7 +266,7 @@ export function BottomNav({
                 </span>
               )}
             </span>
-            <span className="text-[11px]">{item.label}</span>
+            <span className="max-w-full text-center text-[11px] leading-tight">{item.label}</span>
           </Link>
         );
       })}
